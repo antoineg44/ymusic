@@ -10,7 +10,7 @@ class YouTubeMusic
     {
         $baseDir = __DIR__;
 
-        $this->python = $baseDir . '/venv/bin/python';
+        $this->python = $baseDir . '/.venv/bin/python';
 
         $this->script = $baseDir . '/ytapi.py';
     }
