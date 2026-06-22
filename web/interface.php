@@ -20,6 +20,13 @@ if (!empty($_GET['query'])) {
         JSON_UNESCAPED_UNICODE
     );
 
+} elseif (!empty($_GET['musicId'])) {
+
+    echo json_encode(
+        $yt->download($_GET['musicId']),
+        JSON_UNESCAPED_UNICODE
+    );
+
 } else {
 
     echo json_encode([
