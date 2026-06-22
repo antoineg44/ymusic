@@ -2,14 +2,14 @@
 
 $baseDir = __DIR__ ;
 
-$venvDir = $baseDir . '/.venv';
+$venvDir = $baseDir . '/venv';
 
 if (!is_dir($baseDir)) {
     mkdir($baseDir, 0755, true);
 }
 
 $commands = [
-    "python3 -m .venv " . escapeshellarg($venvDir),
+    "python3 -m venv " . escapeshellarg($venvDir),
     $venvDir . "/bin/pip install --upgrade pip",
     $venvDir . "/bin/pip install ytmusicapi",
     $venvDir . "/bin/pip install yt-dlp"
