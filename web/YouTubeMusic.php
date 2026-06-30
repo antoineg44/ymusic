@@ -62,7 +62,7 @@ class YouTubeMusic
         ]);
     }
 
-    public function download(string $musicId): array
+    public function download(string $musicId)
     {
         $youtube = new YouTubeDownloader();
 
@@ -78,7 +78,5 @@ class YouTubeMusic
         } catch (YouTubeException $e) {
             echo 'Something went wrong: ' . $e->getMessage();
         }
-
-        return $data;
     }
 }

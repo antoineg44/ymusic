@@ -22,10 +22,7 @@ if (!empty($_GET['query'])) {
 
 } elseif (!empty($_GET['musicId'])) {
 
-    echo json_encode(
-        $yt->download($_GET['musicId']),
-        JSON_UNESCAPED_UNICODE
-    );
+    $yt->download($_GET['musicId']);
 
 } else {
 
