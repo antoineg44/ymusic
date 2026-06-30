@@ -1,5 +1,8 @@
 <?php
 
+use YouTube\YouTubeDownloader;
+use YouTube\Exception\YouTubeException;
+
 class YouTubeMusic
 {
     private string $python;
@@ -61,21 +64,19 @@ class YouTubeMusic
 
     public function download(string $musicId): array
     {
-        $command =
-            escapeshellcmd($this->python)
-            . ' '
-            . escapeshellarg($this->scriptDownload);
+        $youtube = new YouTubeDownloader();
 
-        $command .= ' ' . escapeshellarg($musicId);
+        try {
+            $downloadOptions = $youtube->getDownloadLinks("https://www.youtube.com/watch?v=-SuIZNhQffs");
 
-        exec($command . ' 2>&1', $output, $code);
+            if ($downloadOptions->getAllFormats()) {
+                echo $downloadOptions->getFirstCombinedFormat()->url;
+            } else {
+                echo 'No links found';
+            }
 
-        $json = implode("\n", $output);
-
-        $data = json_decode($json, true);
-
-        if (!$data) {
-            throw new Exception($json);
+        } catch (YouTubeException $e) {
+            echo 'Something went wrong: ' . $e->getMessage();
         }
 
         return $data;

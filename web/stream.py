@@ -8,6 +8,7 @@ if len(sys.argv) < 2:
 musicId = sys.argv[1]
 URL = f"https://www.youtube.com/watch?v={musicId}"
 
+print(URL)
 yt = YouTube(URL)
 stream = yt.streams.get_highest_resolution()
 stream.download()
