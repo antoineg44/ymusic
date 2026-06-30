@@ -11,6 +11,7 @@ URL = f"https://www.youtube.com/watch?v={musicId}"
 ydl_opts = {
     'format': 'bestaudio[ext=webm]/bestaudio/best',
     'outtmpl': '%(title)s.%(ext)s',
+    "cookiesfrombrowser": ("firefox",),
 }
 
 with YoutubeDL(ydl_opts) as ydl:
