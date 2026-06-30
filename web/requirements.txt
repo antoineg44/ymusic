@@ -1,2 +1,2 @@
 ytmusicapi
-yt-dlp
+pytube

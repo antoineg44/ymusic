@@ -1,5 +1,5 @@
 import sys
-from yt_dlp import YoutubeDL
+from pytube import YouTube
 
 if len(sys.argv) < 2:
     print("Usage: python download_audio.py <musicId>")
@@ -8,10 +8,6 @@ if len(sys.argv) < 2:
 musicId = sys.argv[1]
 URL = f"https://www.youtube.com/watch?v={musicId}"
 
-ydl_opts = {
-    'format': 'bestaudio[ext=webm]/bestaudio/best',
-    'outtmpl': '%(title)s.%(ext)s',
-}
-
-with YoutubeDL(ydl_opts) as ydl:
-    ydl.download([URL])
+yt = YouTube(URL)
+stream = yt.streams.get_highest_resolution()
+stream.download()
