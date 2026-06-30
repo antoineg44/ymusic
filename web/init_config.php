@@ -12,7 +12,7 @@ $commands = [
     "python3 -m venv " . escapeshellarg($venvDir),
     $venvDir . "/bin/pip install --upgrade pip",
     $venvDir . "/bin/pip install ytmusicapi",
-    $venvDir . "/bin/composer require athlon1600/youtube-downloader \"^4.0\""
+    $venvDir . "/bin/pip install yt-dlp"
 ];
 
 foreach ($commands as $command) {
