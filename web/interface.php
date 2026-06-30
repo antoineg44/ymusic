@@ -22,10 +22,19 @@ if (!empty($_GET['query'])) {
 
 } elseif (!empty($_GET['musicId'])) {
 
-    echo json_encode(
-        $yt->download($_GET['musicId']),
-        JSON_UNESCAPED_UNICODE
-    );
+    try {
+        $result = $yt->download($_GET['musicId']);
+
+        echo json_encode([
+            'success' => true,
+            'download' => $result,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
 
 } else {
 

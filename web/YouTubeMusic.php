@@ -11,8 +11,25 @@ class YouTubeMusic
     public function __construct()
     {
         $baseDir = __DIR__;
+        $candidates = [
+            $baseDir . '/.venv/bin/python',
+            $baseDir . '/venv/bin/python',
+            '/usr/bin/python3',
+            '/usr/local/bin/python3',
+        ];
 
-        $this->python = $baseDir . '/venv/bin/python';
+        $this->python = '';
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate) && is_executable($candidate)) {
+                $this->python = $candidate;
+                break;
+            }
+        }
+
+        if ($this->python === '') {
+            $this->python = 'python3';
+        }
 
         $this->script = $baseDir . '/ytapi.py';
 

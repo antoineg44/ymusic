@@ -30,6 +30,32 @@ def search(query, limit=10):
     return data
 
 
+def get_suggestions(query, limit=8):
+    try:
+        raw_items = ytmusic.get_search_suggestions(query)
+    except Exception:
+        return []
+
+    suggestions = []
+
+    if isinstance(raw_items, dict):
+        raw_items = raw_items.get("suggestions") or raw_items.get("results") or []
+
+    for item in raw_items[:limit]:
+        if isinstance(item, str):
+            value = item.strip()
+            if value:
+                suggestions.append(value)
+        elif isinstance(item, dict):
+            for key in ("suggestion", "title", "text", "query", "display"):
+                value = item.get(key)
+                if isinstance(value, str) and value.strip():
+                    suggestions.append(value.strip())
+                    break
+
+    return list(dict.fromkeys(suggestions))[:limit]
+
+
 def playlist(video_id):
     watch = ytmusic.get_watch_playlist(videoId=video_id)
 
@@ -59,7 +85,8 @@ try:
 
         print(json.dumps({
             "success": True,
-            "results": search(query)
+            "results": search(query),
+            "suggestions": get_suggestions(query)
         }))
 
     elif action == "playlist":

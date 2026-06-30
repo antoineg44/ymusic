@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Music Player</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <section class="hero">
+        <h1>Lecteur musical</h1>
+        <p>Parcourez votre bibliothèque locale et recherchez des titres via YouTube Music.</p>
+        <div class="search-row">
+          <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
+          <button id="searchButton" type="button">Rechercher</button>
+        </div>
+        <div id="suggestions" class="suggestions" aria-live="polite"></div>
+        <div id="status" class="status">Chargement de la bibliothèque…</div>
+      </section>
+
+      <div class="layout">
+        <section id="libraryPanel" class="panel">
+          <h2>Musique enregistrée</h2>
+          <ul id="libraryList"></ul>
+        </section>
+
+        <section class="panel">
+          <h2>Résultats YouTube Music</h2>
+          <ul id="searchResults"></ul>
+        </section>
+      </div>
+
+      <section class="player-card">
+        <div class="player-head">
+          <div>
+            <strong id="nowPlaying">Aucune lecture en cours</strong>
+            <div id="nowPlayingMeta" class="status">Sélectionnez un titre dans la bibliothèque</div>
+          </div>
+        </div>
+        <div class="player-controls">
+          <button id="prevButton" type="button">⏮</button>
+          <button id="playButton" type="button">▶</button>
+          <button id="nextButton" type="button">⏭</button>
+          <input id="seekBar" type="range" min="0" max="100" value="0" />
+          <span id="timeLabel">00:00 / 00:00</span>
+        </div>
+        <audio id="audioPlayer"></audio>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
