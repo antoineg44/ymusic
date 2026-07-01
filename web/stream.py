@@ -1,9 +1,9 @@
 import json
+import os
 import re
 import sys
 from urllib.error import HTTPError
 from pathlib import Path
-from typing import Any
 
 from pytube import YouTube
 
@@ -63,12 +63,13 @@ def download_audio_with_yt_dlp(music_id: str, output_dir: Path) -> Path:
     basename = build_download_basename(music_id)
     template = str(output_dir / f'{basename}.%(ext)s')
 
-    options: dict[str, Any] = {
+    options = {
         'format': 'bestaudio/best',
         'outtmpl': template,
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
+        'noprogress': True,
         'nocheckcertificate': True,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
@@ -76,7 +77,7 @@ def download_audio_with_yt_dlp(music_id: str, output_dir: Path) -> Path:
     }
 
     cookies_path = Path(__file__).resolve().parent / 'cookies.txt'
-    if cookies_path.is_file():
+    if cookies_path.is_file() and os.access(cookies_path, os.R_OK):
         options['cookiefile'] = str(cookies_path)
 
     with YoutubeDL(options) as ydl:
