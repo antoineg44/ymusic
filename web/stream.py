@@ -1,11 +1,31 @@
 import json
+import logging
+import os
 import re
 import sys
+import traceback
 from pathlib import Path
 
 from pytube import YouTube
 
 ALLOWED_EXTENSIONS = {'.m4a', '.mp3', '.webm', '.ogg', '.wav', '.aac', '.flac'}
+
+
+def setup_logger(base_dir: Path) -> logging.Logger:
+    logs_dir = base_dir / 'logs'
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_file = logs_dir / 'download.log'
+
+    logger = logging.getLogger('ymusic.download')
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        handler = logging.FileHandler(log_file, encoding='utf-8')
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
 
 
 def build_download_basename(music_id: str) -> str:
@@ -23,11 +43,26 @@ def find_downloaded_file(output_dir: Path, basename: str) -> Path | None:
 
 def download_audio(music_id: str, output_dir: Path) -> Path:
     url = f'https://www.youtube.com/watch?v={music_id}'
+    trace_id = os.environ.get('YMUSIC_DOWNLOAD_TRACE_ID', '-')
+    logger = logging.getLogger('ymusic.download')
+
+    logger.info('[trace:%s] Starting download | music_id=%s | url=%s', trace_id, music_id, url)
     video = YouTube(url)
+    logger.info('[trace:%s] Video metadata fetched | title=%s | length=%s', trace_id, video.title, video.length)
+
     audio_stream = video.streams.get_audio_only()
 
     if audio_stream is None:
+        logger.error('[trace:%s] No audio stream available', trace_id)
         raise RuntimeError('No audio stream available')
+
+    logger.info(
+        '[trace:%s] Audio stream selected | itag=%s | mime_type=%s | abr=%s',
+        trace_id,
+        str(getattr(audio_stream, 'itag', '')),
+        str(getattr(audio_stream, 'mime_type', '')),
+        str(getattr(audio_stream, 'abr', '')),
+    )
 
     basename = build_download_basename(music_id)
     downloaded_path = audio_stream.download(
@@ -36,32 +71,60 @@ def download_audio(music_id: str, output_dir: Path) -> Path:
         skip_existing=False,
     )
     downloaded_file = Path(downloaded_path)
+    logger.info(
+        '[trace:%s] Raw download result | path=%s | exists=%s | suffix=%s',
+        trace_id,
+        str(downloaded_file),
+        downloaded_file.exists(),
+        downloaded_file.suffix.lower(),
+    )
 
     if downloaded_file.exists() and downloaded_file.suffix.lower() in ALLOWED_EXTENSIONS:
+        logger.info('[trace:%s] Download resolved directly | file=%s', trace_id, downloaded_file.name)
         return downloaded_file
 
     candidate = find_downloaded_file(output_dir, basename)
     if candidate is not None:
+        logger.info('[trace:%s] Download resolved via candidate scan | file=%s', trace_id, candidate.name)
         return candidate
+
+    logger.error(
+        '[trace:%s] No audio file downloaded | basename=%s | output_dir=%s | files=%s',
+        trace_id,
+        basename,
+        str(output_dir),
+        ','.join(sorted(path.name for path in output_dir.glob(f'{basename}.*'))),
+    )
 
     raise RuntimeError('No audio file downloaded')
 
 
 def main() -> int:
+    base_dir = Path(__file__).resolve().parent
+    setup_logger(base_dir)
+    trace_id = os.environ.get('YMUSIC_DOWNLOAD_TRACE_ID', '-')
+    logger = logging.getLogger('ymusic.download')
+
+    logger.info('[trace:%s] stream.py invoked | argv=%s', trace_id, sys.argv)
+
     if len(sys.argv) < 2:
+        logger.error('[trace:%s] Missing required argument music_id', trace_id)
         print(json.dumps({"success": False, "error": "Usage: python download_audio.py <musicId>"}))
         return 1
 
     music_id = sys.argv[1].strip()
-    base_dir = Path(__file__).resolve().parent
     output_dir = base_dir / 'data' / 'temp'
     output_dir.mkdir(parents=True, exist_ok=True)
+    logger.info('[trace:%s] Normalized input | music_id=%s | output_dir=%s', trace_id, music_id, str(output_dir))
 
     try:
         downloaded_file = download_audio(music_id, output_dir)
+        logger.info('[trace:%s] Download completed | file=%s', trace_id, downloaded_file.name)
         print(json.dumps({"success": True, "file": downloaded_file.name}))
         return 0
     except Exception as exc:
+        logger.error('[trace:%s] Download failed | error=%s', trace_id, str(exc))
+        logger.error('[trace:%s] Traceback:\n%s', trace_id, traceback.format_exc())
         print(json.dumps({"success": False, "error": str(exc)}))
         return 1
 

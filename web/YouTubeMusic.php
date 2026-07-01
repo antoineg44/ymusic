@@ -8,6 +8,8 @@ class YouTubeMusic
 
     private string $scriptDownload;
 
+    private string $downloadLogFile;
+
     public function __construct()
     {
         $baseDir = __DIR__;
@@ -34,6 +36,27 @@ class YouTubeMusic
         $this->script = $baseDir . '/ytapi.py';
 
         $this->scriptDownload = $baseDir . '/stream.py';
+
+        $logsDir = $baseDir . '/logs';
+        if (!is_dir($logsDir)) {
+            @mkdir($logsDir, 0777, true);
+        }
+        $this->downloadLogFile = $logsDir . '/download.log';
+    }
+
+    private function logDownload(string $message, array $context = []): void
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        $line = '[' . $timestamp . '] ' . $message;
+
+        if (!empty($context)) {
+            $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json !== false) {
+                $line .= ' | ' . $json;
+            }
+        }
+
+        @file_put_contents($this->downloadLogFile, $line . PHP_EOL, FILE_APPEND);
     }
 
     private function run(array $args): array
@@ -78,6 +101,9 @@ class YouTubeMusic
 
     public function download(string $musicId): array
     {
+        $traceId = bin2hex(random_bytes(6));
+        putenv('YMUSIC_DOWNLOAD_TRACE_ID=' . $traceId);
+
         $command =
             escapeshellcmd($this->python)
             . ' '
@@ -85,15 +111,41 @@ class YouTubeMusic
 
         $command .= ' ' . escapeshellarg($musicId);
 
+        $this->logDownload('Download command prepared', [
+            'traceId' => $traceId,
+            'musicId' => $musicId,
+            'python' => $this->python,
+            'script' => $this->scriptDownload,
+            'command' => $command,
+        ]);
+
         exec($command . ' 2>&1', $output, $code);
+
+        $this->logDownload('Download command finished', [
+            'traceId' => $traceId,
+            'exitCode' => $code,
+            'outputLines' => count($output),
+            'outputPreview' => array_slice($output, 0, 5),
+        ]);
 
         $json = implode("\n", $output);
 
         $data = json_decode($json, true);
 
         if (!$data) {
+            $this->logDownload('Download JSON decode failed', [
+                'traceId' => $traceId,
+                'rawOutput' => $json,
+            ]);
             throw new Exception($json);
         }
+
+        $this->logDownload('Download JSON parsed', [
+            'traceId' => $traceId,
+            'success' => $data['success'] ?? null,
+            'error' => $data['error'] ?? null,
+            'file' => $data['file'] ?? null,
+        ]);
 
         return $data;
     }
