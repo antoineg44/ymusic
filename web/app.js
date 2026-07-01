@@ -94,6 +94,17 @@ function formatTime(seconds) {
   return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
 }
 
+function getPlayedSeconds(media) {
+  const ranges = media.played;
+  let total = 0;
+
+  for (let index = 0; index < ranges.length; index += 1) {
+    total += Math.max(0, ranges.end(index) - ranges.start(index));
+  }
+
+  return total;
+}
+
 async function loadLibrary() {
   try {
     const response = await fetch('list_library.php');
@@ -471,7 +482,8 @@ function updateTimeDisplay() {
   timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
 
   if (!state.likedLogged && Number.isFinite(audio.duration) && audio.duration > 0) {
-    const ratio = audio.currentTime / audio.duration;
+    const listenedSeconds = getPlayedSeconds(audio);
+    const ratio = listenedSeconds / audio.duration;
     if (ratio >= 0.75) {
       console.log('musique aimé');
       state.likedLogged = true;
