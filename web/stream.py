@@ -4,9 +4,15 @@ import os
 import re
 import sys
 import traceback
+from urllib.error import HTTPError
 from pathlib import Path
 
 from pytube import YouTube
+
+try:
+    from yt_dlp import YoutubeDL
+except Exception:
+    YoutubeDL = None
 
 ALLOWED_EXTENSIONS = {'.m4a', '.mp3', '.webm', '.ogg', '.wav', '.aac', '.flac'}
 
@@ -99,6 +105,49 @@ def download_audio(music_id: str, output_dir: Path) -> Path:
     raise RuntimeError('No audio file downloaded')
 
 
+def download_audio_with_yt_dlp(music_id: str, output_dir: Path) -> Path:
+    if YoutubeDL is None:
+        raise RuntimeError('yt-dlp is not installed')
+
+    url = f'https://www.youtube.com/watch?v={music_id}'
+    trace_id = os.environ.get('YMUSIC_DOWNLOAD_TRACE_ID', '-')
+    logger = logging.getLogger('ymusic.download')
+    basename = build_download_basename(music_id)
+    template = str(output_dir / f'{basename}.%(ext)s')
+
+    options = {
+        'format': 'bestaudio/best',
+        'outtmpl': template,
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+        'nocheckcertificate': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+        },
+    }
+
+    cookies_path = Path(__file__).resolve().parent / 'cookies.txt'
+    if cookies_path.is_file():
+        options['cookiefile'] = str(cookies_path)
+
+    logger.info('[trace:%s] yt-dlp fallback start | music_id=%s | url=%s | template=%s', trace_id, music_id, url, template)
+
+    with YoutubeDL(options) as ydl:
+        info = ydl.extract_info(url, download=True)
+
+    if not info:
+        raise RuntimeError('yt-dlp returned no metadata')
+
+    candidate = find_downloaded_file(output_dir, basename)
+    if candidate is not None:
+        logger.info('[trace:%s] yt-dlp fallback success | file=%s', trace_id, candidate.name)
+        return candidate
+
+    logger.error('[trace:%s] yt-dlp fallback found no file | basename=%s', trace_id, basename)
+    raise RuntimeError('yt-dlp did not produce an audio file')
+
+
 def main() -> int:
     base_dir = Path(__file__).resolve().parent
     setup_logger(base_dir)
@@ -118,7 +167,12 @@ def main() -> int:
     logger.info('[trace:%s] Normalized input | music_id=%s | output_dir=%s', trace_id, music_id, str(output_dir))
 
     try:
-        downloaded_file = download_audio(music_id, output_dir)
+        try:
+            downloaded_file = download_audio(music_id, output_dir)
+        except HTTPError as pytube_error:
+            logger.warning('[trace:%s] pytube failed with HTTP error, trying yt-dlp fallback | error=%s', trace_id, str(pytube_error))
+            downloaded_file = download_audio_with_yt_dlp(music_id, output_dir)
+
         logger.info('[trace:%s] Download completed | file=%s', trace_id, downloaded_file.name)
         print(json.dumps({"success": True, "file": downloaded_file.name}))
         return 0
