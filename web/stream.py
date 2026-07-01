@@ -1,7 +1,7 @@
 import json
-import os
 import re
 import sys
+from typing import Any
 from urllib.error import HTTPError
 from pathlib import Path
 
@@ -63,7 +63,7 @@ def download_audio_with_yt_dlp(music_id: str, output_dir: Path) -> Path:
     basename = build_download_basename(music_id)
     template = str(output_dir / f'{basename}.%(ext)s')
 
-    options = {
+    options: dict[str, Any] = {
         'format': 'bestaudio/best',
         'outtmpl': template,
         'noplaylist': True,
@@ -77,11 +77,24 @@ def download_audio_with_yt_dlp(music_id: str, output_dir: Path) -> Path:
     }
 
     cookies_path = Path(__file__).resolve().parent / 'cookies.txt'
-    if cookies_path.is_file() and os.access(cookies_path, os.R_OK):
-        options['cookiefile'] = str(cookies_path)
+    if cookies_path.is_file():
+        try:
+            with cookies_path.open('r', encoding='utf-8'):
+                pass
+            options['cookiefile'] = str(cookies_path)
+        except OSError:
+            pass
 
-    with YoutubeDL(options) as ydl:
-        info = ydl.extract_info(url, download=True)
+    try:
+        with YoutubeDL(options) as ydl:
+            info = ydl.extract_info(url, download=True)
+    except OSError as exc:
+        if 'Permission denied' in str(exc) and options.get('cookiefile'):
+            options.pop('cookiefile', None)
+            with YoutubeDL(options) as ydl:
+                info = ydl.extract_info(url, download=True)
+        else:
+            raise
 
     if not info:
         raise RuntimeError('yt-dlp returned no metadata')
