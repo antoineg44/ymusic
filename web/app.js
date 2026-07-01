@@ -1,8 +1,10 @@
 const state = {
   library: [],
   queue: [],
+  queueIndex: -1,
   currentIndex: -1,
   currentTrack: null,
+  currentVideoId: '',
 };
 
 let suggestionTimer = null;
@@ -45,12 +47,12 @@ searchInput.addEventListener('input', (event) => {
 });
 
 playButton.addEventListener('click', togglePlayback);
-prevButton.addEventListener('click', playPrevious);
-nextButton.addEventListener('click', playNext);
+prevButton.addEventListener('click', () => { void playPrevious(); });
+nextButton.addEventListener('click', () => { void playNext(); });
 seekBar.addEventListener('input', seekPlayback);
 audio.addEventListener('timeupdate', updateTimeDisplay);
 audio.addEventListener('loadedmetadata', updateTimeDisplay);
-audio.addEventListener('ended', playNext);
+audio.addEventListener('ended', () => { void playNext(); });
 
 document.addEventListener('DOMContentLoaded', () => {
   loadLibrary();
@@ -209,10 +211,16 @@ function renderSearchResults(results) {
       console.log(`Action: play for "${result.title}"`);
       console.log(result);
       if (match) {
+        if (result.videoId) {
+          await loadPlaylistQueue(result.videoId);
+        } else {
+          resetPlaylistQueue();
+        }
         playTrack(match, state.library.findIndex((track) => track.path === match.path));
       } else if (result.videoId) {
         await downloadAndPlay(result.videoId, result.title || 'titre');
       } else {
+        resetPlaylistQueue();
         setStatus('Aucun fichier local correspondant n’a été trouvé.');
       }
     });
@@ -227,10 +235,15 @@ function findLocalMatch(result) {
   return state.library.find((track) => normalize(track.title).includes(target) || normalize(track.file).includes(target));
 }
 
-async function downloadAndPlay(videoId, title) {
+async function downloadAndPlay(videoId, title, options = {}) {
+  const { skipQueueLoad = false } = options;
   setStatus(`Téléchargement de “${title}”…`);
 
   try {
+    if (!skipQueueLoad) {
+      await loadPlaylistQueue(videoId);
+    }
+
     const response = await fetch(`interface.php?musicId=${encodeURIComponent(videoId)}`);
     const payload = await response.json();
 
@@ -252,12 +265,14 @@ async function downloadAndPlay(videoId, title) {
       path: `data/temp/${downloadedFile}`,
       file: downloadedFile,
       folder: 'temp',
+      videoId,
     };
 
     await waitForMediaReady(track.path);
     await loadLibrary();
 
     const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
+    downloadedTrack.videoId = videoId;
     playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path));
     setStatus(`Lecture de “${title}” depuis le téléchargement.`);
   } catch (error) {
@@ -293,6 +308,7 @@ function playTrack(track, index) {
   const resolvedIndex = index >= 0 ? index : state.library.findIndex((candidate) => candidate.path === track.path);
   state.currentTrack = track;
   state.currentIndex = resolvedIndex;
+  state.currentVideoId = track.videoId || '';
   const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
   audio.src = `${encodeURI(track.path)}${cacheBust}`;
   audio.load();
@@ -306,6 +322,37 @@ function playTrack(track, index) {
     console.error(error);
     setStatus('La lecture a été bloquée par le navigateur.');
   });
+}
+
+function resetPlaylistQueue() {
+  state.queue = [];
+  state.queueIndex = -1;
+  state.currentVideoId = '';
+}
+
+async function loadPlaylistQueue(videoId) {
+  if (!videoId) {
+    resetPlaylistQueue();
+    return;
+  }
+
+  try {
+    const response = await fetch(`interface.php?videoId=${encodeURIComponent(videoId)}`);
+    const payload = await response.json();
+
+    if (!payload.success || !Array.isArray(payload.playlist)) {
+      resetPlaylistQueue();
+      return;
+    }
+
+    const playlist = payload.playlist.filter((entry) => entry && entry.videoId);
+    state.queue = playlist;
+    state.queueIndex = Math.max(0, playlist.findIndex((entry) => entry.videoId === videoId));
+    state.currentVideoId = videoId;
+  } catch (error) {
+    console.error(error);
+    resetPlaylistQueue();
+  }
 }
 
 function togglePlayback() {
@@ -326,18 +373,34 @@ function togglePlayback() {
   }
 }
 
-function playPrevious() {
+async function playPrevious() {
+  if (state.queue.length && state.queueIndex > 0) {
+    const previous = state.queue[state.queueIndex - 1];
+    state.queueIndex -= 1;
+    await downloadAndPlay(previous.videoId, previous.title || 'titre', { skipQueueLoad: true });
+    return;
+  }
+
   if (!state.library.length) {
     return;
   }
+
   const previousIndex = (state.currentIndex - 1 + state.library.length) % state.library.length;
   playTrack(state.library[previousIndex], previousIndex);
 }
 
-function playNext() {
+async function playNext() {
+  if (state.queue.length && state.queueIndex >= 0 && state.queueIndex < state.queue.length - 1) {
+    const next = state.queue[state.queueIndex + 1];
+    state.queueIndex += 1;
+    await downloadAndPlay(next.videoId, next.title || 'titre', { skipQueueLoad: true });
+    return;
+  }
+
   if (!state.library.length) {
     return;
   }
+
   const nextIndex = (state.currentIndex + 1) % state.library.length;
   playTrack(state.library[nextIndex], nextIndex);
 }
