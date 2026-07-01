@@ -98,7 +98,6 @@ async function loadLibrary() {
     const response = await fetch('list_library.php');
     const tracks = await response.json();
     state.library = tracks || [];
-    state.queue = state.library.slice(0, 10);
     renderLibrary();
     setStatus(`Bibliothèque chargée (${state.library.length} titres)`);
   } catch (error) {
@@ -220,7 +219,11 @@ function renderSearchResults(results) {
         } else {
           resetPlaylistQueue();
         }
-        playTrack(match, state.library.findIndex((track) => track.path === match.path));
+        const playableMatch = {
+          ...match,
+          videoId: result.videoId || match.videoId || '',
+        };
+        playTrack(playableMatch, state.library.findIndex((track) => track.path === match.path));
       } else if (result.videoId) {
         await downloadAndPlay(result.videoId, result.title || 'titre');
       } else {
@@ -365,6 +368,9 @@ async function loadPlaylistQueue(videoId) {
     const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
     state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
     state.currentVideoId = videoId;
+
+    const nextVideo = playlist.slice(state.queueIndex + 1).find((entry) => entry && isValidVideoId(entry.videoId)) || null;
+    console.log('Next video from playlist response:', nextVideo);
   } catch (error) {
     console.error(error);
     resetPlaylistQueue();
@@ -412,17 +418,33 @@ async function playPrevious() {
 }
 
 async function playNext() {
-  if (state.queue.length && state.queueIndex >= 0 && state.queueIndex < state.queue.length - 1) {
-    for (let index = state.queueIndex + 1; index < state.queue.length; index += 1) {
-      const next = state.queue[index];
-      if (!next || !isValidVideoId(next.videoId)) {
-        continue;
-      }
-
-      state.queueIndex = index;
-      await downloadAndPlay(next.videoId, next.title || 'titre', { skipQueueLoad: true });
-      return;
+  if (isValidVideoId(state.currentVideoId)) {
+    if (!state.queue.length || state.queueIndex < 0) {
+      await loadPlaylistQueue(state.currentVideoId);
     }
+
+    if (state.queue.length) {
+      const currentQueueIndex = state.queue.findIndex((entry) => entry && entry.videoId === state.currentVideoId);
+      if (currentQueueIndex >= 0) {
+        state.queueIndex = currentQueueIndex;
+      }
+    }
+
+    if (state.queue.length && state.queueIndex >= 0 && state.queueIndex < state.queue.length - 1) {
+      for (let index = state.queueIndex + 1; index < state.queue.length; index += 1) {
+        const next = state.queue[index];
+        if (!next || !isValidVideoId(next.videoId)) {
+          continue;
+        }
+
+        state.queueIndex = index;
+        await downloadAndPlay(next.videoId, next.title || 'titre', { skipQueueLoad: true });
+        return;
+      }
+    }
+
+    setStatus('Aucune piste suivante dans la playlist YouTube Music.');
+    return;
   }
 
   if (!state.library.length) {
