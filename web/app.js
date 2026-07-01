@@ -254,12 +254,35 @@ async function downloadAndPlay(videoId, title) {
       folder: 'temp',
     };
 
-    playTrack(track, -1);
+    await waitForMediaReady(track.path);
+    await loadLibrary();
+
+    const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
+    playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path));
     setStatus(`Lecture de “${title}” depuis le téléchargement.`);
   } catch (error) {
     console.error(error);
     setStatus('Le téléchargement et la lecture ont échoué.');
   }
+}
+
+async function waitForMediaReady(path, retries = 8, delayMs = 250) {
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      const response = await fetch(`${encodeURI(path)}?r=${Date.now()}`, { method: 'HEAD' });
+      if (response.ok) {
+        return;
+      }
+    } catch (error) {
+      console.debug('Waiting for downloaded file...', error);
+    }
+
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, delayMs);
+    });
+  }
+
+  throw new Error('Downloaded media is not reachable yet.');
 }
 
 function playTrack(track, index) {
@@ -270,12 +293,14 @@ function playTrack(track, index) {
   const resolvedIndex = index >= 0 ? index : state.library.findIndex((candidate) => candidate.path === track.path);
   state.currentTrack = track;
   state.currentIndex = resolvedIndex;
-  audio.src = encodeURI(track.path);
+  const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
+  audio.src = `${encodeURI(track.path)}${cacheBust}`;
   audio.load();
 
+  nowPlaying.textContent = track.title;
+  nowPlayingMeta.textContent = track.folder || 'Bibliothèque locale';
+
   audio.play().then(() => {
-    nowPlaying.textContent = track.title;
-    nowPlayingMeta.textContent = track.folder || 'Bibliothèque locale';
     playButton.textContent = '⏸';
   }).catch((error) => {
     console.error(error);
