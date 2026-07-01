@@ -1,8 +1,13 @@
 <?php
 
 require 'YouTubeMusic.php';
+require_once __DIR__ . '/database_interface.php';
 
 header('Content-Type: application/json');
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function log_download_request(string $message, array $context = []): void
 {
@@ -66,6 +71,24 @@ if (!empty($_GET['query'])) {
             'exception' => $exception->getMessage(),
         ]);
 
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['addMusic']) || !empty($_POST['addMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $added = add_music_to_database($payload);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Musique ajoutee a la base',
+            'music' => $added,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,
             'error' => $exception->getMessage(),

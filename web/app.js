@@ -5,6 +5,7 @@ const state = {
   currentIndex: -1,
   currentTrack: null,
   currentVideoId: '',
+  likedLogged: false,
 };
 
 let suggestionTimer = null;
@@ -322,6 +323,7 @@ function playTrack(track, index) {
   state.currentTrack = track;
   state.currentIndex = resolvedIndex;
   state.currentVideoId = track.videoId || '';
+  state.likedLogged = false;
   const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
   audio.src = `${encodeURI(track.path)}${cacheBust}`;
   audio.load();
@@ -467,4 +469,12 @@ function updateTimeDisplay() {
   seekBar.max = audio.duration || 100;
   seekBar.value = audio.currentTime || 0;
   timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+
+  if (!state.likedLogged && Number.isFinite(audio.duration) && audio.duration > 0) {
+    const ratio = audio.currentTime / audio.duration;
+    if (ratio >= 0.75) {
+      console.log('musique aimé');
+      state.likedLogged = true;
+    }
+  }
 }
