@@ -15,6 +15,19 @@ except Exception:
 ALLOWED_EXTENSIONS = {'.m4a', '.mp3', '.webm', '.ogg', '.wav', '.aac', '.flac'}
 
 
+def normalize_video_id(raw_value: str) -> str:
+    value = str(raw_value or '').strip()
+
+    if re.fullmatch(r'[0-9A-Za-z_-]{11}', value):
+        return value
+
+    match = re.search(r'(?:v=|/)([0-9A-Za-z_-]{11})(?:[?&/#]|$)', value)
+    if match:
+        return match.group(1)
+
+    raise ValueError('Invalid YouTube videoId')
+
+
 def build_download_basename(music_id: str) -> str:
     cleaned_id = re.sub(r'[^A-Za-z0-9._-]+', '-', music_id.strip())
     cleaned_id = cleaned_id.strip('-.')
@@ -113,11 +126,12 @@ def main() -> int:
         print(json.dumps({"success": False, "error": "Usage: python download_audio.py <musicId>"}))
         return 1
 
-    music_id = sys.argv[1].strip()
     output_dir = base_dir / 'data' / 'temp'
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
+        music_id = normalize_video_id(sys.argv[1])
+
         try:
             downloaded_file = download_audio(music_id, output_dir)
         except HTTPError:

@@ -79,6 +79,10 @@ function normalize(value) {
     .trim();
 }
 
+function isValidVideoId(value) {
+  return typeof value === 'string' && /^[0-9A-Za-z_-]{11}$/.test(value.trim());
+}
+
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) {
     return '00:00';
@@ -237,6 +241,12 @@ function findLocalMatch(result) {
 
 async function downloadAndPlay(videoId, title, options = {}) {
   const { skipQueueLoad = false } = options;
+
+  if (!isValidVideoId(videoId)) {
+    setStatus('Identifiant video invalide pour le telechargement.');
+    return;
+  }
+
   setStatus(`Téléchargement de “${title}”…`);
 
   try {
@@ -331,7 +341,7 @@ function resetPlaylistQueue() {
 }
 
 async function loadPlaylistQueue(videoId) {
-  if (!videoId) {
+  if (!isValidVideoId(videoId)) {
     resetPlaylistQueue();
     return;
   }
@@ -345,9 +355,15 @@ async function loadPlaylistQueue(videoId) {
       return;
     }
 
-    const playlist = payload.playlist.filter((entry) => entry && entry.videoId);
+    const playlist = payload.playlist.filter((entry) => entry && isValidVideoId(entry.videoId));
+    if (!playlist.length) {
+      resetPlaylistQueue();
+      return;
+    }
+
     state.queue = playlist;
-    state.queueIndex = Math.max(0, playlist.findIndex((entry) => entry.videoId === videoId));
+    const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
+    state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
     state.currentVideoId = videoId;
   } catch (error) {
     console.error(error);
@@ -375,10 +391,16 @@ function togglePlayback() {
 
 async function playPrevious() {
   if (state.queue.length && state.queueIndex > 0) {
-    const previous = state.queue[state.queueIndex - 1];
-    state.queueIndex -= 1;
-    await downloadAndPlay(previous.videoId, previous.title || 'titre', { skipQueueLoad: true });
-    return;
+    for (let index = state.queueIndex - 1; index >= 0; index -= 1) {
+      const previous = state.queue[index];
+      if (!previous || !isValidVideoId(previous.videoId)) {
+        continue;
+      }
+
+      state.queueIndex = index;
+      await downloadAndPlay(previous.videoId, previous.title || 'titre', { skipQueueLoad: true });
+      return;
+    }
   }
 
   if (!state.library.length) {
@@ -391,10 +413,16 @@ async function playPrevious() {
 
 async function playNext() {
   if (state.queue.length && state.queueIndex >= 0 && state.queueIndex < state.queue.length - 1) {
-    const next = state.queue[state.queueIndex + 1];
-    state.queueIndex += 1;
-    await downloadAndPlay(next.videoId, next.title || 'titre', { skipQueueLoad: true });
-    return;
+    for (let index = state.queueIndex + 1; index < state.queue.length; index += 1) {
+      const next = state.queue[index];
+      if (!next || !isValidVideoId(next.videoId)) {
+        continue;
+      }
+
+      state.queueIndex = index;
+      await downloadAndPlay(next.videoId, next.title || 'titre', { skipQueueLoad: true });
+      return;
+    }
   }
 
   if (!state.library.length) {
