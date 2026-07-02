@@ -6,17 +6,20 @@ const state = {
   currentTrack: null,
   currentVideoId: '',
   likedLogged: false,
-  likedSaved: false,
+  currentTab: 'accueil',
 };
 
 let suggestionTimer = null;
 
 const libraryList = document.getElementById('libraryList');
 const libraryPanel = document.getElementById('libraryPanel');
+const searchRow = document.getElementById('searchRow');
+const searchResultsPanel = document.getElementById('searchResultsPanel');
 const searchResults = document.getElementById('searchResults');
 const searchInput = document.getElementById('searchInput');
 const suggestionsBox = document.getElementById('suggestions');
 const statusBox = document.getElementById('status');
+const sidebarLinks = Array.from(document.querySelectorAll('.sidebar-link'));
 const playButton = document.getElementById('playButton');
 const prevButton = document.getElementById('prevButton');
 const nextButton = document.getElementById('nextButton');
@@ -37,11 +40,9 @@ searchInput.addEventListener('input', (event) => {
 
   if (!query) {
     suggestionsBox.innerHTML = '';
-    libraryPanel.classList.remove('is-hidden');
     return;
   }
 
-  libraryPanel.classList.add('is-hidden');
   window.clearTimeout(suggestionTimer);
   suggestionTimer = window.setTimeout(() => {
     loadSuggestions(query);
@@ -57,8 +58,36 @@ audio.addEventListener('loadedmetadata', updateTimeDisplay);
 audio.addEventListener('ended', () => { void playNext(); });
 
 document.addEventListener('DOMContentLoaded', () => {
+  initializeSidebarMenu();
   loadLibrary();
 });
+
+function setActiveTab(tab) {
+  const isSearchTab = tab === 'recherche';
+  const isListTab = tab === 'listes';
+
+  state.currentTab = tab;
+
+  searchRow.hidden = !isSearchTab;
+  suggestionsBox.hidden = !isSearchTab;
+  searchResultsPanel.classList.toggle('is-hidden', !isSearchTab);
+  libraryPanel.classList.toggle('is-hidden', !isListTab);
+
+  sidebarLinks.forEach((link) => {
+    link.classList.toggle('is-active', (link.dataset.tab || '') === tab);
+  });
+}
+
+function initializeSidebarMenu() {
+  setActiveTab('accueil');
+
+  sidebarLinks.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      setActiveTab(link.dataset.tab || 'accueil');
+    });
+  });
+}
 
 function setStatus(message) {
   statusBox.textContent = message;
@@ -104,36 +133,6 @@ function getPlayedSeconds(media) {
   }
 
   return total;
-}
-
-async function saveLikedMusic(track) {
-  if (!track || !track.title) {
-    return;
-  }
-
-  const params = new URLSearchParams({
-    addMusic: '1',
-    Titre: String(track.title || ''),
-    Artiste: String(track.artist || ''),
-    Album: String(track.folder || ''),
-    Duree: Number.isFinite(audio.duration) ? String(Math.round(audio.duration)) : '',
-    Utilisateur: '',
-    DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
-  });
-
-  try {
-    const response = await fetch(`interface.php?${params.toString()}`);
-    const payload = await response.json();
-
-    if (!payload.success) {
-      console.error('Impossible d\'ajouter la musique en base:', payload.error || payload);
-      return;
-    }
-
-    console.log('Musique ajoutee en base:', payload.music || track.title);
-  } catch (error) {
-    console.error('Erreur lors de l\'ajout en base:', error);
-  }
 }
 
 async function loadLibrary() {
@@ -205,7 +204,6 @@ async function searchMusic() {
     const suggestions = payload.suggestions || [];
     renderSuggestions(suggestions);
     renderSearchResults(results);
-    libraryPanel.classList.add('is-hidden');
     setStatus(`${results.length} résultat(s) trouvé(s) via YouTube Music.`);
   } catch (error) {
     console.error(error);
@@ -366,7 +364,6 @@ function playTrack(track, index) {
   state.currentIndex = resolvedIndex;
   state.currentVideoId = track.videoId || '';
   state.likedLogged = false;
-  state.likedSaved = false;
   const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
   audio.src = `${encodeURI(track.path)}${cacheBust}`;
   audio.load();
@@ -519,11 +516,6 @@ function updateTimeDisplay() {
     if (ratio >= 0.75) {
       console.log('musique aimé');
       state.likedLogged = true;
-
-      if (!state.likedSaved) {
-        state.likedSaved = true;
-        void saveLikedMusic(state.currentTrack);
-      }
     }
   }
 }

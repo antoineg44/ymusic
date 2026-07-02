@@ -8,45 +8,66 @@
   </head>
   <body>
     <div class="app">
-      <section class="hero">
-        <h1>Lecteur musical</h1>
-        <p>Parcourez votre bibliothèque locale et recherchez des titres via YouTube Music.</p>
-        <div class="search-row">
-          <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
-          <button id="searchButton" type="button">Rechercher</button>
-        </div>
-        <div id="suggestions" class="suggestions" aria-live="polite"></div>
-        <div id="status" class="status">Chargement de la bibliothèque…</div>
-      </section>
+      <div class="app-shell">
+        <aside class="sidebar" aria-label="Menu principal">
+          <h2>Navigation</h2>
+          <nav>
+            <ul>
+              <li><a href="#" class="sidebar-link is-active" data-tab="accueil">Accueil</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="recherche">Recherche</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="listes">Listes</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="artists">Artists</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="playlists">Playlists</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="mes-playlists">Mes Playlists</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="playlists-communaute">Playlists de la communauté</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="albums">Albums</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="parametres">Paramètres</a></li>
+            </ul>
+          </nav>
+        </aside>
 
-      <div class="layout">
-        <section id="libraryPanel" class="panel">
-          <h2>Musique enregistrée</h2>
-          <ul id="libraryList"></ul>
-        </section>
+        <main class="content">
+          <section class="hero">
+            <h1>Lecteur musical</h1>
+            <p>Parcourez votre bibliothèque locale et recherchez des titres via YouTube Music.</p>
+            <div id="searchRow" class="search-row">
+              <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
+              <button id="searchButton" type="button">Rechercher</button>
+            </div>
+            <div id="suggestions" class="suggestions" aria-live="polite"></div>
+            <div id="status" class="status">Chargement de la bibliothèque…</div>
+          </section>
 
-        <section class="panel">
-          <h2>Résultats YouTube Music</h2>
-          <ul id="searchResults"></ul>
-        </section>
-      </div>
+          <div class="layout">
+            <section id="libraryPanel" class="panel">
+              <h2>Musique enregistrée</h2>
+              <ul id="libraryList"></ul>
+            </section>
 
-      <section class="player-card">
-        <div class="player-head">
-          <div>
-            <strong id="nowPlaying">Aucune lecture en cours</strong>
-            <div id="nowPlayingMeta" class="status">Sélectionnez un titre dans la bibliothèque</div>
+            <section id="searchResultsPanel" class="panel is-hidden">
+              <h2>Résultats YouTube Music</h2>
+              <ul id="searchResults"></ul>
+            </section>
           </div>
-        </div>
-        <div class="player-controls">
-          <button id="prevButton" type="button">⏮</button>
-          <button id="playButton" type="button">▶</button>
-          <button id="nextButton" type="button">⏭</button>
-          <input id="seekBar" type="range" min="0" max="100" value="0" />
-          <span id="timeLabel">00:00 / 00:00</span>
-        </div>
-        <audio id="audioPlayer"></audio>
-      </section>
+
+          <section class="player-card">
+            <div class="player-head">
+              <div>
+                <strong id="nowPlaying">Aucune lecture en cours</strong>
+                <div id="nowPlayingMeta" class="status">Sélectionnez un titre dans la bibliothèque</div>
+              </div>
+            </div>
+            <div class="player-controls">
+              <button id="prevButton" type="button">⏮</button>
+              <button id="playButton" type="button">▶</button>
+              <button id="nextButton" type="button">⏭</button>
+              <input id="seekBar" type="range" min="0" max="100" value="0" />
+              <span id="timeLabel">00:00 / 00:00</span>
+            </div>
+            <audio id="audioPlayer"></audio>
+          </section>
+        </main>
+      </div>
     </div>
 
     <script src="app.js"></script>
