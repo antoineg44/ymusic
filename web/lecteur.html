@@ -21,11 +21,30 @@
 				width: 100% !important;
 				border-radius: 16px !important;
 				box-sizing: border-box;
+				position: relative !important;
+			}
+
+			.favorite-button {
+				position: absolute;
+				top: 14px;
+				right: 14px;
+				border: 0;
+				background: transparent;
+				color: #94a3b8;
+				font-size: 1.4rem;
+				cursor: pointer;
+				line-height: 1;
+				padding: 4px;
+			}
+
+			.favorite-button.is-active {
+				color: #facc15;
 			}
 		</style>
 	</head>
 	<body>
 		<section class="player-card">
+			<button id="favoriteButton" type="button" class="favorite-button" aria-label="Ajouter aux favoris">☆</button>
 			<div class="player-head">
 				<div>
 					<strong id="nowPlaying">Aucune lecture en cours</strong>
@@ -52,8 +71,15 @@
 			const nowPlaying = document.getElementById('nowPlaying');
 			const nowPlayingMeta = document.getElementById('nowPlayingMeta');
 			const nextPlaying = document.getElementById('nextPlaying');
+			const favoriteButton = document.getElementById('favoriteButton');
 			const audio = document.getElementById('audioPlayer');
 			const playerCard = document.querySelector('.player-card');
+
+			function setFavoriteState(isFavorite) {
+				favoriteButton.textContent = isFavorite ? '★' : '☆';
+				favoriteButton.classList.toggle('is-active', Boolean(isFavorite));
+				favoriteButton.setAttribute('aria-label', isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris');
+			}
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'lecteur', type, ...payload }, '*');
@@ -108,6 +134,9 @@
 			}
 
 			playButton.addEventListener('click', toggleLocalPlayback);
+			favoriteButton.addEventListener('click', () => {
+				postToParent('TOGGLE_FAVORITE');
+			});
 			prevButton.addEventListener('click', () => {
 				postToParent('REQUEST_PREV');
 			});
@@ -155,6 +184,7 @@
 				if (message.type === 'LOAD_TRACK') {
 					nowPlaying.textContent = String(message.title || 'Aucune lecture en cours');
 					nowPlayingMeta.textContent = String(message.meta || 'Bibliotheque locale');
+					setFavoriteState(Boolean(message.isFavorite));
 					audio.src = String(message.src || '');
 					audio.load();
 					audio.play().catch(() => {
@@ -178,9 +208,15 @@
 					nextPlaying.textContent = nextTitle
 						? `Prochaine musique: ${nextTitle}`
 						: 'Prochaine musique: aucune';
+					return;
+				}
+
+				if (message.type === 'SET_FAVORITE_STATE') {
+					setFavoriteState(Boolean(message.isFavorite));
 				}
 			});
 
+			setFavoriteState(false);
 			postToParent('PLAYER_READY');
 		</script>
 	</body>

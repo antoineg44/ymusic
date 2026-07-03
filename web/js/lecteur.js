@@ -56,6 +56,12 @@
       });
     }
 
+    function syncFavoriteState() {
+      sendPlayerMessage('SET_FAVORITE_STATE', {
+        isFavorite: Boolean(state.likedSaved),
+      });
+    }
+
     function updateTimeDisplay() {
       // Déclenche l'enregistrement en base quand 75% du morceau est écouté.
       if (!state.likedLogged && Number.isFinite(state.currentDuration) && state.currentDuration > 0) {
@@ -66,6 +72,7 @@
           if (!state.likedSaved) {
             state.likedSaved = true;
             void saveLikedMusic(state.currentTrack);
+            syncFavoriteState();
           }
         }
       }
@@ -111,7 +118,9 @@
         src: source,
         title: track.title,
         meta: track.folder || 'Bibliotheque locale',
+        isFavorite: Boolean(state.likedSaved),
       });
+      syncFavoriteState();
       syncNextTrackPreview();
     }
 
@@ -265,6 +274,18 @@
       sendPlayerMessage('TOGGLE');
     }
 
+    async function toggleFavorite() {
+      if (!state.currentTrack || state.likedSaved) {
+        syncFavoriteState();
+        return;
+      }
+
+      state.likedSaved = true;
+      state.likedLogged = true;
+      syncFavoriteState();
+      await saveLikedMusic(state.currentTrack);
+    }
+
     function handleMessage(message) {
       // Traite tous les événements remontés par l'UI du lecteur (suivant, précédent, erreurs...).
       if (!message || message.source !== 'lecteur') {
@@ -302,6 +323,11 @@
         return true;
       }
 
+      if (message.type === 'TOGGLE_FAVORITE') {
+        void toggleFavorite();
+        return true;
+      }
+
       if (message.type === 'PLAYER_ERROR' && message.error) {
         setStatus(String(message.error));
         return true;
@@ -326,6 +352,7 @@
       playPrevious,
       playNext,
       togglePlayback,
+      toggleFavorite,
       updateTimeDisplay,
     };
   }
