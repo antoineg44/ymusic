@@ -144,7 +144,11 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 		$genre = null;
 	}
 
-	$nombreVue = get_int_or_null($payload['NombreVue'] ?? 0) ?? 0;
+	$nombreVueInput = get_int_or_null($payload['NombreVue'] ?? null);
+	$nombreVue = $nombreVueInput ?? 0;
+	$nombreVueForUpdate = ($nombreVueInput !== null && $nombreVueInput > 0)
+		? max(0, $nombreVueInput)
+		: null;
 	$nombreVueInterneRaw = get_int_or_null($payload['NombreVueInterne'] ?? null);
 	$nombreVueInterne = $nombreVueInterneRaw ?? 1;
 	$dateAjoutRaw = trim((string) ($payload['DateAjout'] ?? ''));
@@ -166,7 +170,7 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 				Duree = COALESCE(:duree, Duree),
 				AnneeParution = COALESCE(:anneeParution, AnneeParution),
 				Genre = COALESCE(:genre, Genre),
-				NombreVue = :nombreVue,
+				NombreVue = COALESCE(:nombreVue, NombreVue),
 				NombreVueInterne = NombreVueInterne + 1,
 				DateAjout = :dateAjout
 			 WHERE Id = :id'
@@ -180,7 +184,7 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 			':duree' => $duree,
 			':anneeParution' => $anneeParution,
 			':genre' => $genre,
-			':nombreVue' => max(0, $nombreVue),
+			':nombreVue' => $nombreVueForUpdate,
 			':dateAjout' => $dateAjout,
 		]);
 

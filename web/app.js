@@ -294,11 +294,49 @@ async function saveLikedMusic(track) {
     return;
   }
 
-  const parsedViews = parseViewCount(track.views);
-  const persistedAlbumId = String(track.albumId || '').trim();
+  let parsedViews = parseViewCount(track.views);
+  let persistedAlbumId = String(track.albumId || '').trim();
   const persistedId = isValidVideoId(track.videoId)
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
+
+  if (persistedId && (!persistedAlbumId || parsedViews <= 0)) {
+    try {
+      const fallbackParams = new URLSearchParams({
+        musicDetails: '1',
+        id: persistedId,
+      });
+      const fallbackTitle = String(track.title || '').trim();
+      const fallbackArtist = String(track.artist || '').trim();
+      if (fallbackTitle) {
+        fallbackParams.set('title', fallbackTitle);
+      }
+      if (fallbackArtist) {
+        fallbackParams.set('artist', fallbackArtist);
+      }
+
+      const fallbackResponse = await fetch(`interface.php?${fallbackParams.toString()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+
+      if (fallbackResponse.ok) {
+        const fallbackPayload = await fallbackResponse.json();
+        const fallbackMusic = fallbackPayload && fallbackPayload.music ? fallbackPayload.music : null;
+        if (fallbackMusic) {
+          if (!persistedAlbumId) {
+            persistedAlbumId = String(fallbackMusic.Album || '').trim();
+          }
+
+          if (parsedViews <= 0) {
+            parsedViews = parseViewCount(fallbackMusic.NombreVue);
+          }
+        }
+      }
+    } catch (error) {
+      console.debug('Fallback music details unavailable for addMusic payload:', error);
+    }
+  }
 
   const params = new URLSearchParams({
     addMusic: '1',
@@ -307,7 +345,7 @@ async function saveLikedMusic(track) {
     Artiste: String(track.artist || ''),
     Album: persistedAlbumId,
     Duree: Number.isFinite(state.currentDuration) && state.currentDuration > 0 ? String(Math.round(state.currentDuration)) : '',
-    NombreVue: String(parsedViews),
+    NombreVue: parsedViews > 0 ? String(parsedViews) : '',
     Utilisateur: String((state.currentUser && state.currentUser.username) || ''),
     DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
   });
