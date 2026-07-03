@@ -16,7 +16,7 @@
               <li><a href="#" class="sidebar-link is-active" data-tab="accueil">Accueil</a></li>
               <li><a href="#" class="sidebar-link" data-tab="recherche">Recherche</a></li>
               <li><a href="#" class="sidebar-link" data-tab="listes">Listes</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="artists">Artists</a></li>
+              <li><a href="#" class="sidebar-link" data-tab="artists">Artistes</a></li>
               <li><a href="#" class="sidebar-link" data-tab="playlists">Playlists</a></li>
               <li><a href="#" class="sidebar-link" data-tab="mes-playlists">Mes Playlists</a></li>
               <li><a href="#" class="sidebar-link" data-tab="playlists-communaute">Playlists de la communauté</a></li>
@@ -33,11 +33,6 @@
               <button id="logoutButton" type="button" class="logout-button">Se deconnecter</button>
             </div>
             <p>Parcourez votre bibliothèque locale et recherchez des titres via YouTube Music.</p>
-            <div id="searchRow" class="search-row">
-              <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
-              <button id="searchButton" type="button">Rechercher</button>
-            </div>
-            <div id="suggestions" class="suggestions" aria-live="polite"></div>
             <div id="status" class="status">Chargement de la bibliothèque…</div>
           </section>
 
@@ -47,9 +42,26 @@
               <ul id="libraryList"></ul>
             </section>
 
-            <section id="searchResultsPanel" class="panel is-hidden">
-              <h2>Résultats YouTube Music</h2>
-              <ul id="searchResults"></ul>
+            <section id="searchPanel" class="panel is-hidden">
+              <h2>Recherche YouTube Music</h2>
+              <iframe
+                id="searchFrame"
+                class="search-frame"
+                src="recherche.html"
+                title="Recherche"
+                loading="eager"
+              ></iframe>
+            </section>
+
+            <section id="artistsPanel" class="panel is-hidden">
+              <h2>Artistes</h2>
+              <iframe
+                id="artistsFrame"
+                class="search-frame"
+                src="artistes.html"
+                title="Artistes"
+                loading="eager"
+              ></iframe>
             </section>
 
             <section id="settingsPanel" class="panel is-hidden">
@@ -59,21 +71,14 @@
             </section>
           </div>
 
-          <section class="player-card">
-            <div class="player-head">
-              <div>
-                <strong id="nowPlaying">Aucune lecture en cours</strong>
-                <div id="nowPlayingMeta" class="status">Sélectionnez un titre dans la bibliothèque</div>
-              </div>
-            </div>
-            <div class="player-controls">
-              <button id="prevButton" type="button">⏮</button>
-              <button id="playButton" type="button">▶</button>
-              <button id="nextButton" type="button">⏭</button>
-              <input id="seekBar" type="range" min="0" max="100" value="0" />
-              <span id="timeLabel">00:00 / 00:00</span>
-            </div>
-            <audio id="audioPlayer"></audio>
+          <section class="player-frame-shell">
+            <iframe
+              id="playerFrame"
+              class="player-frame"
+              src="lecteur.html"
+              title="Lecteur audio"
+              loading="eager"
+            ></iframe>
           </section>
         </main>
       </div>

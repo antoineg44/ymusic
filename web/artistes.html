@@ -39,6 +39,28 @@
 				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 				padding: 10px;
 			}
+
+			.artist-name-button {
+				border: 0;
+				background: transparent;
+				color: #7dd3fc;
+				font-weight: 700;
+				cursor: pointer;
+				padding: 0;
+				text-align: left;
+			}
+
+			.artist-name-button:hover {
+				text-decoration: underline;
+			}
+
+			.artist-songs-panel {
+				margin-top: 16px;
+			}
+
+			.artist-songs-panel.is-hidden {
+				display: none;
+			}
 		</style>
 	</head>
 	<body>
@@ -64,12 +86,34 @@
 						<tbody id="artistsBody"></tbody>
 					</table>
 				</div>
+
+				<div id="artistSongsPanel" class="artist-songs-panel is-hidden">
+					<h2 id="songsTitle">Musiques</h2>
+					<p id="songsStatus" class="status"></p>
+					<div class="artists-table-wrap">
+						<table class="artists-table" aria-label="Musiques de l'artiste">
+							<thead>
+								<tr>
+									<th>Titre</th>
+									<th>Album</th>
+									<th>Duree</th>
+									<th>Vues internes</th>
+								</tr>
+							</thead>
+							<tbody id="songsBody"></tbody>
+						</table>
+					</div>
+				</div>
 			</section>
 		</main>
 
 		<script>
 			const artistsBody = document.getElementById('artistsBody');
 			const artistsStatus = document.getElementById('artistsStatus');
+			const artistSongsPanel = document.getElementById('artistSongsPanel');
+			const songsTitle = document.getElementById('songsTitle');
+			const songsStatus = document.getElementById('songsStatus');
+			const songsBody = document.getElementById('songsBody');
 
 			function escapeHtml(value) {
 				return String(value)
@@ -82,6 +126,77 @@
 			function setStatus(message, isError = false) {
 				artistsStatus.textContent = message;
 				artistsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function setSongsStatus(message, isError = false) {
+				songsStatus.textContent = message;
+				songsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function formatDuration(value) {
+				const seconds = Number(value || 0);
+				if (!Number.isFinite(seconds) || seconds <= 0) {
+					return '-';
+				}
+
+				const total = Math.floor(seconds);
+				const minutes = Math.floor(total / 60);
+				const remaining = total % 60;
+				return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+			}
+
+			async function loadArtistSongs(artistName) {
+				const artist = String(artistName || '').trim();
+				if (!artist) {
+					return;
+				}
+
+				artistSongsPanel.classList.remove('is-hidden');
+				songsTitle.textContent = `Musiques de ${artist}`;
+				songsBody.innerHTML = '';
+				setSongsStatus('Chargement...');
+
+				try {
+					const response = await fetch(`interface.php?artistSongs=1&artist=${encodeURIComponent(artist)}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer les musiques de cet artiste');
+					}
+
+					const songs = Array.isArray(payload.songs) ? payload.songs : [];
+					songsBody.innerHTML = '';
+
+					if (!songs.length) {
+						songsBody.innerHTML = '<tr><td colspan="4">Aucune musique pour cet artiste</td></tr>';
+						setSongsStatus('Aucune musique trouvee pour cet artiste.');
+						return;
+					}
+
+					songs.forEach((song) => {
+						const row = document.createElement('tr');
+						row.innerHTML = `
+							<td>${escapeHtml(song.Titre || '')}</td>
+							<td>${escapeHtml(song.Album || '')}</td>
+							<td>${formatDuration(song.Duree)}</td>
+							<td>${Number(song.NombreVueInterne || 0)}</td>
+						`;
+						songsBody.appendChild(row);
+					});
+
+					setSongsStatus(`${songs.length} musique(s) chargee(s).`);
+				} catch (error) {
+					console.error(error);
+					setSongsStatus(error.message || 'Erreur de chargement.', true);
+				}
 			}
 
 			async function loadArtists() {
@@ -112,11 +227,17 @@
 
 					artists.forEach((artist) => {
 						const row = document.createElement('tr');
+						const artistName = String(artist.Artiste || '').trim();
 						row.innerHTML = `
-							<td>${escapeHtml(artist.Artiste || '')}</td>
+							<td><button type="button" class="artist-name-button">${escapeHtml(artist.Artiste || '')}</button></td>
 							<td>${Number(artist.TotalMusiques || 0)}</td>
 							<td>${Number(artist.TotalVuesInternes || 0)}</td>
 						`;
+
+						const button = row.querySelector('.artist-name-button');
+						button.addEventListener('click', () => {
+							void loadArtistSongs(artistName);
+						});
 						artistsBody.appendChild(row);
 					});
 

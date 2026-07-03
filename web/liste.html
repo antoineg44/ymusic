@@ -40,6 +40,16 @@
 				padding: 10px;
 				white-space: nowrap;
 			}
+
+			.play-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
+			}
 		</style>
 	</head>
 	<body>
@@ -68,17 +78,21 @@
 								<th>NombreVue</th>
 								<th>NombreVueInterne</th>
 								<th>DateAjout</th>
+								<th>Action</th>
 							</tr>
 						</thead>
 						<tbody id="musiquesBody"></tbody>
 					</table>
 				</div>
+
+				<audio id="previewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
 			</section>
 		</main>
 
 		<script>
 			const musiquesBody = document.getElementById('musiquesBody');
 			const musiquesStatus = document.getElementById('musiquesStatus');
+			const previewAudio = document.getElementById('previewAudio');
 
 			function escapeHtml(value) {
 				return String(value ?? '')
@@ -97,7 +111,7 @@
 				musiquesBody.innerHTML = '';
 
 				if (!rows.length) {
-					musiquesBody.innerHTML = '<tr><td colspan="11">Aucune musique en base</td></tr>';
+					musiquesBody.innerHTML = '<tr><td colspan="12">Aucune musique en base</td></tr>';
 					return;
 				}
 
@@ -115,9 +129,54 @@
 						<td>${Number(row.NombreVue || 0)}</td>
 						<td>${Number(row.NombreVueInterne || 0)}</td>
 						<td>${escapeHtml(row.DateAjout)}</td>
+						<td><button type="button" class="play-btn">▶</button></td>
 					`;
+
+					const playButton = tr.querySelector('.play-btn');
+					playButton.addEventListener('click', () => {
+						void playMusic(row);
+					});
 					musiquesBody.appendChild(tr);
 				});
+			}
+
+			async function playMusic(row) {
+				const id = String((row && row.Id) || '').trim();
+				if (!id) {
+					setStatus('Impossible de lire cette musique (Id manquant).', true);
+					return;
+				}
+
+				setStatus(`Preparation de la lecture pour ${row.Titre || id}...`);
+
+				try {
+					const response = await fetch(`interface.php?musicId=${encodeURIComponent(id)}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Lecture impossible');
+					}
+
+					const path = String((payload.download && payload.download.path) || '').trim();
+					if (!path) {
+						throw new Error('Fichier audio introuvable pour cette musique');
+					}
+
+					previewAudio.src = encodeURI(path);
+					await previewAudio.play();
+					setStatus(`Lecture en cours: ${row.Titre || id}`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de lecture.', true);
+				}
 			}
 
 			async function loadMusiques() {

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Lecteur</title>
+		<link rel="stylesheet" href="styles.css" />
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: transparent;
+			}
+
+			.player-card {
+				position: static !important;
+				transform: none !important;
+				left: auto !important;
+				bottom: auto !important;
+				width: 100% !important;
+				border-radius: 16px !important;
+				box-sizing: border-box;
+			}
+		</style>
+	</head>
+	<body>
+		<section class="player-card">
+			<div class="player-head">
+				<div>
+					<strong id="nowPlaying">Aucune lecture en cours</strong>
+					<div id="nowPlayingMeta" class="status">Selectionnez un titre dans la bibliotheque</div>
+				</div>
+			</div>
+			<div class="player-controls">
+				<button id="prevButton" type="button">⏮</button>
+				<button id="playButton" type="button">▶</button>
+				<button id="nextButton" type="button">⏭</button>
+				<input id="seekBar" type="range" min="0" max="100" value="0" />
+				<span id="timeLabel">00:00 / 00:00</span>
+			</div>
+			<audio id="audioPlayer"></audio>
+		</section>
+
+		<script>
+			const playButton = document.getElementById('playButton');
+			const prevButton = document.getElementById('prevButton');
+			const nextButton = document.getElementById('nextButton');
+			const seekBar = document.getElementById('seekBar');
+			const timeLabel = document.getElementById('timeLabel');
+			const nowPlaying = document.getElementById('nowPlaying');
+			const nowPlayingMeta = document.getElementById('nowPlayingMeta');
+			const audio = document.getElementById('audioPlayer');
+
+			function postToParent(type, payload = {}) {
+				window.parent.postMessage({ source: 'lecteur', type, ...payload }, '*');
+			}
+
+			function formatTime(seconds) {
+				if (!Number.isFinite(seconds)) {
+					return '00:00';
+				}
+				const safeSeconds = Math.max(0, Math.floor(seconds));
+				const minutes = Math.floor(safeSeconds / 60);
+				const remaining = safeSeconds % 60;
+				return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+			}
+
+			function getPlayedSeconds(media) {
+				const ranges = media.played;
+				let total = 0;
+				for (let index = 0; index < ranges.length; index += 1) {
+					total += Math.max(0, ranges.end(index) - ranges.start(index));
+				}
+				return total;
+			}
+
+			function updateTimeDisplay() {
+				seekBar.max = audio.duration || 100;
+				seekBar.value = audio.currentTime || 0;
+				timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+
+				postToParent('TIME_UPDATE', {
+					currentTime: audio.currentTime || 0,
+					duration: audio.duration || 0,
+					playedSeconds: getPlayedSeconds(audio),
+				});
+			}
+
+			function toggleLocalPlayback() {
+				if (!audio.src) {
+					postToParent('REQUEST_PLAY_FALLBACK');
+					return;
+				}
+
+				if (audio.paused) {
+					audio.play().catch(() => {
+						postToParent('PLAYER_ERROR', { error: 'Lecture bloquee par le navigateur.' });
+					});
+					playButton.textContent = '⏸';
+				} else {
+					audio.pause();
+					playButton.textContent = '▶';
+				}
+			}
+
+			playButton.addEventListener('click', toggleLocalPlayback);
+			prevButton.addEventListener('click', () => {
+				postToParent('REQUEST_PREV');
+			});
+			nextButton.addEventListener('click', () => {
+				postToParent('REQUEST_NEXT');
+			});
+			seekBar.addEventListener('input', () => {
+				if (!audio.duration) {
+					return;
+				}
+				const ratio = Number(seekBar.value) / Number(seekBar.max || 100);
+				audio.currentTime = (audio.duration || 0) * ratio;
+				updateTimeDisplay();
+			});
+			audio.addEventListener('timeupdate', updateTimeDisplay);
+			audio.addEventListener('loadedmetadata', updateTimeDisplay);
+			audio.addEventListener('ended', () => {
+				postToParent('REQUEST_NEXT');
+			});
+			audio.addEventListener('play', () => {
+				playButton.textContent = '⏸';
+			});
+			audio.addEventListener('pause', () => {
+				playButton.textContent = '▶';
+			});
+
+			window.addEventListener('message', (event) => {
+				const message = event.data;
+				if (!message || message.target !== 'lecteur') {
+					return;
+				}
+
+				if (message.type === 'LOAD_TRACK') {
+					nowPlaying.textContent = String(message.title || 'Aucune lecture en cours');
+					nowPlayingMeta.textContent = String(message.meta || 'Bibliotheque locale');
+					audio.src = String(message.src || '');
+					audio.load();
+					audio.play().catch(() => {
+						postToParent('PLAYER_ERROR', { error: 'Lecture bloquee par le navigateur.' });
+					});
+					return;
+				}
+
+				if (message.type === 'TOGGLE') {
+					toggleLocalPlayback();
+					return;
+				}
+
+				if (message.type === 'SET_PLAY_PAUSE_ICON') {
+					playButton.textContent = message.isPlaying ? '⏸' : '▶';
+				}
+			});
+
+			postToParent('PLAYER_READY');
+		</script>
+	</body>
+</html>

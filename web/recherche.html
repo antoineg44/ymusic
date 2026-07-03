@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recherche</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+
+      .search-embed {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+      }
+
+      .search-results {
+        list-style: none;
+        margin: 12px 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .search-results li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="panel search-embed">
+      <div class="search-row">
+        <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
+        <button id="searchButton" type="button">Rechercher</button>
+      </div>
+      <div id="suggestions" class="suggestions" aria-live="polite"></div>
+      <div id="searchStatus" class="status"></div>
+      <ul id="searchResults" class="search-results"></ul>
+    </section>
+
+    <script>
+      let suggestionTimer = null;
+
+      const searchInput = document.getElementById('searchInput');
+      const searchButton = document.getElementById('searchButton');
+      const suggestionsBox = document.getElementById('suggestions');
+      const statusBox = document.getElementById('searchStatus');
+      const searchResults = document.getElementById('searchResults');
+
+      function postToParent(type, payload = {}) {
+        window.parent.postMessage({ source: 'recherche', type, ...payload }, '*');
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;');
+      }
+
+      function setStatus(message) {
+        statusBox.textContent = message;
+      }
+
+      async function loadSuggestions(query) {
+        try {
+          const response = await fetch(`interface.php?query=${encodeURIComponent(query)}`);
+          const payload = await response.json();
+          renderSuggestions(payload.suggestions || []);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      async function searchMusic() {
+        const query = searchInput.value.trim();
+
+        if (!query) {
+          setStatus('Saisissez un terme de recherche.');
+          return;
+        }
+
+        setStatus(`Recherche de "${query}"...`);
+
+        try {
+          const response = await fetch(`interface.php?query=${encodeURIComponent(query)}`);
+          const payload = await response.json();
+
+          if (!payload.success) {
+            setStatus(payload.error || 'Recherche impossible.');
+            searchResults.innerHTML = '<li>Aucun resultat disponible.</li>';
+            return;
+          }
+
+          const results = payload.results || [];
+          const suggestions = payload.suggestions || [];
+          renderSuggestions(suggestions);
+          renderSearchResults(results);
+          setStatus(`${results.length} resultat(s) trouve(s) via YouTube Music.`);
+        } catch (error) {
+          console.error(error);
+          setStatus('La recherche YouTube Music a echoue.');
+        }
+      }
+
+      function renderSuggestions(suggestions) {
+        if (!suggestions.length) {
+          suggestionsBox.innerHTML = '';
+          return;
+        }
+
+        suggestionsBox.innerHTML = '';
+        suggestions.forEach((suggestion) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'suggestion-chip';
+          button.textContent = suggestion;
+          button.addEventListener('click', () => {
+            searchInput.value = suggestion;
+            searchMusic();
+          });
+          suggestionsBox.appendChild(button);
+        });
+      }
+
+      function renderSearchResults(results) {
+        if (!results.length) {
+          searchResults.innerHTML = '<li>Aucun resultat trouve.</li>';
+          return;
+        }
+
+        searchResults.innerHTML = '';
+
+        results.forEach((result) => {
+          const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
+          const item = document.createElement('li');
+          item.innerHTML = `
+            <div class="track-info">
+              <strong>${escapeHtml(result.title || 'Titre inconnu')}</strong>
+              <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
+            </div>
+            <div class="actions">
+              <button class="queue-action" type="button">▶</button>
+            </div>`;
+
+          item.querySelector('button').addEventListener('click', () => {
+            postToParent('SEARCH_PLAY_RESULT', { result });
+          });
+
+          searchResults.appendChild(item);
+        });
+      }
+
+      searchButton.addEventListener('click', () => {
+        void searchMusic();
+      });
+
+      searchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          void searchMusic();
+        }
+      });
+
+      searchInput.addEventListener('input', (event) => {
+        const query = event.target.value.trim();
+
+        if (!query) {
+          suggestionsBox.innerHTML = '';
+          return;
+        }
+
+        window.clearTimeout(suggestionTimer);
+        suggestionTimer = window.setTimeout(() => {
+          void loadSuggestions(query);
+        }, 250);
+      });
+
+      postToParent('SEARCH_READY');
+    </script>
+  </body>
+</html>

@@ -247,6 +247,46 @@ if (!empty($_GET['query'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['artistSongs'])) {
+
+    try {
+        $artist = trim((string) ($_GET['artist'] ?? ''));
+        if ($artist === '') {
+            throw new RuntimeException('Artiste requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $stmt = $pdo->prepare(
+            'SELECT
+                Id,
+                Titre,
+                Album,
+                Duree,
+                NombreVue,
+                NombreVueInterne,
+                DateAjout
+             FROM Musiques
+             WHERE Artiste = :artist
+             ORDER BY DateAjout DESC, Titre ASC'
+        );
+        $stmt->execute([':artist' => $artist]);
+
+        $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'artist' => $artist,
+            'songs' => $songs,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['albums'])) {
 
     try {

@@ -5,31 +5,23 @@ const state = {
   currentIndex: -1,
   currentTrack: null,
   currentVideoId: '',
+  currentDuration: 0,
+  currentPlayedSeconds: 0,
   likedLogged: false,
   currentTab: 'accueil',
+  playerReady: false,
+  searchReady: false,
 };
-
-let suggestionTimer = null;
 
 const libraryList = document.getElementById('libraryList');
 const libraryPanel = document.getElementById('libraryPanel');
-const searchRow = document.getElementById('searchRow');
-const searchResultsPanel = document.getElementById('searchResultsPanel');
+const searchPanel = document.getElementById('searchPanel');
+const artistsPanel = document.getElementById('artistsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
 const manageUsersLink = document.getElementById('manageUsersLink');
-const searchResults = document.getElementById('searchResults');
-const searchInput = document.getElementById('searchInput');
-const suggestionsBox = document.getElementById('suggestions');
 const statusBox = document.getElementById('status');
 const sidebarLinks = Array.from(document.querySelectorAll('.sidebar-link'));
-const playButton = document.getElementById('playButton');
-const prevButton = document.getElementById('prevButton');
-const nextButton = document.getElementById('nextButton');
-const seekBar = document.getElementById('seekBar');
-const timeLabel = document.getElementById('timeLabel');
-const nowPlaying = document.getElementById('nowPlaying');
-const nowPlayingMeta = document.getElementById('nowPlayingMeta');
-const audio = document.getElementById('audioPlayer');
+const playerFrame = document.getElementById('playerFrame');
 const logoutButton = document.getElementById('logoutButton');
 
 if (logoutButton) {
@@ -38,33 +30,58 @@ if (logoutButton) {
   });
 }
 
-document.getElementById('searchButton').addEventListener('click', searchMusic);
-searchInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    searchMusic();
-  }
-});
-searchInput.addEventListener('input', (event) => {
-  const query = event.target.value.trim();
+window.addEventListener('message', (event) => {
+  const message = event.data;
+  if (!message || message.source !== 'lecteur') {
+    if (message.source !== 'recherche') {
+      return;
+    }
 
-  if (!query) {
-    suggestionsBox.innerHTML = '';
+    if (message.type === 'SEARCH_READY') {
+      state.searchReady = true;
+      return;
+    }
+
+    if (message.type === 'SEARCH_PLAY_RESULT' && message.result) {
+      void handleSearchPlayResult(message.result);
+    }
     return;
   }
 
-  window.clearTimeout(suggestionTimer);
-  suggestionTimer = window.setTimeout(() => {
-    loadSuggestions(query);
-  }, 250);
-});
+  if (message.type === 'PLAYER_READY') {
+    state.playerReady = true;
+    return;
+  }
 
-playButton.addEventListener('click', togglePlayback);
-prevButton.addEventListener('click', () => { void playPrevious(); });
-nextButton.addEventListener('click', () => { void playNext(); });
-seekBar.addEventListener('input', seekPlayback);
-audio.addEventListener('timeupdate', updateTimeDisplay);
-audio.addEventListener('loadedmetadata', updateTimeDisplay);
-audio.addEventListener('ended', () => { void playNext(); });
+  if (message.type === 'REQUEST_PREV') {
+    void playPrevious();
+    return;
+  }
+
+  if (message.type === 'REQUEST_NEXT') {
+    void playNext();
+    return;
+  }
+
+  if (message.type === 'REQUEST_PLAY_FALLBACK') {
+    const fallbackTrack = state.library[0];
+    if (fallbackTrack) {
+      playTrack(fallbackTrack, 0);
+    }
+    return;
+  }
+
+  if (message.type === 'TIME_UPDATE') {
+    state.currentDuration = Number(message.duration || 0);
+    state.currentPlayedSeconds = Number(message.playedSeconds || 0);
+    updateTimeDisplay();
+    return;
+  }
+
+  if (message.type === 'PLAYER_ERROR' && message.error) {
+    setStatus(String(message.error));
+  }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   void initializeApp();
@@ -122,14 +139,14 @@ async function logout() {
 function setActiveTab(tab) {
   const isSearchTab = tab === 'recherche';
   const isListTab = tab === 'listes';
+  const isArtistsTab = tab === 'artists';
   const isSettingsTab = tab === 'parametres';
 
   state.currentTab = tab;
 
-  searchRow.hidden = !isSearchTab;
-  suggestionsBox.hidden = !isSearchTab;
-  searchResultsPanel.classList.toggle('is-hidden', !isSearchTab);
+  searchPanel.classList.toggle('is-hidden', !isSearchTab);
   libraryPanel.classList.toggle('is-hidden', !isListTab);
+  artistsPanel.classList.toggle('is-hidden', !isArtistsTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
   sidebarLinks.forEach((link) => {
@@ -246,7 +263,7 @@ async function saveLikedMusic(track) {
     Titre: String(track.title || ''),
     Artiste: String(track.artist || ''),
     Album: String(track.albumId || track.folder || ''),
-    Duree: Number.isFinite(audio.duration) ? String(Math.round(audio.duration)) : '',
+    Duree: Number.isFinite(state.currentDuration) && state.currentDuration > 0 ? String(Math.round(state.currentDuration)) : '',
     NombreVue: String(parsedViews),
     Utilisateur: String((state.currentUser && state.currentUser.username) || ''),
     DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
@@ -265,6 +282,14 @@ async function saveLikedMusic(track) {
   } catch (error) {
     console.error('Erreur lors de l\'ajout en base:', error);
   }
+}
+
+function sendPlayerMessage(type, payload = {}) {
+  if (!playerFrame || !playerFrame.contentWindow) {
+    return;
+  }
+
+  playerFrame.contentWindow.postMessage({ target: 'lecteur', type, ...payload }, '*');
 }
 
 async function loadLibrary() {
@@ -311,120 +336,41 @@ function renderLibrary() {
   });
 }
 
-async function loadSuggestions(query) {
-  try {
-    const response = await fetch(`interface.php?query=${encodeURIComponent(query)}`);
-    const payload = await response.json();
-    renderSuggestions(payload.suggestions || []);
-  } catch (error) {
-    console.error(error);
-  }
-}
+async function handleSearchPlayResult(result) {
+  const match = findLocalMatch(result);
+  const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
+  const albumId = String((result.album && result.album.id) || '').trim();
+  const views = parseViewCount(result.views);
 
-async function searchMusic() {
-  const query = searchInput.value.trim();
-
-  if (!query) {
-    setStatus('Saisissez un terme de recherche.');
-    return;
-  }
-
-  setStatus(`Recherche de “${query}”…`);
-
-  try {
-    const response = await fetch(`interface.php?query=${encodeURIComponent(query)}`);
-    const payload = await response.json();
-
-    if (!payload.success) {
-      setStatus(payload.error || 'Recherche impossible.');
-      searchResults.innerHTML = '<li>Aucun résultat disponible.</li>';
-      return;
+  if (match) {
+    if (result.videoId) {
+      await loadPlaylistQueue(result.videoId);
+    } else {
+      resetPlaylistQueue();
     }
 
-    const results = payload.results || [];
-    const suggestions = payload.suggestions || [];
-    renderSuggestions(suggestions);
-    renderSearchResults(results);
-    setStatus(`${results.length} résultat(s) trouvé(s) via YouTube Music.`);
-  } catch (error) {
-    console.error(error);
-    setStatus('La recherche YouTube Music a échoué.');
-  }
-}
-
-function renderSuggestions(suggestions) {
-  if (!suggestions.length) {
-    suggestionsBox.innerHTML = '';
+    const playableMatch = {
+      ...match,
+      artist: artists || match.artist || '',
+      albumId: albumId || match.albumId || '',
+      views: views || match.views || 0,
+      videoId: result.videoId || match.videoId || '',
+    };
+    playTrack(playableMatch, state.library.findIndex((track) => track.path === match.path));
     return;
   }
 
-  suggestionsBox.innerHTML = '';
-  suggestions.forEach((suggestion) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'suggestion-chip';
-    button.textContent = suggestion;
-    button.addEventListener('click', () => {
-      searchInput.value = suggestion;
-      searchMusic();
+  if (result.videoId) {
+    await downloadAndPlay(result.videoId, result.title || 'titre', {
+      artist: artists,
+      albumId,
+      views,
     });
-    suggestionsBox.appendChild(button);
-  });
-}
-
-function renderSearchResults(results) {
-  if (!results.length) {
-    searchResults.innerHTML = '<li>Aucun résultat trouvé.</li>';
     return;
   }
 
-  searchResults.innerHTML = '';
-  results.forEach((result) => {
-    const match = findLocalMatch(result);
-    const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
-    const albumId = String((result.album && result.album.id) || '').trim();
-    const views = parseViewCount(result.views);
-    const item = document.createElement('li');
-    item.innerHTML = `
-      <div class="track-info">
-        <strong>${escapeHtml(result.title || 'Titre inconnu')}</strong>
-        <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
-      </div>
-      <div class="actions">
-        <button class="queue-action" data-action="play" type="button">▶</button>
-      </div>`;
-
-    item.querySelector('button').addEventListener('click', async () => {
-      console.log(`Action: play for "${result.title}"`);
-      console.log(result);
-      if (match) {
-        if (result.videoId) {
-          await loadPlaylistQueue(result.videoId);
-        } else {
-          resetPlaylistQueue();
-        }
-        const playableMatch = {
-          ...match,
-          artist: artists || match.artist || '',
-          albumId: albumId || match.albumId || '',
-          views: views || match.views || 0,
-          videoId: result.videoId || match.videoId || '',
-        };
-        playTrack(playableMatch, state.library.findIndex((track) => track.path === match.path));
-      } else if (result.videoId) {
-        await downloadAndPlay(result.videoId, result.title || 'titre', {
-          artist: artists,
-          albumId,
-          views,
-        });
-      } else {
-        resetPlaylistQueue();
-        setStatus('Aucun fichier local correspondant n’a été trouvé.');
-      }
-    });
-
-    searchResults.appendChild(item);
-  });
+  resetPlaylistQueue();
+  setStatus('Aucun fichier local correspondant n\'a ete trouve.');
 }
 
 function findLocalMatch(result) {
@@ -561,20 +507,16 @@ function playTrack(track, index) {
   state.currentTrack = track;
   state.currentIndex = resolvedIndex;
   state.currentVideoId = track.videoId || '';
+  state.currentDuration = 0;
+  state.currentPlayedSeconds = 0;
   state.likedLogged = false;
   state.likedSaved = false;
   const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
-  audio.src = `${encodeURI(track.path)}${cacheBust}`;
-  audio.load();
-
-  nowPlaying.textContent = track.title;
-  nowPlayingMeta.textContent = track.folder || 'Bibliothèque locale';
-
-  audio.play().then(() => {
-    playButton.textContent = '⏸';
-  }).catch((error) => {
-    console.error(error);
-    setStatus('La lecture a été bloquée par le navigateur.');
+  const source = `${encodeURI(track.path)}${cacheBust}`;
+  sendPlayerMessage('LOAD_TRACK', {
+    src: source,
+    title: track.title,
+    meta: track.folder || 'Bibliotheque locale',
   });
 }
 
@@ -619,21 +561,7 @@ async function loadPlaylistQueue(videoId) {
 }
 
 function togglePlayback() {
-  if (!audio.src) {
-    const fallbackTrack = state.library[0];
-    if (fallbackTrack) {
-      playTrack(fallbackTrack, 0);
-    }
-    return;
-  }
-
-  if (audio.paused) {
-    audio.play();
-    playButton.textContent = '⏸';
-  } else {
-    audio.pause();
-    playButton.textContent = '▶';
-  }
+  sendPlayerMessage('TOGGLE');
 }
 
 async function playPrevious() {
@@ -707,21 +635,12 @@ async function playNext() {
 }
 
 function seekPlayback(event) {
-  if (!audio.duration) {
-    return;
-  }
-  const ratio = Number(event.target.value) / 100;
-  audio.currentTime = audio.duration * ratio;
+  void event;
 }
 
 function updateTimeDisplay() {
-  seekBar.max = audio.duration || 100;
-  seekBar.value = audio.currentTime || 0;
-  timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
-
-  if (!state.likedLogged && Number.isFinite(audio.duration) && audio.duration > 0) {
-    const listenedSeconds = getPlayedSeconds(audio);
-    const ratio = listenedSeconds / audio.duration;
+  if (!state.likedLogged && Number.isFinite(state.currentDuration) && state.currentDuration > 0) {
+    const ratio = state.currentPlayedSeconds / state.currentDuration;
     if (ratio >= 0.75) {
       console.log('musique aimé');
       state.likedLogged = true;
