@@ -295,6 +295,7 @@ async function saveLikedMusic(track) {
   }
 
   const parsedViews = parseViewCount(track.views);
+  const persistedAlbumId = String(track.albumId || '').trim();
   const persistedId = isValidVideoId(track.videoId)
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
@@ -304,7 +305,7 @@ async function saveLikedMusic(track) {
     Id: persistedId,
     Titre: String(track.title || ''),
     Artiste: String(track.artist || ''),
-    Album: String(track.albumId || track.folder || ''),
+    Album: persistedAlbumId,
     Duree: Number.isFinite(state.currentDuration) && state.currentDuration > 0 ? String(Math.round(state.currentDuration)) : '',
     NombreVue: String(parsedViews),
     Utilisateur: String((state.currentUser && state.currentUser.username) || ''),

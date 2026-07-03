@@ -160,7 +160,9 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 		$updateStmt = $db->prepare(
 			'UPDATE Musiques
 			 SET
+				Artiste = CASE WHEN :artiste <> "" THEN :artiste ELSE Artiste END,
 				Utilisateur = :utilisateur,
+				Album = CASE WHEN :album <> "" AND LOWER(TRIM(:album)) <> "temp" THEN :album ELSE Album END,
 				Duree = COALESCE(:duree, Duree),
 				AnneeParution = COALESCE(:anneeParution, AnneeParution),
 				Genre = COALESCE(:genre, Genre),
@@ -172,7 +174,9 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 
 		$updateStmt->execute([
 			':id' => $id,
+			':artiste' => $artiste,
 			':utilisateur' => $utilisateur,
+			':album' => $album,
 			':duree' => $duree,
 			':anneeParution' => $anneeParution,
 			':genre' => $genre,
