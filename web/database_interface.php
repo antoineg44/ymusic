@@ -9,15 +9,28 @@ if (session_status() === PHP_SESSION_NONE) {
 
 function get_database_pdo(): PDO
 {
-	if (!isset($_SESSION['session']) || !($_SESSION['session'] instanceof PDO)) {
-		connexion();
+	static $pdo = null;
+
+	if ($pdo instanceof PDO) {
+		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		return $pdo;
 	}
 
-	if (!($_SESSION['session'] instanceof PDO)) {
+	if (function_exists('connexion')) {
+		$candidate = connexion();
+		if ($candidate instanceof PDO) {
+			$pdo = $candidate;
+		}
+	}
+
+	if (!($pdo instanceof PDO) && isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
+		$pdo = $_SESSION['session'];
+	}
+
+	if (!($pdo instanceof PDO)) {
 		throw new RuntimeException('Connexion PDO indisponible');
 	}
 
-	$pdo = $_SESSION['session'];
 	$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 	return $pdo;

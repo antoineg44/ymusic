@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connexion YMusic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app login-layout">
+      <section class="login-card" aria-labelledby="loginTitle">
+        <h1 id="loginTitle">Connexion</h1>
+        <p class="login-subtitle">Connectez-vous pour acceder a votre lecteur.</p>
+
+        <form id="authForm" novalidate>
+          <label class="login-label" for="username">Identifiant</label>
+          <input class="login-input" id="username" name="username" type="text" autocomplete="username" required />
+
+          <label class="login-label" for="password">Mot de passe</label>
+          <input class="login-input" id="password" name="password" type="password" autocomplete="current-password" required />
+
+          <div class="login-actions">
+            <button id="loginButton" type="submit">Se connecter</button>
+            <button id="registerButton" type="button" class="secondary">Creer un compte</button>
+          </div>
+
+          <p id="authMessage" class="auth-message" role="alert"></p>
+        </form>
+      </section>
+    </div>
+
+    <script>
+      const form = document.getElementById('authForm');
+      const loginButton = document.getElementById('loginButton');
+      const registerButton = document.getElementById('registerButton');
+      const message = document.getElementById('authMessage');
+
+      function setMessage(text, isError = true) {
+        message.textContent = text;
+        message.classList.toggle('is-error', isError);
+        message.classList.toggle('is-success', !isError);
+      }
+
+      function lockButtons(locked) {
+        loginButton.disabled = locked;
+        registerButton.disabled = locked;
+      }
+
+      async function callAuth(action, body) {
+        const response = await fetch(`auth.php?action=${encodeURIComponent(action)}`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: new URLSearchParams(body),
+        });
+
+        return response.json();
+      }
+
+      async function submitAuth(action) {
+        const username = String(document.getElementById('username').value || '').trim();
+        const password = String(document.getElementById('password').value || '');
+
+        if (!username || !password) {
+          setMessage('Veuillez remplir les deux champs.');
+          return;
+        }
+
+        setMessage('');
+        lockButtons(true);
+
+        try {
+          const payload = await callAuth(action, { username, password });
+
+          if (!payload.success) {
+            setMessage(payload.message || 'Operation impossible.');
+            return;
+          }
+
+          setMessage(action === 'login' ? 'Connexion reussie.' : 'Compte cree, connexion reussie.', false);
+          window.setTimeout(() => {
+            window.location.replace('index.html');
+          }, 250);
+        } catch (error) {
+          console.error(error);
+          setMessage('Erreur reseau, reessayez.');
+        } finally {
+          lockButtons(false);
+        }
+      }
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        void submitAuth('login');
+      });
+
+      registerButton.addEventListener('click', () => {
+        void submitAuth('register');
+      });
+
+      (async () => {
+        try {
+          const response = await fetch('auth.php?action=check', { credentials: 'same-origin' });
+          const payload = await response.json();
+          if (payload.success) {
+            window.location.replace('index.html');
+          }
+        } catch (error) {
+          console.debug(error);
+        }
+      })();
+    </script>
+  </body>
+</html>

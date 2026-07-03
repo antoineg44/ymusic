@@ -1,6 +1,19 @@
 <?php
 header('Content-Type: application/json');
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (empty($_SESSION['user'])) {
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Authentification requise',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $baseDir = __DIR__ . '/data';
 $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
 $tracks = [];

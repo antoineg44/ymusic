@@ -28,6 +28,13 @@ const timeLabel = document.getElementById('timeLabel');
 const nowPlaying = document.getElementById('nowPlaying');
 const nowPlayingMeta = document.getElementById('nowPlayingMeta');
 const audio = document.getElementById('audioPlayer');
+const logoutButton = document.getElementById('logoutButton');
+
+if (logoutButton) {
+  logoutButton.addEventListener('click', () => {
+    void logout();
+  });
+}
 
 document.getElementById('searchButton').addEventListener('click', searchMusic);
 searchInput.addEventListener('keydown', (event) => {
@@ -58,9 +65,37 @@ audio.addEventListener('loadedmetadata', updateTimeDisplay);
 audio.addEventListener('ended', () => { void playNext(); });
 
 document.addEventListener('DOMContentLoaded', () => {
+  void ensureAuthenticated();
   initializeSidebarMenu();
   loadLibrary();
 });
+
+async function ensureAuthenticated() {
+  try {
+    const response = await fetch('auth.php?action=check', { credentials: 'same-origin' });
+    const payload = await response.json();
+
+    if (!payload.success) {
+      window.location.replace('login.html');
+    }
+  } catch (error) {
+    console.error(error);
+    window.location.replace('login.html');
+  }
+}
+
+async function logout() {
+  try {
+    await fetch('auth.php?action=logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+  } catch (error) {
+    console.error(error);
+  } finally {
+    window.location.replace('login.html');
+  }
+}
 
 function setActiveTab(tab) {
   const isSearchTab = tab === 'recherche';

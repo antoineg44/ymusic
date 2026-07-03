@@ -11,6 +11,83 @@ body {
   min-height: 100vh;
 }
 
+.login-layout {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.login-card {
+  width: min(420px, calc(100% - 24px));
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.45);
+}
+
+.login-card h1 {
+  margin: 0;
+}
+
+.login-subtitle {
+  margin: 6px 0 16px;
+  color: #94a3b8;
+}
+
+.login-label {
+  display: block;
+  font-weight: 600;
+  margin: 10px 0 6px;
+}
+
+.login-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  background: #111827;
+  color: #f8fafc;
+  padding: 10px 12px;
+}
+
+.login-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.login-actions button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.login-actions button[type='submit'] {
+  background: #0ea5e9;
+  color: #082f49;
+}
+
+.login-actions .secondary {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.auth-message {
+  min-height: 1.2em;
+  margin: 10px 0 0;
+}
+
+.auth-message.is-error {
+  color: #fca5a5;
+}
+
+.auth-message.is-success {
+  color: #86efac;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -86,6 +163,27 @@ body {
 .hero h1 {
   margin: 0 0 8px;
   font-size: 2rem;
+}
+
+.hero-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.logout-button {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.45);
+  color: #fecaca;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: rgba(153, 27, 27, 0.7);
 }
 
 .hero p {
@@ -258,6 +356,11 @@ input[type='range'] {
 
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .hero-topbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .content {
