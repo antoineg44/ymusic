@@ -7,6 +7,10 @@ if (session_status() === PHP_SESSION_NONE) {
 	session_start();
 }
 
+if (isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
+	unset($_SESSION['session']);
+}
+
 function get_database_pdo(): PDO
 {
 	static $pdo = null;
@@ -25,6 +29,7 @@ function get_database_pdo(): PDO
 
 	if (!($pdo instanceof PDO) && isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
 		$pdo = $_SESSION['session'];
+		unset($_SESSION['session']);
 	}
 
 	if (!($pdo instanceof PDO)) {

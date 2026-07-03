@@ -18,6 +18,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+if (isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
+    unset($_SESSION['session']);
+}
+
 $action = (string) ($_REQUEST['action'] ?? '');
 
 try {
@@ -70,6 +74,7 @@ function resolve_auth_pdo(): PDO
     // Compatibility path for legacy connectors that only set $_SESSION['session'].
     if (!($pdo instanceof PDO) && isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
         $pdo = $_SESSION['session'];
+        unset($_SESSION['session']);
     }
 
     if (!($pdo instanceof PDO)) {
@@ -183,6 +188,7 @@ function handle_register(): void
         'username' => $username,
         'role' => $role,
     ];
+    unset($_SESSION['session']);
     session_write_close();
 
     respond_json(201, [
@@ -212,6 +218,7 @@ function handle_login(): void
 
     session_regenerate_id(true);
     $_SESSION['user'] = sanitize_user($user);
+    unset($_SESSION['session']);
     session_write_close();
 
     respond_json(200, ['success' => true, 'user' => $_SESSION['user']]);
