@@ -178,6 +178,25 @@ function parseViewCount(value) {
     return 0;
   }
 
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  const shortMatch = normalized.match(/([0-9]+(?:[.,][0-9]+)?)\s*(md|m|k)\b/i);
+
+  if (shortMatch) {
+    const numericPart = Number.parseFloat(shortMatch[1].replace(',', '.'));
+    const suffix = shortMatch[2].toLowerCase();
+
+    if (Number.isFinite(numericPart)) {
+      const multipliers = {
+        k: 1_000,
+        m: 1_000_000,
+        md: 1_000_000_000,
+      };
+
+      const multiplier = multipliers[suffix] || 1;
+      return Math.max(0, Math.floor(numericPart * multiplier));
+    }
+  }
+
   const digits = value.replace(/[^0-9]/g, '');
   if (!digits) {
     return 0;
@@ -217,9 +236,13 @@ async function saveLikedMusic(track) {
   }
 
   const parsedViews = parseViewCount(track.views);
+  const persistedId = isValidVideoId(track.videoId)
+    ? track.videoId
+    : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
 
   const params = new URLSearchParams({
     addMusic: '1',
+    Id: persistedId,
     Titre: String(track.title || ''),
     Artiste: String(track.artist || ''),
     Album: String(track.albumId || track.folder || ''),
