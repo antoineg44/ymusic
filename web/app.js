@@ -65,10 +65,18 @@ audio.addEventListener('loadedmetadata', updateTimeDisplay);
 audio.addEventListener('ended', () => { void playNext(); });
 
 document.addEventListener('DOMContentLoaded', () => {
-  void ensureAuthenticated();
-  initializeSidebarMenu();
-  loadLibrary();
+  void initializeApp();
 });
+
+async function initializeApp() {
+  const authenticated = await ensureAuthenticated();
+  if (!authenticated) {
+    return;
+  }
+
+  initializeSidebarMenu();
+  await loadLibrary();
+}
 
 async function ensureAuthenticated() {
   try {
@@ -77,10 +85,13 @@ async function ensureAuthenticated() {
 
     if (!payload.success) {
       window.location.replace('login.html');
+      return false;
     }
+    return true;
   } catch (error) {
     console.error(error);
     window.location.replace('login.html');
+    return false;
   }
 }
 
@@ -202,7 +213,16 @@ async function saveLikedMusic(track) {
 
 async function loadLibrary() {
   try {
-    const response = await fetch('list_library.php');
+    const response = await fetch('list_library.php', { credentials: 'same-origin' });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        window.location.replace('login.html');
+        return;
+      }
+      throw new Error(`HTTP ${response.status}`);
+    }
+
     const tracks = await response.json();
     state.library = tracks || [];
     renderLibrary();
