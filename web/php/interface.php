@@ -146,17 +146,41 @@ $yt = new YouTubeMusic();
 
 if (!empty($_GET['query'])) {
 
-    echo json_encode(
-        $yt->search($_GET['query']),
-        JSON_UNESCAPED_UNICODE
-    );
+    try {
+        $query = trim((string) $_GET['query']);
+        if ($query === '') {
+            throw new RuntimeException('Requete de recherche vide');
+        }
+
+        echo json_encode(
+            $yt->search($query),
+            JSON_UNESCAPED_UNICODE
+        );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
 
 } elseif (!empty($_GET['videoId'])) {
 
-    echo json_encode(
-        $yt->playlist($_GET['videoId']),
-        JSON_UNESCAPED_UNICODE
-    );
+    try {
+        $videoId = trim((string) $_GET['videoId']);
+        if ($videoId === '') {
+            throw new RuntimeException('videoId requis');
+        }
+
+        echo json_encode(
+            $yt->playlist($videoId),
+            JSON_UNESCAPED_UNICODE
+        );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
 
 } elseif (!empty($_GET['musicId'])) {
 
