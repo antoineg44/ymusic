@@ -24,24 +24,42 @@
 				color: #bae6fd;
 			}
 
-			.editions-table-wrap {
-				overflow-x: auto;
+			.editions-list {
+				display: grid;
+				gap: 14px;
 			}
 
-			.editions-table {
+			.music-editor-card {
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.2);
+				border-radius: 12px;
+				padding: 12px;
+			}
+
+			.music-editor-title {
+				font-weight: 700;
+				margin-bottom: 10px;
+			}
+
+			.fields-table {
 				width: 100%;
 				border-collapse: collapse;
 			}
 
-			.editions-table th,
-			.editions-table td {
+			.fields-table th,
+			.fields-table td {
 				text-align: left;
 				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 				padding: 8px;
-				vertical-align: top;
+				vertical-align: middle;
 			}
 
-			.editions-table input {
+			.fields-table th {
+				width: 220px;
+				color: #cbd5e1;
+			}
+
+			.fields-table input {
 				width: 100%;
 				box-sizing: border-box;
 				border: 1px solid #475569;
@@ -60,6 +78,10 @@
 				font-weight: 700;
 				cursor: pointer;
 			}
+
+			.empty-row {
+				color: #cbd5e1;
+			}
 		</style>
 	</head>
 	<body>
@@ -73,26 +95,7 @@
 					<a class="editions-back" href="index.html">Retour au lecteur</a>
 				</div>
 
-				<div class="editions-table-wrap">
-					<table class="editions-table" aria-label="Edition musiques">
-						<thead>
-							<tr>
-								<th>Id</th>
-								<th>Titre</th>
-								<th>Artiste</th>
-								<th>Utilisateur</th>
-								<th>Album</th>
-								<th>Duree</th>
-								<th>Annee</th>
-								<th>Genre</th>
-								<th>NombreVue</th>
-								<th>NombreVueInterne</th>
-								<th>Action</th>
-							</tr>
-						</thead>
-						<tbody id="editionsBody"></tbody>
-					</table>
-				</div>
+				<div id="editionsBody" class="editions-list"></div>
 			</section>
 		</main>
 
@@ -127,27 +130,33 @@
 				editionsBody.innerHTML = '';
 
 				if (!rows.length) {
-					editionsBody.innerHTML = '<tr><td colspan="11">Aucune musique a editer</td></tr>';
+					editionsBody.innerHTML = '<div class="empty-row">Aucune musique a editer</div>';
 					return;
 				}
 
 				rows.forEach((row) => {
-					const tr = document.createElement('tr');
-					tr.dataset.id = row.Id;
-					tr.innerHTML = `
-						<td>${escapeHtml(row.Id)}</td>
-						<td><input data-field="Titre" value="${escapeHtml(row.Titre)}" /></td>
-						<td><input data-field="Artiste" value="${escapeHtml(row.Artiste)}" /></td>
-						<td><input data-field="Utilisateur" value="${escapeHtml(row.Utilisateur)}" /></td>
-						<td><input data-field="Album" value="${escapeHtml(row.Album)}" /></td>
-						<td><input data-field="Duree" value="${escapeHtml(row.Duree)}" /></td>
-						<td><input data-field="AnneeParution" value="${escapeHtml(row.AnneeParution)}" /></td>
-						<td><input data-field="Genre" value="${escapeHtml(row.Genre)}" /></td>
-						<td><input data-field="NombreVue" value="${escapeHtml(numberValue(row.NombreVue))}" /></td>
-						<td><input data-field="NombreVueInterne" value="${escapeHtml(numberValue(row.NombreVueInterne))}" /></td>
-						<td><button class="save-btn" type="button" data-action="save">Enregistrer</button></td>
+					const card = document.createElement('article');
+					card.className = 'music-editor-card';
+					card.dataset.id = row.Id;
+					card.innerHTML = `
+						<div class="music-editor-title">Musique ${escapeHtml(row.Id)}</div>
+						<table class="fields-table" aria-label="Champs edition musique ${escapeHtml(row.Id)}">
+							<tbody>
+								<tr><th>Id</th><td>${escapeHtml(row.Id)}</td></tr>
+								<tr><th>Titre</th><td><input data-field="Titre" value="${escapeHtml(row.Titre)}" /></td></tr>
+								<tr><th>Artiste</th><td><input data-field="Artiste" value="${escapeHtml(row.Artiste)}" /></td></tr>
+								<tr><th>Utilisateur</th><td><input data-field="Utilisateur" value="${escapeHtml(row.Utilisateur)}" /></td></tr>
+								<tr><th>Album</th><td><input data-field="Album" value="${escapeHtml(row.Album)}" /></td></tr>
+								<tr><th>Duree</th><td><input data-field="Duree" value="${escapeHtml(row.Duree)}" /></td></tr>
+								<tr><th>Annee</th><td><input data-field="AnneeParution" value="${escapeHtml(row.AnneeParution)}" /></td></tr>
+								<tr><th>Genre</th><td><input data-field="Genre" value="${escapeHtml(row.Genre)}" /></td></tr>
+								<tr><th>NombreVue</th><td><input data-field="NombreVue" value="${escapeHtml(numberValue(row.NombreVue))}" /></td></tr>
+								<tr><th>NombreVueInterne</th><td><input data-field="NombreVueInterne" value="${escapeHtml(numberValue(row.NombreVueInterne))}" /></td></tr>
+							</tbody>
+						</table>
+						<div style="margin-top: 10px;"><button class="save-btn" type="button" data-action="save">Enregistrer</button></div>
 					`;
-					editionsBody.appendChild(tr);
+					editionsBody.appendChild(card);
 				});
 			}
 
@@ -191,14 +200,14 @@
 				}
 			}
 
-			async function saveRow(tr) {
-				const id = tr.dataset.id;
+			async function saveRow(container) {
+				const id = container.dataset.id;
 				if (!id) {
 					return;
 				}
 
 				const getValue = (field) => {
-					const input = tr.querySelector(`input[data-field="${field}"]`);
+					const input = container.querySelector(`input[data-field="${field}"]`);
 					return input ? String(input.value || '').trim() : '';
 				};
 
@@ -216,7 +225,7 @@
 					NombreVueInterne: getValue('NombreVueInterne'),
 				});
 
-				const button = tr.querySelector('button[data-action="save"]');
+				const button = container.querySelector('button[data-action="save"]');
 				const initialLabel = button ? button.textContent : 'Enregistrer';
 				if (button) {
 					button.disabled = true;
@@ -256,12 +265,12 @@
 					return;
 				}
 
-				const tr = target.closest('tr');
-				if (!tr) {
+				const container = target.closest('.music-editor-card');
+				if (!container) {
 					return;
 				}
 
-				void saveRow(tr);
+				void saveRow(container);
 			});
 
 			void loadRows();
