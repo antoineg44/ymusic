@@ -44,11 +44,11 @@ if (descriptionBackdrop) {
 
 window.addEventListener('message', (event) => {
   const message = event.data;
-  if (!message || message.source !== 'lecteur') {
-    if (message.source !== 'recherche') {
-      return;
-    }
+  if (!message) {
+    return;
+  }
 
+  if (message.source === 'recherche') {
     if (message.type === 'SEARCH_READY') {
       state.searchReady = true;
       return;
@@ -57,6 +57,17 @@ window.addEventListener('message', (event) => {
     if (message.type === 'SEARCH_PLAY_RESULT' && message.result) {
       void handleSearchPlayResult(message.result);
     }
+    return;
+  }
+
+  if (message.source === 'artistes') {
+    if (message.type === 'ARTIST_PLAY_SONG' && message.song) {
+      void handleArtistPlaySong(message.song);
+    }
+    return;
+  }
+
+  if (message.source !== 'lecteur') {
     return;
   }
 
@@ -337,12 +348,23 @@ function openDescriptionPopup() {
   }
 
   const musicId = resolveCurrentTrackId();
+  const track = state.currentTrack || {};
+  const title = String(track.title || '').trim();
+  const artist = String(track.artist || '').trim();
   if (!musicId) {
     setStatus('Impossible d\'ouvrir la description: identifiant de musique introuvable.');
     return;
   }
 
-  descriptionFrame.src = `description.html?id=${encodeURIComponent(musicId)}`;
+  const params = new URLSearchParams({ id: musicId });
+  if (title) {
+    params.set('title', title);
+  }
+  if (artist) {
+    params.set('artist', artist);
+  }
+
+  descriptionFrame.src = `description.html?${params.toString()}`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
 }
@@ -442,6 +464,54 @@ function findLocalMatch(result) {
   const target = normalize(`${result.title || ''} ${Array.isArray(result.artists) ? result.artists.join(' ') : ''}`);
 
   return state.library.find((track) => normalize(track.title).includes(target) || normalize(track.file).includes(target));
+}
+
+function findLibraryTrackByMusicId(musicId) {
+  const targetId = String(musicId || '').trim();
+  if (!targetId) {
+    return null;
+  }
+
+  return state.library.find((track) => {
+    const fileStem = String(track.file || '').replace(/\.[^.]+$/, '');
+    const pathName = String(track.path || '').split('/').pop() || '';
+    const pathStem = pathName.replace(/\.[^.]+$/, '');
+    return fileStem === targetId || pathStem === targetId;
+  }) || null;
+}
+
+async function handleArtistPlaySong(song) {
+  const musicId = String((song && song.Id) || '').trim();
+  if (!musicId) {
+    setStatus('Impossible de lire cette musique depuis Artistes (Id manquant).');
+    return;
+  }
+
+  const libraryMatch = findLibraryTrackByMusicId(musicId);
+  if (libraryMatch) {
+    const playableMatch = {
+      ...libraryMatch,
+      title: String(song.Titre || libraryMatch.title || ''),
+      artist: String(song.Artiste || libraryMatch.artist || ''),
+      albumId: String(song.Album || libraryMatch.albumId || ''),
+      views: Number(song.NombreVue || libraryMatch.views || 0),
+      videoId: isValidVideoId(musicId) ? musicId : String(libraryMatch.videoId || ''),
+    };
+    playTrack(playableMatch, state.library.findIndex((track) => track.path === libraryMatch.path));
+    setStatus(`Lecture de "${playableMatch.title || musicId}" depuis Artistes.`);
+    return;
+  }
+
+  if (isValidVideoId(musicId)) {
+    await downloadAndPlay(musicId, String(song.Titre || 'titre'), {
+      artist: String(song.Artiste || ''),
+      albumId: String(song.Album || ''),
+      views: Number(song.NombreVue || 0),
+    });
+    return;
+  }
+
+  setStatus('Lecture impossible depuis Artistes: Id non supporte pour telechargement.');
 }
 
 async function downloadAndPlay(videoId, title, options = {}) {

@@ -126,7 +126,11 @@
 			const songsTitle = document.getElementById('songsTitle');
 			const songsStatus = document.getElementById('songsStatus');
 			const songsBody = document.getElementById('songsBody');
-			const artistPreviewAudio = document.getElementById('artistPreviewAudio');
+			let activeArtistName = '';
+
+			function postToParent(type, payload = {}) {
+				window.parent.postMessage({ source: 'artistes', type, ...payload }, '*');
+			}
 
 			function escapeHtml(value) {
 				return String(value)
@@ -163,6 +167,8 @@
 				if (!artist) {
 					return;
 				}
+
+				activeArtistName = artist;
 
 				artistSongsPanel.classList.remove('is-hidden');
 				songsTitle.textContent = `Musiques de ${artist}`;
@@ -225,36 +231,13 @@
 					return;
 				}
 
-				setSongsStatus(`Preparation de la lecture pour ${song.Titre || id}...`);
-
-				try {
-					const response = await fetch(`interface.php?musicId=${encodeURIComponent(id)}`, {
-						credentials: 'same-origin',
-						cache: 'no-store',
-					});
-
-					if (response.status === 401) {
-						window.location.replace('login.html');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
-						throw new Error(payload.error || 'Lecture impossible');
-					}
-
-					const path = String((payload.download && payload.download.path) || '').trim();
-					if (!path) {
-						throw new Error('Fichier audio introuvable pour cette musique');
-					}
-
-					artistPreviewAudio.src = encodeURI(path);
-					await artistPreviewAudio.play();
-					setSongsStatus(`Lecture en cours: ${song.Titre || id}`);
-				} catch (error) {
-					console.error(error);
-					setSongsStatus(error.message || 'Erreur de lecture.', true);
-				}
+				postToParent('ARTIST_PLAY_SONG', {
+					song: {
+						...song,
+						Artiste: activeArtistName || String(song.Artiste || ''),
+					},
+				});
+				setSongsStatus(`Lecture envoyee au lecteur: ${song.Titre || id}`);
 			}
 
 			async function loadArtists() {

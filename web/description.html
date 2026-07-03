@@ -115,6 +115,8 @@
       async function loadDescription() {
         const params = new URLSearchParams(window.location.search);
         const id = String(params.get('id') || '').trim();
+        const title = String(params.get('title') || '').trim();
+        const artist = String(params.get('artist') || '').trim();
 
         if (!id) {
           setStatus('Aucune musique selectionnee.', true);
@@ -124,7 +126,18 @@
         setStatus(`Chargement des details pour ${id}...`);
 
         try {
-          const response = await fetch(`interface.php?musicDetails=1&id=${encodeURIComponent(id)}`, {
+          const requestParams = new URLSearchParams({
+            musicDetails: '1',
+            id,
+          });
+          if (title) {
+            requestParams.set('title', title);
+          }
+          if (artist) {
+            requestParams.set('artist', artist);
+          }
+
+          const response = await fetch(`interface.php?${requestParams.toString()}`, {
             credentials: 'same-origin',
             cache: 'no-store',
           });
@@ -140,6 +153,12 @@
           }
 
           renderMusicDetails(payload.music);
+
+          if (payload.found === false) {
+            setStatus('Musique non trouvee en base pour le moment. Les informations affichees sont partielles.', true);
+            return;
+          }
+
           setStatus('Details charges.');
         } catch (error) {
           console.error(error);

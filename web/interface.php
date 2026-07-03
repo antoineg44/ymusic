@@ -291,6 +291,8 @@ if (!empty($_GET['query'])) {
 
     try {
         $id = trim((string) ($_GET['id'] ?? ''));
+        $title = trim((string) ($_GET['title'] ?? ''));
+        $artist = trim((string) ($_GET['artist'] ?? ''));
         if ($id === '') {
             throw new RuntimeException('Id requis');
         }
@@ -318,12 +320,82 @@ if (!empty($_GET['query'])) {
         $stmt->execute([':id' => $id]);
 
         $music = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($music === false && $title !== '') {
+            if ($artist !== '') {
+                $fallbackStmt = $pdo->prepare(
+                    'SELECT
+                        Id,
+                        Titre,
+                        Artiste,
+                        Utilisateur,
+                        Album,
+                        Duree,
+                        AnneeParution,
+                        Genre,
+                        NombreVue,
+                        NombreVueInterne,
+                        DateAjout
+                     FROM Musiques
+                     WHERE Titre = :title AND Artiste = :artist
+                     ORDER BY DateAjout DESC
+                     LIMIT 1'
+                );
+                $fallbackStmt->execute([
+                    ':title' => $title,
+                    ':artist' => $artist,
+                ]);
+            } else {
+                $fallbackStmt = $pdo->prepare(
+                    'SELECT
+                        Id,
+                        Titre,
+                        Artiste,
+                        Utilisateur,
+                        Album,
+                        Duree,
+                        AnneeParution,
+                        Genre,
+                        NombreVue,
+                        NombreVueInterne,
+                        DateAjout
+                     FROM Musiques
+                     WHERE Titre = :title
+                     ORDER BY DateAjout DESC
+                     LIMIT 1'
+                );
+                $fallbackStmt->execute([
+                    ':title' => $title,
+                ]);
+            }
+
+            $music = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
+        }
+
         if ($music === false) {
-            throw new RuntimeException('Musique introuvable');
+            echo json_encode([
+                'success' => true,
+                'found' => false,
+                'music' => [
+                    'Id' => $id,
+                    'Titre' => $title,
+                    'Artiste' => $artist,
+                    'Utilisateur' => null,
+                    'Album' => null,
+                    'Duree' => null,
+                    'AnneeParution' => null,
+                    'Genre' => null,
+                    'NombreVue' => null,
+                    'NombreVueInterne' => null,
+                    'DateAjout' => null,
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
         }
 
         echo json_encode([
             'success' => true,
+            'found' => true,
             'music' => $music,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
