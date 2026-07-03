@@ -135,6 +135,36 @@ function getPlayedSeconds(media) {
   return total;
 }
 
+async function saveLikedMusic(track) {
+  if (!track || !track.title) {
+    return;
+  }
+
+  const params = new URLSearchParams({
+    addMusic: '1',
+    Titre: String(track.title || ''),
+    Artiste: String(track.artist || ''),
+    Album: String(track.folder || ''),
+    Duree: Number.isFinite(audio.duration) ? String(Math.round(audio.duration)) : '',
+    Utilisateur: 'ToComplete',
+    DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  });
+
+  try {
+    const response = await fetch(`interface.php?${params.toString()}`);
+    const payload = await response.json();
+
+    if (!payload.success) {
+      console.error('Impossible d\'ajouter la musique en base:', payload.error || payload);
+      return;
+    }
+
+    console.log('Musique ajoutee en base:', payload.music || track.title);
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout en base:', error);
+  }
+}
+
 async function loadLibrary() {
   try {
     const response = await fetch('list_library.php');
@@ -364,6 +394,7 @@ function playTrack(track, index) {
   state.currentIndex = resolvedIndex;
   state.currentVideoId = track.videoId || '';
   state.likedLogged = false;
+  state.likedSaved = false;
   const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
   audio.src = `${encodeURI(track.path)}${cacheBust}`;
   audio.load();
@@ -516,6 +547,11 @@ function updateTimeDisplay() {
     if (ratio >= 0.75) {
       console.log('musique aimé');
       state.likedLogged = true;
+
+      if (!state.likedSaved) {
+        state.likedSaved = true;
+        void saveLikedMusic(state.currentTrack);
+      }
     }
   }
 }
