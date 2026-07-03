@@ -5,6 +5,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/connexion.php';
 
 if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
@@ -173,6 +183,7 @@ function handle_register(): void
         'username' => $username,
         'role' => $role,
     ];
+    session_write_close();
 
     respond_json(201, [
         'success' => true,
@@ -201,6 +212,7 @@ function handle_login(): void
 
     session_regenerate_id(true);
     $_SESSION['user'] = sanitize_user($user);
+    session_write_close();
 
     respond_json(200, ['success' => true, 'user' => $_SESSION['user']]);
 }
