@@ -43,6 +43,33 @@ function respond_json(int $status, array $payload): void
     exit;
 }
 
+function resolve_auth_pdo(): PDO
+{
+    $pdo = null;
+
+    if (function_exists('connexion')) {
+        $candidate = connexion();
+        if ($candidate instanceof PDO) {
+            $pdo = $candidate;
+        }
+    }
+
+    // Compatibility path for legacy connectors that only set $_SESSION['session'].
+    if (!($pdo instanceof PDO) && isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
+        $pdo = $_SESSION['session'];
+    }
+
+    if (!($pdo instanceof PDO)) {
+        throw new RuntimeException(
+            'Connexion base de donnees indisponible. Verifiez web/connexion.php et les variables YMUSIC_DB_*.'
+        );
+    }
+
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    return $pdo;
+}
+
 function ensure_users_table(PDO $pdo): void
 {
     $pdo->exec(
@@ -97,7 +124,7 @@ function count_users(PDO $pdo): int
 
 function handle_register(): void
 {
-    $pdo = connexion();
+    $pdo = resolve_auth_pdo();
     ensure_users_table($pdo);
 
     $usernameInput = (string) ($_POST['username'] ?? '');
@@ -153,7 +180,7 @@ function handle_register(): void
 
 function handle_login(): void
 {
-    $pdo = connexion();
+    $pdo = resolve_auth_pdo();
     ensure_users_table($pdo);
 
     $username = normalize_username((string) ($_POST['username'] ?? ''));
