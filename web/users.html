@@ -81,7 +81,7 @@
           options.body = new URLSearchParams(body);
         }
 
-        const response = await fetch(`auth.php?action=${encodeURIComponent(action)}`, options);
+        const response = await fetch(`php/auth.php?action=${encodeURIComponent(action)}`, options);
         const payload = await response.json();
 
         if (!response.ok || !payload.success) {

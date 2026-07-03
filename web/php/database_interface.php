@@ -1,4 +1,5 @@
 <?php
+// Couche d'acces DB pour la table Musiques: creation schema, insert/update et synchronisation fichiers.
 declare(strict_types=1);
 
 require_once __DIR__ . '/connexion.php';
@@ -43,6 +44,7 @@ function get_database_pdo(): PDO
 
 function ensure_music_table(PDO $pdo): void
 {
+	// Garantit le schema attendu et applique les migrations minimales si necessaire.
 	$pdo->exec(
 		"CREATE TABLE IF NOT EXISTS Musiques (
 			Id VARCHAR(191) NOT NULL,
@@ -123,6 +125,7 @@ function get_int_or_null($value): ?int
 
 function add_music_to_database(array $payload, ?PDO $pdo = null): array
 {
+	// Upsert metadonnees d'une musique avec protection des champs sensibles (Album, NombreVue).
 	$db = $pdo ?? get_database_pdo();
 	ensure_music_table($db);
 
@@ -261,9 +264,11 @@ function parse_artist_and_title(string $fileNameWithoutExt): array
 
 function sync_music_table(PDO $pdo): array
 {
+	// Indexe les fichiers audio locaux dans la base en conservant un identifiant stable.
 	ensure_music_table($pdo);
 
-	$baseDir = __DIR__ . '/data';
+	$webRoot = dirname(__DIR__);
+	$baseDir = $webRoot . '/data';
 	$allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
 
 	if (!is_dir($baseDir)) {
@@ -323,7 +328,7 @@ function sync_music_table(PDO $pdo): array
 
 		$folder = str_replace('\\', '/', substr($fileInfo->getPath(), strlen($baseDir) + 1));
 		$album = trim($folder, '/');
-		$relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen(__DIR__) + 1));
+		$relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
 
 		[$artist, $title] = parse_artist_and_title(pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME));
 		$dateAjout = date('Y-m-d H:i:s', (int) $fileInfo->getMTime());

@@ -1,5 +1,7 @@
 <?php
 
+// Endpoint d'authentification: login, logout, check session et gestion des utilisateurs admin.
+
 declare(strict_types=1);
 
 require_once __DIR__ . '/connexion.php';
@@ -71,6 +73,7 @@ try {
 
 function respond_json(int $status, array $payload): void
 {
+    // Reponse JSON uniforme pour toutes les actions de ce fichier.
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -82,6 +85,7 @@ function respond_json(int $status, array $payload): void
 
 function resolve_auth_pdo(): PDO
 {
+    // Recupere une connexion PDO via le connecteur principal, avec fallback legacy session.
     $pdo = null;
 
     if (function_exists('connexion')) {
@@ -99,7 +103,7 @@ function resolve_auth_pdo(): PDO
 
     if (!($pdo instanceof PDO)) {
         throw new RuntimeException(
-            'Connexion base de donnees indisponible. Verifiez web/connexion.php et les variables YMUSIC_DB_*.'
+            'Connexion base de donnees indisponible. Verifiez web/php/connexion.php et les variables YMUSIC_DB_*.'
         );
     }
 

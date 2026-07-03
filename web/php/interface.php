@@ -1,5 +1,7 @@
 <?php
 
+// API principale: recherche, playlist, telechargement, metadonnees et routes artistes/albums.
+
 require 'YouTubeMusic.php';
 require_once __DIR__ . '/database_interface.php';
 
@@ -11,6 +13,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 function sanitize_folder_name(string $value): string
 {
+    // Nettoie un nom de dossier pour eviter caracteres invalides sur le systeme de fichiers.
     $cleaned = trim($value);
     $cleaned = preg_replace('/[\\\\\/:*?"<>|]+/', '-', $cleaned);
     $cleaned = preg_replace('/\s+/', ' ', (string) $cleaned);
@@ -48,8 +51,8 @@ function move_downloaded_webm_for_music(array $payload): ?array
     }
 
     $artist = sanitize_folder_name((string) ($payload['Artiste'] ?? ''));
-
-    $baseDir = __DIR__ . '/data';
+    $webRoot = dirname(__DIR__);
+    $baseDir = $webRoot . '/data';
     $source = $baseDir . '/temp/' . $id . '.webm';
     if (!is_file($source)) {
         return null;
@@ -67,7 +70,7 @@ function move_downloaded_webm_for_music(array $payload): ?array
 
     return [
         'from' => 'data/temp/' . basename($source),
-        'to' => str_replace('\\\\', '/', substr($destination, strlen(__DIR__) + 1)),
+        'to' => str_replace('\\', '/', substr($destination, strlen($webRoot) + 1)),
     ];
 }
 
@@ -90,7 +93,8 @@ function find_music_by_id(string $id): ?array
 
 function find_downloaded_file_for_music_id(string $id): ?array
 {
-    $baseDir = __DIR__ . '/data';
+    $webRoot = dirname(__DIR__);
+    $baseDir = $webRoot . '/data';
     if (!is_dir($baseDir)) {
         return null;
     }
@@ -117,7 +121,7 @@ function find_downloaded_file_for_music_id(string $id): ?array
             continue;
         }
 
-        $relativePath = str_replace('\\\\', '/', substr($fileInfo->getPathname(), strlen(__DIR__) + 1));
+        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
 
         return [
             'file' => $fileInfo->getFilename(),
@@ -129,6 +133,7 @@ function find_downloaded_file_for_music_id(string $id): ?array
 }
 
 if (empty($_SESSION['user'])) {
+    // Toutes les routes de cette API necessitent une session utilisateur active.
     http_response_code(401);
     echo json_encode([
         'success' => false,
@@ -333,7 +338,7 @@ if (!empty($_GET['query'])) {
                         Duree,
                         AnneeParution,
                         Genre,
-                        NombreVue,
+                        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
                         NombreVueInterne,
                         DateAjout
                      FROM Musiques
@@ -442,8 +447,27 @@ if (!empty($_GET['query'])) {
         $pdo = get_database_pdo();
         ensure_music_table($pdo);
 
-        $stmt = $pdo->query(
-            "SELECT
+        $sortableColumns = [
+            'Id' => 'Id',
+            'Titre' => 'Titre',
+            'Artiste' => 'Artiste',
+            'Utilisateur' => 'Utilisateur',
+            'Album' => 'Album',
+            'Duree' => 'Duree',
+            'AnneeParution' => 'AnneeParution',
+            'Genre' => 'Genre',
+            'NombreVue' => 'NombreVue',
+            'NombreVueInterne' => 'NombreVueInterne',
+            'DateAjout' => 'DateAjout',
+        ];
+
+        $sortByInput = trim((string) ($_GET['sortBy'] ?? 'DateAjout'));
+        $sortDirInput = strtolower(trim((string) ($_GET['sortDir'] ?? 'desc')));
+
+        $sortBy = $sortableColumns[$sortByInput] ?? 'DateAjout';
+        $sortDir = $sortDirInput === 'asc' ? 'ASC' : 'DESC';
+
+        $query = "SELECT
                 Id,
                 Titre,
                 Artiste,
@@ -456,14 +480,17 @@ if (!empty($_GET['query'])) {
                 NombreVueInterne,
                 DateAjout
              FROM Musiques
-             ORDER BY DateAjout DESC"
-        );
+             ORDER BY {$sortBy} {$sortDir}, Titre ASC";
+
+        $stmt = $pdo->query($query);
 
         $musiques = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
             'success' => true,
             'musiques' => $musiques,
+            'sortBy' => $sortBy,
+            'sortDir' => strtolower($sortDir),
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([

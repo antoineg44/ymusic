@@ -1,5 +1,7 @@
 <?php
 
+// Initialisation locale de l'environnement Python (venv + dependances yt).
+
 $baseDir = __DIR__ ;
 
 $venvDir = $baseDir . '/venv';

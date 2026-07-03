@@ -1,4 +1,5 @@
 <?php
+// Retourne la bibliotheque locale scannee depuis web/data pour l'utilisateur authentifie.
 header('Content-Type: application/json');
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -14,11 +15,13 @@ if (empty($_SESSION['user'])) {
     exit;
 }
 
-$baseDir = __DIR__ . '/data';
+$webRoot = dirname(__DIR__);
+$baseDir = $webRoot . '/data';
 $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
 $tracks = [];
 
 if (is_dir($baseDir)) {
+    // Parcours recursif des fichiers audio supportes.
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
         RecursiveIteratorIterator::SELF_FIRST
@@ -35,7 +38,7 @@ if (is_dir($baseDir)) {
             continue;
         }
 
-        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen(__DIR__) + 1));
+        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
 
         $tracks[] = [
             'title' => pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME),

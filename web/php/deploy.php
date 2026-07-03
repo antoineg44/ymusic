@@ -1,6 +1,8 @@
 
 <?php
 
+// Script de deploiement simple: checkout/pull d'une branche cible sur le serveur.
+
 if(!isset($_GET['branch_name'])) {
     die("Erreur : Veuillez indiquer un nom de branche.\n");
 }
@@ -21,6 +23,7 @@ $repoUrl = "https://github.com/antoineg44/ymusic.git"; // Remplacez par l'URL de
 
 // Fonction utilitaire pour exécuter une commande shell
 function runCommand($command, &$output = null, &$returnVar = null) {
+    // Execute une commande shell et arrete le script en cas d'erreur.
     echo "Exécution de la commande : $command\n";
     exec($command, $output, $returnVar);
     echo implode("\n", $output) . "\n";

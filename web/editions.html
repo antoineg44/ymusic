@@ -162,7 +162,7 @@
 
 			async function loadRows() {
 				try {
-					const response = await fetch('interface.php?musiques=1', {
+					const response = await fetch('php/interface.php?musiques=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -233,7 +233,7 @@
 				}
 
 				try {
-					const response = await fetch('interface.php', {
+					const response = await fetch('php/interface.php', {
 						method: 'POST',
 						credentials: 'same-origin',
 						body,

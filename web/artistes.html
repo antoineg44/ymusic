@@ -176,7 +176,7 @@
 				setSongsStatus('Chargement...');
 
 				try {
-					const response = await fetch(`interface.php?artistSongs=1&artist=${encodeURIComponent(artist)}`, {
+					const response = await fetch(`php/interface.php?artistSongs=1&artist=${encodeURIComponent(artist)}`, {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -242,7 +242,7 @@
 
 			async function loadArtists() {
 				try {
-					const response = await fetch('interface.php?artists=1', {
+					const response = await fetch('php/interface.php?artists=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});

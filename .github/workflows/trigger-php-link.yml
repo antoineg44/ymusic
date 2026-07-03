@@ -15,4 +15,4 @@ jobs:
           echo "Action effectuée après le commit sur la branche ${{ github.ref_name }}"
           
           # Appel à un script PHP via curl
-          curl -X GET -k "https://music.partitions.ovh/deploy.php?branch_name=${{ github.ref_name }}"
+          curl -X GET -k "https://music.partitions.ovh/php/deploy.php?branch_name=${{ github.ref_name }}"

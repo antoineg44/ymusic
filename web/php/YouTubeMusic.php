@@ -1,5 +1,7 @@
 <?php
 
+// Wrapper PHP vers scripts Python pour recherche, playlist et telechargement YouTube Music.
+
 class YouTubeMusic
 {
     private string $python;
@@ -10,9 +12,17 @@ class YouTubeMusic
 
     public function __construct()
     {
+        // Selectionne un binaire Python valide selon l'environnement (Windows/Linux, venv locale, fallback systeme).
         $baseDir = __DIR__;
+        $webDir = dirname(__DIR__);
+        $projectDir = dirname($webDir);
         $candidates = [
+            $projectDir . '/.venv/Scripts/python.exe',
+            $webDir . '/.venv/Scripts/python.exe',
+            $projectDir . '/.venv/bin/python',
             $baseDir . '/.venv/bin/python',
+            $webDir . '/venv/Scripts/python.exe',
+            $webDir . '/venv/bin/python',
             $baseDir . '/venv/bin/python',
             '/usr/bin/python3',
             '/usr/local/bin/python3',
@@ -31,13 +41,14 @@ class YouTubeMusic
             $this->python = 'python3';
         }
 
-        $this->script = $baseDir . '/ytapi.py';
+        $this->script = $webDir . '/python/ytapi.py';
 
-        $this->scriptDownload = $baseDir . '/stream.py';
+        $this->scriptDownload = $webDir . '/python/stream.py';
     }
 
     private function run(array $args): array
     {
+        // Execute ytapi.py et convertit sa sortie JSON en tableau PHP.
         $command =
             escapeshellcmd($this->python)
             . ' '

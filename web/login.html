@@ -47,7 +47,7 @@
       }
 
       async function callAuth(action, body) {
-        const response = await fetch(`auth.php?action=${encodeURIComponent(action)}`, {
+        const response = await fetch(`php/auth.php?action=${encodeURIComponent(action)}`, {
           method: 'POST',
           credentials: 'same-origin',
           body: new URLSearchParams(body),
@@ -99,7 +99,7 @@
 
       (async () => {
         try {
-          const response = await fetch('auth.php?action=check', {
+          const response = await fetch('php/auth.php?action=check', {
             credentials: 'same-origin',
             cache: 'no-store',
           });

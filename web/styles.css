@@ -251,6 +251,8 @@ body {
 
 .panel {
   padding: 18px;
+  width: 100%;
+  grid-column: 1 / -1;
 }
 
 .panel.is-hidden {

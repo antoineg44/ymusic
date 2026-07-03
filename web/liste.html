@@ -41,6 +41,15 @@
 				white-space: nowrap;
 			}
 
+			.musiques-table th.sortable {
+				cursor: pointer;
+				user-select: none;
+			}
+
+			.musiques-table th.sortable.is-active {
+				color: #7dd3fc;
+			}
+
 			.play-btn {
 				border: 0;
 				border-radius: 999px;
@@ -67,17 +76,17 @@
 					<table class="musiques-table" aria-label="Liste complete des musiques">
 						<thead>
 							<tr>
-								<th>Id</th>
-								<th>Titre</th>
-								<th>Artiste</th>
-								<th>Utilisateur</th>
-								<th>Album</th>
-								<th>Duree</th>
-								<th>Annee</th>
-								<th>Genre</th>
-								<th>NombreVue</th>
-								<th>NombreVueInterne</th>
-								<th>DateAjout</th>
+								<th class="sortable" data-sort="Id">Id</th>
+								<th class="sortable" data-sort="Titre">Titre</th>
+								<th class="sortable" data-sort="Artiste">Artiste</th>
+								<th class="sortable" data-sort="Utilisateur">Utilisateur</th>
+								<th class="sortable" data-sort="Album">Album</th>
+								<th class="sortable" data-sort="Duree">Duree</th>
+								<th class="sortable" data-sort="AnneeParution">Annee</th>
+								<th class="sortable" data-sort="Genre">Genre</th>
+								<th class="sortable" data-sort="NombreVue">NombreVue</th>
+								<th class="sortable" data-sort="NombreVueInterne">NombreVueInterne</th>
+								<th class="sortable" data-sort="DateAjout">DateAjout</th>
 								<th>Action</th>
 							</tr>
 						</thead>
@@ -92,6 +101,10 @@
 		<script>
 			const musiquesBody = document.getElementById('musiquesBody');
 			const musiquesStatus = document.getElementById('musiquesStatus');
+			const sortableHeaders = Array.from(document.querySelectorAll('.musiques-table th.sortable'));
+
+			let currentSortBy = 'DateAjout';
+			let currentSortDir = 'desc';
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -108,6 +121,18 @@
 			function setStatus(message, isError = false) {
 				musiquesStatus.textContent = message;
 				musiquesStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function updateSortIndicators() {
+				sortableHeaders.forEach((header) => {
+					const isActive = header.dataset.sort === currentSortBy;
+					header.classList.toggle('is-active', isActive);
+					if (isActive) {
+						header.textContent = `${header.dataset.label || header.textContent.replace(/\s+[▲▼]$/, '')} ${currentSortDir === 'asc' ? '▲' : '▼'}`;
+					} else {
+						header.textContent = header.dataset.label || header.textContent.replace(/\s+[▲▼]$/, '');
+					}
+				});
 			}
 
 			function renderMusiques(rows) {
@@ -158,7 +183,13 @@
 
 			async function loadMusiques() {
 				try {
-					const response = await fetch('interface.php?musiques=1', {
+					const params = new URLSearchParams({
+						musiques: '1',
+						sortBy: currentSortBy,
+						sortDir: currentSortDir,
+					});
+
+					const response = await fetch(`php/interface.php?${params.toString()}`, {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -174,14 +205,37 @@
 						throw new Error(payload.error || 'Impossible de recuperer la liste des musiques');
 					}
 
+					currentSortBy = String(payload.sortBy || currentSortBy);
+					currentSortDir = String(payload.sortDir || currentSortDir).toLowerCase() === 'asc' ? 'asc' : 'desc';
+
 					const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
 					renderMusiques(musiques);
-					setStatus(`${musiques.length} musique(s) chargee(s).`);
+					updateSortIndicators();
+					setStatus(`${musiques.length} musique(s) chargee(s) - tri ${currentSortBy} ${currentSortDir.toUpperCase()}.`);
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);
 				}
 			}
+
+			sortableHeaders.forEach((header) => {
+				header.dataset.label = header.textContent;
+				header.addEventListener('click', () => {
+					const sortBy = String(header.dataset.sort || '').trim();
+					if (!sortBy) {
+						return;
+					}
+
+					if (sortBy === currentSortBy) {
+						currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+					} else {
+						currentSortBy = sortBy;
+						currentSortDir = 'asc';
+					}
+
+					void loadMusiques();
+				});
+			});
 
 			void loadMusiques();
 		</script>

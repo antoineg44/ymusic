@@ -80,7 +80,7 @@
 
       async function loadSuggestions(query) {
         try {
-          const response = await fetch(`interface.php?query=${encodeURIComponent(query)}`);
+          const response = await fetch(`php/interface.php?query=${encodeURIComponent(query)}`);
           const payload = await response.json();
           renderSuggestions(payload.suggestions || []);
         } catch (error) {
@@ -99,7 +99,7 @@
         setStatus(`Recherche de "${query}"...`);
 
         try {
-          const response = await fetch(`interface.php?query=${encodeURIComponent(query)}`);
+          const response = await fetch(`php/interface.php?query=${encodeURIComponent(query)}`);
           const payload = await response.json();
 
           if (!payload.success) {

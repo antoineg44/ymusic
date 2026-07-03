@@ -162,7 +162,7 @@
             requestParams.set('artist', artist);
           }
 
-          const response = await fetch(`interface.php?${requestParams.toString()}`, {
+          const response = await fetch(`php/interface.php?${requestParams.toString()}`, {
             credentials: 'same-origin',
             cache: 'no-store',
           });

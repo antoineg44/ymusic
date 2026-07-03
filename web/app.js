@@ -1,3 +1,4 @@
+// Point d'entrée frontend: initialise les contrôleurs et coordonne les iframes.
 const state = {
   library: [],
   queue: [],
@@ -17,6 +18,7 @@ const libraryList = document.getElementById('libraryList');
 const libraryPanel = document.getElementById('libraryPanel');
 const searchPanel = document.getElementById('searchPanel');
 const artistsPanel = document.getElementById('artistsPanel');
+const albumsPanel = document.getElementById('albumsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
@@ -28,11 +30,30 @@ const descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
 const descriptionFrame = document.getElementById('descriptionFrame');
 const descriptionCloseButton = document.getElementById('descriptionCloseButton');
 
-if (logoutButton) {
-  logoutButton.addEventListener('click', () => {
-    void logout();
-  });
-}
+const playerController = window.createLecteurController({
+  state,
+  playerFrame,
+  setStatus,
+  isValidVideoId,
+  parseViewCount,
+  saveLikedMusic,
+  loadLibrary,
+  onOpenDescription: openDescriptionPopup,
+});
+
+const rechercheController = window.createRechercheController({
+  state,
+  setStatus,
+  parseViewCount,
+  normalize,
+  playerController,
+});
+
+const authController = window.createAuthController({
+  state,
+  manageUsersLink,
+  logoutButton,
+});
 
 if (descriptionCloseButton) {
   descriptionCloseButton.addEventListener('click', closeDescriptionPopup);
@@ -43,20 +64,14 @@ if (descriptionBackdrop) {
 }
 
 window.addEventListener('message', (event) => {
+  // Route les messages cross-iframe vers le contrôleur concerné.
   const message = event.data;
   if (!message) {
     return;
   }
 
   if (message.source === 'recherche') {
-    if (message.type === 'SEARCH_READY') {
-      state.searchReady = true;
-      return;
-    }
-
-    if (message.type === 'SEARCH_PLAY_RESULT' && message.result) {
-      void handleSearchPlayResult(message.result);
-    }
+    rechercheController.handleMessage(message);
     return;
   }
 
@@ -81,47 +96,9 @@ window.addEventListener('message', (event) => {
     return;
   }
 
-  if (message.source !== 'lecteur') {
+  if (message.source === 'lecteur') {
+    playerController.handleMessage(message);
     return;
-  }
-
-  if (message.type === 'PLAYER_READY') {
-    state.playerReady = true;
-    return;
-  }
-
-  if (message.type === 'REQUEST_PREV') {
-    void playPrevious();
-    return;
-  }
-
-  if (message.type === 'REQUEST_NEXT') {
-    void playNext();
-    return;
-  }
-
-  if (message.type === 'REQUEST_PLAY_FALLBACK') {
-    const fallbackTrack = state.library[0];
-    if (fallbackTrack) {
-      playTrack(fallbackTrack, 0);
-    }
-    return;
-  }
-
-  if (message.type === 'TIME_UPDATE') {
-    state.currentDuration = Number(message.duration || 0);
-    state.currentPlayedSeconds = Number(message.playedSeconds || 0);
-    updateTimeDisplay();
-    return;
-  }
-
-  if (message.type === 'PLAYER_ERROR' && message.error) {
-    setStatus(String(message.error));
-    return;
-  }
-
-  if (message.type === 'OPEN_DESCRIPTION') {
-    openDescriptionPopup();
   }
 });
 
@@ -130,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initializeApp() {
-  const authenticated = await ensureAuthenticated();
+  const authenticated = await authController.ensureAuthenticated();
   if (!authenticated) {
     return;
   }
@@ -139,49 +116,11 @@ async function initializeApp() {
   await loadLibrary();
 }
 
-async function ensureAuthenticated() {
-  try {
-    const response = await fetch('auth.php?action=check', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
-    const payload = await response.json();
-
-    if (!payload.success) {
-      window.location.replace('login.html');
-      return false;
-    }
-
-    state.currentUser = payload.user || null;
-
-    if (manageUsersLink && state.currentUser && state.currentUser.role !== 'admin') {
-      manageUsersLink.style.display = 'none';
-    }
-    return true;
-  } catch (error) {
-    console.error(error);
-    window.location.replace('login.html');
-    return false;
-  }
-}
-
-async function logout() {
-  try {
-    await fetch('auth.php?action=logout', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
-  } catch (error) {
-    console.error(error);
-  } finally {
-    window.location.replace('login.html');
-  }
-}
-
 function setActiveTab(tab) {
   const isSearchTab = tab === 'recherche';
   const isListTab = tab === 'listes';
   const isArtistsTab = tab === 'artists';
+  const isAlbumsTab = tab === 'albums';
   const isSettingsTab = tab === 'parametres';
 
   state.currentTab = tab;
@@ -189,6 +128,7 @@ function setActiveTab(tab) {
   searchPanel.classList.toggle('is-hidden', !isSearchTab);
   libraryPanel.classList.toggle('is-hidden', !isListTab);
   artistsPanel.classList.toggle('is-hidden', !isArtistsTab);
+  albumsPanel.classList.toggle('is-hidden', !isAlbumsTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
   sidebarLinks.forEach((link) => {
@@ -290,6 +230,7 @@ function getPlayedSeconds(media) {
 }
 
 async function saveLikedMusic(track) {
+  // Persiste les métadonnées d'écoute avec fallback API pour éviter les champs manquants.
   if (!track || !track.title) {
     return;
   }
@@ -321,7 +262,7 @@ async function saveLikedMusic(track) {
         fallbackParams.set('artist', fallbackArtist);
       }
 
-      const fallbackResponse = await fetch(`interface.php?${fallbackParams.toString()}`, {
+      const fallbackResponse = await fetch(`php/interface.php?${fallbackParams.toString()}`, {
         credentials: 'same-origin',
         cache: 'no-store',
       });
@@ -346,7 +287,7 @@ async function saveLikedMusic(track) {
 
   if (persistedId && (!persistedAlbumId || parsedViews <= 0)) {
     try {
-      const playlistResponse = await fetch(`interface.php?videoId=${encodeURIComponent(persistedId)}`, {
+      const playlistResponse = await fetch(`php/interface.php?videoId=${encodeURIComponent(persistedId)}`, {
         credentials: 'same-origin',
         cache: 'no-store',
       });
@@ -384,7 +325,7 @@ async function saveLikedMusic(track) {
   });
 
   try {
-    const response = await fetch(`interface.php?${params.toString()}`);
+    const response = await fetch(`php/interface.php?${params.toString()}`);
     const payload = await response.json();
 
     if (!payload.success) {
@@ -396,14 +337,6 @@ async function saveLikedMusic(track) {
   } catch (error) {
     console.error('Erreur lors de l\'ajout en base:', error);
   }
-}
-
-function sendPlayerMessage(type, payload = {}) {
-  if (!playerFrame || !playerFrame.contentWindow) {
-    return;
-  }
-
-  playerFrame.contentWindow.postMessage({ target: 'lecteur', type, ...payload }, '*');
 }
 
 function resolveCurrentTrackId() {
@@ -429,6 +362,7 @@ function resolveCurrentTrackId() {
 }
 
 function openDescriptionPopup() {
+  // Ouvre la fiche de la piste courante dans la modale iframe.
   if (!descriptionModal || !descriptionFrame) {
     return;
   }
@@ -483,7 +417,7 @@ function openEditionsPopup(musicId) {
 
 async function loadLibrary() {
   try {
-    const response = await fetch('list_library.php', { credentials: 'same-origin' });
+    const response = await fetch('php/list_library.php', { credentials: 'same-origin' });
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -520,52 +454,9 @@ function renderLibrary() {
       <div class="actions">
         <button class="track-action" data-index="${index}" type="button">▶</button>
       </div>`;
-    item.querySelector('button').addEventListener('click', () => playTrack(track, index));
+    item.querySelector('button').addEventListener('click', () => playerController.playTrack(track, index));
     libraryList.appendChild(item);
   });
-}
-
-async function handleSearchPlayResult(result) {
-  const match = findLocalMatch(result);
-  const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
-  const albumId = String((result.album && result.album.id) || '').trim();
-  const views = parseViewCount(result.views);
-
-  if (match) {
-    if (result.videoId) {
-      await loadPlaylistQueue(result.videoId);
-    } else {
-      resetPlaylistQueue();
-    }
-
-    const playableMatch = {
-      ...match,
-      artist: artists || match.artist || '',
-      albumId: albumId || match.albumId || '',
-      views: views || match.views || 0,
-      videoId: result.videoId || match.videoId || '',
-    };
-    playTrack(playableMatch, state.library.findIndex((track) => track.path === match.path));
-    return;
-  }
-
-  if (result.videoId) {
-    await downloadAndPlay(result.videoId, result.title || 'titre', {
-      artist: artists,
-      albumId,
-      views,
-    });
-    return;
-  }
-
-  resetPlaylistQueue();
-  setStatus('Aucun fichier local correspondant n\'a ete trouve.');
-}
-
-function findLocalMatch(result) {
-  const target = normalize(`${result.title || ''} ${Array.isArray(result.artists) ? result.artists.join(' ') : ''}`);
-
-  return state.library.find((track) => normalize(track.title).includes(target) || normalize(track.file).includes(target));
 }
 
 function findLibraryTrackByMusicId(musicId) {
@@ -599,13 +490,13 @@ async function handleArtistPlaySong(song) {
       views: Number(song.NombreVue || libraryMatch.views || 0),
       videoId: isValidVideoId(musicId) ? musicId : String(libraryMatch.videoId || ''),
     };
-    playTrack(playableMatch, state.library.findIndex((track) => track.path === libraryMatch.path));
+    playerController.playTrack(playableMatch, state.library.findIndex((track) => track.path === libraryMatch.path));
     setStatus(`Lecture de "${playableMatch.title || musicId}" depuis Artistes.`);
     return;
   }
 
   if (isValidVideoId(musicId)) {
-    await downloadAndPlay(musicId, String(song.Titre || 'titre'), {
+    await playerController.downloadAndPlay(musicId, String(song.Titre || 'titre'), {
       artist: String(song.Artiste || ''),
       albumId: String(song.Album || ''),
       views: Number(song.NombreVue || 0),
@@ -633,13 +524,13 @@ async function handleListPlaySong(song) {
       views: Number(song.NombreVue || libraryMatch.views || 0),
       videoId: isValidVideoId(musicId) ? musicId : String(libraryMatch.videoId || ''),
     };
-    playTrack(playableMatch, state.library.findIndex((track) => track.path === libraryMatch.path));
+    playerController.playTrack(playableMatch, state.library.findIndex((track) => track.path === libraryMatch.path));
     setStatus(`Lecture de "${playableMatch.title || musicId}" depuis Listes.`);
     return;
   }
 
   if (isValidVideoId(musicId)) {
-    await downloadAndPlay(musicId, String(song.Titre || 'titre'), {
+    await playerController.downloadAndPlay(musicId, String(song.Titre || 'titre'), {
       artist: String(song.Artiste || ''),
       albumId: String(song.Album || ''),
       views: Number(song.NombreVue || 0),
@@ -651,275 +542,33 @@ async function handleListPlaySong(song) {
 }
 
 async function downloadAndPlay(videoId, title, options = {}) {
-  const { skipQueueLoad = false, artist = '', albumId = '', views = 0 } = options;
-
-  if (!isValidVideoId(videoId)) {
-    setStatus('Identifiant video invalide pour le telechargement.');
-    return;
-  }
-
-  setStatus(`Téléchargement de “${title}”…`);
-
-  try {
-    if (!skipQueueLoad) {
-      await loadPlaylistQueue(videoId);
-    }
-
-    const response = await fetch(`interface.php?musicId=${encodeURIComponent(videoId)}`);
-    const payload = await response.json();
-
-    if (!payload.success) {
-      setStatus(payload.error || 'Le téléchargement a échoué.');
-      return;
-    }
-
-    const downloadPayload = payload.download || {};
-    const downloadedFile = downloadPayload.file || (Array.isArray(downloadPayload) ? downloadPayload.find((entry) => typeof entry === 'string' && entry.trim()) : '');
-    const downloadedPath = String(downloadPayload.path || '').trim();
-
-    if (!downloadedFile) {
-      setStatus(downloadPayload.error || 'Le téléchargement n’a pas produit de fichier audio.');
-      return;
-    }
-
-    const track = {
-      title,
-      artist: String(artist || '').trim(),
-      albumId: String(albumId || '').trim(),
-      views: parseViewCount(views),
-      path: downloadedPath || `data/temp/${downloadedFile}`,
-      file: downloadedFile,
-      folder: 'temp',
-      videoId,
-    };
-
-    if (downloadedPath) {
-      const pathParts = downloadedPath.split('/');
-      const folder = pathParts.length > 1 ? pathParts[pathParts.length - 2] : 'Bibliotheque';
-      track.folder = folder;
-    }
-
-    await waitForMediaReady(track.path);
-    await loadLibrary();
-
-    const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
-    const resolvedTitle = String(title || '').trim();
-
-    if (resolvedTitle) {
-      downloadedTrack.title = resolvedTitle;
-
-      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
-      if (libraryTrack) {
-        libraryTrack.title = resolvedTitle;
-      }
-    }
-
-    if (track.artist) {
-      downloadedTrack.artist = track.artist;
-
-      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
-      if (libraryTrack) {
-        libraryTrack.artist = track.artist;
-      }
-    }
-
-    if (track.albumId) {
-      downloadedTrack.albumId = track.albumId;
-
-      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
-      if (libraryTrack) {
-        libraryTrack.albumId = track.albumId;
-      }
-    }
-
-    if (track.views > 0) {
-      downloadedTrack.views = track.views;
-
-      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
-      if (libraryTrack) {
-        libraryTrack.views = track.views;
-      }
-    }
-
-    downloadedTrack.videoId = videoId;
-    playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path));
-    setStatus(`Lecture de “${title}” depuis le téléchargement.`);
-  } catch (error) {
-    console.error(error);
-    setStatus('Le téléchargement et la lecture ont échoué.');
-  }
-}
-
-async function waitForMediaReady(path, retries = 8, delayMs = 250) {
-  for (let attempt = 0; attempt < retries; attempt += 1) {
-    try {
-      const response = await fetch(`${encodeURI(path)}?r=${Date.now()}`, { method: 'HEAD' });
-      if (response.ok) {
-        return;
-      }
-    } catch (error) {
-      console.debug('Waiting for downloaded file...', error);
-    }
-
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, delayMs);
-    });
-  }
-
-  throw new Error('Downloaded media is not reachable yet.');
+  await playerController.downloadAndPlay(videoId, title, options);
 }
 
 function playTrack(track, index) {
-  if (!track) {
-    return;
-  }
-
-  const resolvedIndex = index >= 0 ? index : state.library.findIndex((candidate) => candidate.path === track.path);
-  state.currentTrack = track;
-  state.currentIndex = resolvedIndex;
-  state.currentVideoId = track.videoId || '';
-  state.currentDuration = 0;
-  state.currentPlayedSeconds = 0;
-  state.likedLogged = false;
-  state.likedSaved = false;
-  const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
-  const source = `${encodeURI(track.path)}${cacheBust}`;
-  sendPlayerMessage('LOAD_TRACK', {
-    src: source,
-    title: track.title,
-    meta: track.folder || 'Bibliotheque locale',
-  });
+  playerController.playTrack(track, index);
 }
 
 function resetPlaylistQueue() {
-  state.queue = [];
-  state.queueIndex = -1;
-  state.currentVideoId = '';
+  playerController.resetPlaylistQueue();
 }
 
 async function loadPlaylistQueue(videoId) {
-  if (!isValidVideoId(videoId)) {
-    resetPlaylistQueue();
-    return;
-  }
-
-  try {
-    const response = await fetch(`interface.php?videoId=${encodeURIComponent(videoId)}`);
-    const payload = await response.json();
-
-    if (!payload.success || !Array.isArray(payload.playlist)) {
-      resetPlaylistQueue();
-      return;
-    }
-
-    const playlist = payload.playlist.filter((entry) => entry && isValidVideoId(entry.videoId));
-    if (!playlist.length) {
-      resetPlaylistQueue();
-      return;
-    }
-
-    state.queue = playlist;
-    const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
-    state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
-    state.currentVideoId = videoId;
-
-    const nextVideo = playlist.slice(state.queueIndex + 1).find((entry) => entry && isValidVideoId(entry.videoId)) || null;
-    console.log('Next video from playlist response:', nextVideo);
-  } catch (error) {
-    console.error(error);
-    resetPlaylistQueue();
-  }
+  await playerController.loadPlaylistQueue(videoId);
 }
 
 function togglePlayback() {
-  sendPlayerMessage('TOGGLE');
+  playerController.togglePlayback();
 }
 
 async function playPrevious() {
-  if (state.queue.length && state.queueIndex > 0) {
-    for (let index = state.queueIndex - 1; index >= 0; index -= 1) {
-      const previous = state.queue[index];
-      if (!previous || !isValidVideoId(previous.videoId)) {
-        continue;
-      }
-
-      state.queueIndex = index;
-        await downloadAndPlay(previous.videoId, previous.title || 'titre', {
-          skipQueueLoad: true,
-          artist: Array.isArray(previous.artists) ? previous.artists.join(', ') : '',
-          albumId: String((previous.album && previous.album.id) || ''),
-          views: previous.views || 0,
-        });
-      return;
-    }
-  }
-
-  if (!state.library.length) {
-    return;
-  }
-
-  const previousIndex = (state.currentIndex - 1 + state.library.length) % state.library.length;
-  playTrack(state.library[previousIndex], previousIndex);
+  await playerController.playPrevious();
 }
 
 async function playNext() {
-  if (isValidVideoId(state.currentVideoId)) {
-    if (!state.queue.length || state.queueIndex < 0) {
-      await loadPlaylistQueue(state.currentVideoId);
-    }
-
-    if (state.queue.length) {
-      const currentQueueIndex = state.queue.findIndex((entry) => entry && entry.videoId === state.currentVideoId);
-      if (currentQueueIndex >= 0) {
-        state.queueIndex = currentQueueIndex;
-      }
-    }
-
-    if (state.queue.length && state.queueIndex >= 0 && state.queueIndex < state.queue.length - 1) {
-      for (let index = state.queueIndex + 1; index < state.queue.length; index += 1) {
-        const next = state.queue[index];
-        if (!next || !isValidVideoId(next.videoId)) {
-          continue;
-        }
-
-        state.queueIndex = index;
-        await downloadAndPlay(next.videoId, next.title || 'titre', {
-          skipQueueLoad: true,
-          artist: Array.isArray(next.artists) ? next.artists.join(', ') : '',
-          albumId: String((next.album && next.album.id) || ''),
-          views: next.views || 0,
-        });
-        return;
-      }
-    }
-
-    setStatus('Aucune piste suivante dans la playlist YouTube Music.');
-    return;
-  }
-
-  if (!state.library.length) {
-    return;
-  }
-
-  const nextIndex = (state.currentIndex + 1) % state.library.length;
-  playTrack(state.library[nextIndex], nextIndex);
-}
-
-function seekPlayback(event) {
-  void event;
+  await playerController.playNext();
 }
 
 function updateTimeDisplay() {
-  if (!state.likedLogged && Number.isFinite(state.currentDuration) && state.currentDuration > 0) {
-    const ratio = state.currentPlayedSeconds / state.currentDuration;
-    if (ratio >= 0.75) {
-      console.log('musique aimé');
-      state.likedLogged = true;
-
-      if (!state.likedSaved) {
-        state.likedSaved = true;
-        void saveLikedMusic(state.currentTrack);
-      }
-    }
-  }
+  playerController.updateTimeDisplay();
 }
