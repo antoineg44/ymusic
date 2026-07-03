@@ -80,7 +80,10 @@ async function initializeApp() {
 
 async function ensureAuthenticated() {
   try {
-    const response = await fetch('auth.php?action=check', { credentials: 'same-origin' });
+    const response = await fetch('auth.php?action=check', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
     const payload = await response.json();
 
     if (!payload.success) {
