@@ -338,7 +338,7 @@ if (!empty($_GET['query'])) {
                         Duree,
                         AnneeParution,
                         Genre,
-                        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
+                        NombreVue,
                         NombreVueInterne,
                         DateAjout
                      FROM Musiques
