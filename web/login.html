@@ -53,7 +53,24 @@
           body: new URLSearchParams(body),
         });
 
-        return response.json();
+        const rawText = await response.text();
+        let payload = null;
+
+        try {
+          payload = rawText ? JSON.parse(rawText) : null;
+        } catch (error) {
+          throw new Error(
+            response.status
+              ? `Le serveur d'authentification a repondu avec un contenu invalide (HTTP ${response.status}).`
+              : 'Le serveur d\'authentification n\'a pas retourne de JSON valide.'
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error((payload && payload.message) || `Erreur serveur HTTP ${response.status}.`);
+        }
+
+        return payload;
       }
 
       async function submitAuth(action) {
@@ -82,7 +99,7 @@
           }, 250);
         } catch (error) {
           console.error(error);
-          setMessage('Erreur reseau, reessayez.');
+          setMessage(error instanceof Error ? error.message : 'Erreur reseau, reessayez.');
         } finally {
           lockButtons(false);
         }
