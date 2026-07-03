@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gestion des utilisateurs</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app users-layout">
+      <section class="panel users-panel">
+        <div class="users-header">
+          <div>
+            <h1>Gestion des utilisateurs</h1>
+            <p id="usersStatus" class="status"></p>
+          </div>
+          <a class="users-back" href="index.html">Retour a l'application</a>
+        </div>
+
+        <form id="createUserForm" class="users-form" novalidate>
+          <h2>Nouvel utilisateur</h2>
+          <div class="users-grid">
+            <input id="newUsername" type="text" placeholder="Identifiant" required />
+            <input id="newPassword" type="password" placeholder="Mot de passe (min 6)" required />
+            <select id="newRole">
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+            </select>
+            <label class="users-checkbox">
+              <input id="newActive" type="checkbox" checked /> Actif
+            </label>
+          </div>
+          <button type="submit" class="users-btn">Creer</button>
+        </form>
+
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Identifiant</th>
+                <th>Role</th>
+                <th>Actif</th>
+                <th>Cree le</th>
+                <th>Mise a jour</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const usersTableBody = document.getElementById('usersTableBody');
+      const usersStatus = document.getElementById('usersStatus');
+      const createUserForm = document.getElementById('createUserForm');
+
+      function setStatus(message, isError = false) {
+        usersStatus.textContent = message;
+        usersStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;');
+      }
+
+      async function callApi(action, body = null) {
+        const options = {
+          method: body ? 'POST' : 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store',
+        };
+
+        if (body) {
+          options.body = new URLSearchParams(body);
+        }
+
+        const response = await fetch(`auth.php?action=${encodeURIComponent(action)}`, options);
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || `Erreur API (${response.status})`);
+        }
+
+        return payload;
+      }
+
+      async function ensureAdmin() {
+        try {
+          const payload = await callApi('check');
+          if (!payload.user || payload.user.role !== 'admin') {
+            window.location.replace('index.html');
+            return false;
+          }
+          return true;
+        } catch (error) {
+          console.error(error);
+          window.location.replace('login.html');
+          return false;
+        }
+      }
+
+      function formatDate(value) {
+        if (!value) {
+          return '-';
+        }
+        return value.replace('T', ' ');
+      }
+
+      function renderUsers(users) {
+        usersTableBody.innerHTML = '';
+
+        if (!users.length) {
+          usersTableBody.innerHTML = '<tr><td colspan="7">Aucun utilisateur</td></tr>';
+          return;
+        }
+
+        users.forEach((user) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${user.id}</td>
+            <td>${escapeHtml(user.username)}</td>
+            <td>
+              <select data-action="role" data-id="${user.id}">
+                <option value="user" ${user.role === 'user' ? 'selected' : ''}>user</option>
+                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>admin</option>
+              </select>
+            </td>
+            <td>
+              <input data-action="active" data-id="${user.id}" type="checkbox" ${user.active ? 'checked' : ''} />
+            </td>
+            <td>${escapeHtml(formatDate(user.createdAt))}</td>
+            <td>${escapeHtml(formatDate(user.updatedAt))}</td>
+            <td class="users-actions">
+              <button data-action="password" data-id="${user.id}" class="users-btn users-btn-small">Mot de passe</button>
+              <button data-action="delete" data-id="${user.id}" class="users-btn users-btn-small users-btn-danger">Supprimer</button>
+            </td>
+          `;
+
+          usersTableBody.appendChild(row);
+        });
+      }
+
+      async function reloadUsers() {
+        try {
+          setStatus('Chargement des utilisateurs...');
+          const payload = await callApi('list_users');
+          renderUsers(payload.users || []);
+          setStatus(`Utilisateurs charges: ${(payload.users || []).length}`);
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message, true);
+        }
+      }
+
+      createUserForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const username = String(document.getElementById('newUsername').value || '').trim();
+        const password = String(document.getElementById('newPassword').value || '');
+        const role = document.getElementById('newRole').value;
+        const active = document.getElementById('newActive').checked ? '1' : '0';
+
+        if (!username || !password) {
+          setStatus('Identifiant et mot de passe requis.', true);
+          return;
+        }
+
+        try {
+          await callApi('create_user', { username, password, role, active });
+          createUserForm.reset();
+          document.getElementById('newActive').checked = true;
+          setStatus('Utilisateur cree avec succes.');
+          await reloadUsers();
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message, true);
+        }
+      });
+
+      usersTableBody.addEventListener('change', async (event) => {
+        const target = event.target;
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+
+        if (!action || !id) {
+          return;
+        }
+
+        try {
+          if (action === 'role') {
+            await callApi('update_user', { id, role: target.value });
+            setStatus('Role mis a jour.');
+            await reloadUsers();
+            return;
+          }
+
+          if (action === 'active') {
+            await callApi('update_user', { id, active: target.checked ? '1' : '0' });
+            setStatus('Statut actif mis a jour.');
+            await reloadUsers();
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message, true);
+          await reloadUsers();
+        }
+      });
+
+      usersTableBody.addEventListener('click', async (event) => {
+        const target = event.target;
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+
+        if (!action || !id) {
+          return;
+        }
+
+        try {
+          if (action === 'password') {
+            const password = window.prompt('Nouveau mot de passe (min 6 caracteres):');
+            if (!password) {
+              return;
+            }
+            await callApi('update_user', { id, password });
+            setStatus('Mot de passe mis a jour.');
+            await reloadUsers();
+            return;
+          }
+
+          if (action === 'delete') {
+            const confirmDelete = window.confirm('Supprimer cet utilisateur ?');
+            if (!confirmDelete) {
+              return;
+            }
+            await callApi('delete_user', { id });
+            setStatus('Utilisateur supprime.');
+            await reloadUsers();
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message, true);
+        }
+      });
+
+      (async () => {
+        const ok = await ensureAdmin();
+        if (!ok) {
+          return;
+        }
+        await reloadUsers();
+      })();
+    </script>
+  </body>
+</html>

@@ -42,6 +42,26 @@ try {
             handle_register();
             break;
 
+        case 'list_users':
+            require_admin();
+            handle_list_users();
+            break;
+
+        case 'create_user':
+            require_admin();
+            handle_create_user();
+            break;
+
+        case 'update_user':
+            require_admin();
+            handle_update_user();
+            break;
+
+        case 'delete_user':
+            require_admin();
+            handle_delete_user();
+            break;
+
         default:
             respond_json(400, ['success' => false, 'message' => 'Action non supportee']);
     }
@@ -110,6 +130,13 @@ function normalize_username(string $value): string
     return trim(strtolower($value));
 }
 
+function require_admin(): void
+{
+    if (empty($_SESSION['user']) || (string) ($_SESSION['user']['role'] ?? '') !== 'admin') {
+        respond_json(403, ['success' => false, 'message' => 'Acces refuse']);
+    }
+}
+
 function sanitize_user(array $row): array
 {
     return [
@@ -136,6 +163,13 @@ function find_user_by_username(PDO $pdo, string $username): ?array
 function count_users(PDO $pdo): int
 {
     $stmt = $pdo->query('SELECT COUNT(*) AS total FROM Utilisateurs');
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return (int) ($row['total'] ?? 0);
+}
+
+function count_admin_users(PDO $pdo): int
+{
+    $stmt = $pdo->query("SELECT COUNT(*) AS total FROM Utilisateurs WHERE RoleUtilisateur = 'admin'");
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return (int) ($row['total'] ?? 0);
 }
@@ -216,6 +250,16 @@ function handle_login(): void
         respond_json(401, ['success' => false, 'message' => 'Identifiant ou mot de passe incorrect']);
     }
 
+    $updateStmt = $pdo->prepare(
+        'UPDATE Utilisateurs
+         SET DateMiseAJour = :dateMiseAJour
+         WHERE Id = :id'
+    );
+    $updateStmt->execute([
+        ':dateMiseAJour' => date('Y-m-d H:i:s'),
+        ':id' => (int) $user['Id'],
+    ]);
+
     session_regenerate_id(true);
     $_SESSION['user'] = sanitize_user($user);
     unset($_SESSION['session']);
@@ -244,4 +288,181 @@ function handle_check(): void
     }
 
     respond_json(200, ['success' => false]);
+}
+
+function handle_list_users(): void
+{
+    $pdo = resolve_auth_pdo();
+    ensure_users_table($pdo);
+
+    $stmt = $pdo->query(
+        'SELECT
+            Id,
+            NomUtilisateur,
+            RoleUtilisateur,
+            Actif,
+            DateCreation,
+            DateMiseAJour
+         FROM Utilisateurs
+         ORDER BY Id ASC'
+    );
+
+    $users = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $users[] = [
+            'id' => (int) $row['Id'],
+            'username' => (string) $row['NomUtilisateur'],
+            'role' => (string) $row['RoleUtilisateur'],
+            'active' => (int) $row['Actif'] === 1,
+            'createdAt' => (string) $row['DateCreation'],
+            'updatedAt' => (string) $row['DateMiseAJour'],
+        ];
+    }
+
+    respond_json(200, ['success' => true, 'users' => $users]);
+}
+
+function handle_create_user(): void
+{
+    $pdo = resolve_auth_pdo();
+    ensure_users_table($pdo);
+
+    $username = normalize_username((string) ($_POST['username'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
+    $role = (string) ($_POST['role'] ?? 'user');
+    $active = filter_var($_POST['active'] ?? '1', FILTER_VALIDATE_BOOLEAN);
+
+    if ($username === '' || strlen($username) < 3 || strlen($username) > 100) {
+        respond_json(400, ['success' => false, 'message' => 'Identifiant invalide (3 a 100 caracteres)']);
+    }
+
+    if (strlen($password) < 6) {
+        respond_json(400, ['success' => false, 'message' => 'Mot de passe trop court (6 caracteres minimum)']);
+    }
+
+    if (!in_array($role, ['admin', 'user'], true)) {
+        respond_json(400, ['success' => false, 'message' => 'Role invalide']);
+    }
+
+    if (find_user_by_username($pdo, $username) !== null) {
+        respond_json(409, ['success' => false, 'message' => 'Cet identifiant existe deja']);
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $stmt = $pdo->prepare(
+        'INSERT INTO Utilisateurs (NomUtilisateur, MotDePasseHash, RoleUtilisateur, Actif, DateCreation, DateMiseAJour)
+         VALUES (:username, :hash, :role, :active, :dateCreation, :dateMiseAJour)'
+    );
+    $stmt->execute([
+        ':username' => $username,
+        ':hash' => password_hash($password, PASSWORD_BCRYPT),
+        ':role' => $role,
+        ':active' => $active ? 1 : 0,
+        ':dateCreation' => $now,
+        ':dateMiseAJour' => $now,
+    ]);
+
+    respond_json(200, ['success' => true]);
+}
+
+function handle_update_user(): void
+{
+    $pdo = resolve_auth_pdo();
+    ensure_users_table($pdo);
+
+    $id = (int) ($_POST['id'] ?? 0);
+    $password = (string) ($_POST['password'] ?? '');
+    $role = (string) ($_POST['role'] ?? '');
+    $activeValue = $_POST['active'] ?? null;
+    $active = $activeValue === null
+        ? null
+        : filter_var($activeValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+    if ($id <= 0) {
+        respond_json(400, ['success' => false, 'message' => 'ID utilisateur invalide']);
+    }
+
+    $stmt = $pdo->prepare('SELECT Id, RoleUtilisateur FROM Utilisateurs WHERE Id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $current = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$current) {
+        respond_json(404, ['success' => false, 'message' => 'Utilisateur introuvable']);
+    }
+
+    if ($role !== '' && !in_array($role, ['admin', 'user'], true)) {
+        respond_json(400, ['success' => false, 'message' => 'Role invalide']);
+    }
+
+    if ((string) $current['RoleUtilisateur'] === 'admin' && $role === 'user' && count_admin_users($pdo) <= 1) {
+        respond_json(400, ['success' => false, 'message' => 'Impossible de retrograder le dernier administrateur']);
+    }
+
+    if ((string) $current['RoleUtilisateur'] === 'admin' && $active === false && count_admin_users($pdo) <= 1) {
+        respond_json(400, ['success' => false, 'message' => 'Impossible de desactiver le dernier administrateur']);
+    }
+
+    $fields = [];
+    $params = [':id' => $id, ':dateMiseAJour' => date('Y-m-d H:i:s')];
+
+    if ($password !== '') {
+        if (strlen($password) < 6) {
+            respond_json(400, ['success' => false, 'message' => 'Mot de passe trop court (6 caracteres minimum)']);
+        }
+        $fields[] = 'MotDePasseHash = :passwordHash';
+        $params[':passwordHash'] = password_hash($password, PASSWORD_BCRYPT);
+    }
+
+    if ($role !== '') {
+        $fields[] = 'RoleUtilisateur = :role';
+        $params[':role'] = $role;
+    }
+
+    if ($active !== null) {
+        $fields[] = 'Actif = :active';
+        $params[':active'] = $active ? 1 : 0;
+    }
+
+    if (empty($fields)) {
+        respond_json(200, ['success' => true, 'message' => 'Aucune modification']);
+    }
+
+    $fields[] = 'DateMiseAJour = :dateMiseAJour';
+    $query = 'UPDATE Utilisateurs SET ' . implode(', ', $fields) . ' WHERE Id = :id';
+    $update = $pdo->prepare($query);
+    $update->execute($params);
+
+    respond_json(200, ['success' => true]);
+}
+
+function handle_delete_user(): void
+{
+    $pdo = resolve_auth_pdo();
+    ensure_users_table($pdo);
+
+    $id = (int) ($_POST['id'] ?? 0);
+    if ($id <= 0) {
+        respond_json(400, ['success' => false, 'message' => 'ID utilisateur invalide']);
+    }
+
+    if (!empty($_SESSION['user']) && (int) ($_SESSION['user']['id'] ?? 0) === $id) {
+        respond_json(400, ['success' => false, 'message' => 'Impossible de supprimer votre compte connecte']);
+    }
+
+    $stmt = $pdo->prepare('SELECT Id, RoleUtilisateur FROM Utilisateurs WHERE Id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $target = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$target) {
+        respond_json(404, ['success' => false, 'message' => 'Utilisateur introuvable']);
+    }
+
+    if ((string) $target['RoleUtilisateur'] === 'admin' && count_admin_users($pdo) <= 1) {
+        respond_json(400, ['success' => false, 'message' => 'Impossible de supprimer le dernier administrateur']);
+    }
+
+    $delete = $pdo->prepare('DELETE FROM Utilisateurs WHERE Id = :id');
+    $delete->execute([':id' => $id]);
+
+    respond_json(200, ['success' => true]);
 }

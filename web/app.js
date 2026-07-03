@@ -15,6 +15,8 @@ const libraryList = document.getElementById('libraryList');
 const libraryPanel = document.getElementById('libraryPanel');
 const searchRow = document.getElementById('searchRow');
 const searchResultsPanel = document.getElementById('searchResultsPanel');
+const settingsPanel = document.getElementById('settingsPanel');
+const manageUsersLink = document.getElementById('manageUsersLink');
 const searchResults = document.getElementById('searchResults');
 const searchInput = document.getElementById('searchInput');
 const suggestionsBox = document.getElementById('suggestions');
@@ -90,6 +92,12 @@ async function ensureAuthenticated() {
       window.location.replace('login.html');
       return false;
     }
+
+    state.currentUser = payload.user || null;
+
+    if (manageUsersLink && state.currentUser && state.currentUser.role !== 'admin') {
+      manageUsersLink.style.display = 'none';
+    }
     return true;
   } catch (error) {
     console.error(error);
@@ -114,6 +122,7 @@ async function logout() {
 function setActiveTab(tab) {
   const isSearchTab = tab === 'recherche';
   const isListTab = tab === 'listes';
+  const isSettingsTab = tab === 'parametres';
 
   state.currentTab = tab;
 
@@ -121,6 +130,7 @@ function setActiveTab(tab) {
   suggestionsBox.hidden = !isSearchTab;
   searchResultsPanel.classList.toggle('is-hidden', !isSearchTab);
   libraryPanel.classList.toggle('is-hidden', !isListTab);
+  settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
   sidebarLinks.forEach((link) => {
     link.classList.toggle('is-active', (link.dataset.tab || '') === tab);
