@@ -99,6 +99,8 @@
 		<script>
 			const editionsBody = document.getElementById('editionsBody');
 			const editionsStatus = document.getElementById('editionsStatus');
+			const searchParams = new URLSearchParams(window.location.search);
+			const requestedId = String(searchParams.get('id') || '').trim();
 
 			function escapeHtml(value) {
 				return String(value ?? '')
@@ -167,8 +169,22 @@
 					}
 
 					const rows = Array.isArray(payload.musiques) ? payload.musiques : [];
-					renderRows(rows);
-					setStatus(`${rows.length} musique(s) chargee(s).`);
+					const filteredRows = requestedId
+						? rows.filter((row) => String(row.Id || '').trim() === requestedId)
+						: rows;
+
+					if (requestedId && !filteredRows.length) {
+						renderRows([]);
+						setStatus(`La musique ${requestedId} est introuvable pour edition.`, true);
+						return;
+					}
+
+					renderRows(filteredRows);
+					if (requestedId) {
+						setStatus(`Edition ciblee sur la musique ${requestedId}.`);
+					} else {
+						setStatus(`${filteredRows.length} musique(s) chargee(s).`);
+					}
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);

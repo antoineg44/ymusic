@@ -67,6 +67,20 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.source === 'liste') {
+    if (message.type === 'LIST_PLAY_SONG' && message.song) {
+      void handleListPlaySong(message.song);
+    }
+    return;
+  }
+
+  if (message.source === 'description') {
+    if (message.type === 'OPEN_EDITIONS') {
+      openEditionsPopup(String(message.id || '').trim());
+    }
+    return;
+  }
+
   if (message.source !== 'lecteur') {
     return;
   }
@@ -379,6 +393,22 @@ function closeDescriptionPopup() {
   descriptionFrame.src = 'about:blank';
 }
 
+function openEditionsPopup(musicId) {
+  if (!descriptionModal || !descriptionFrame) {
+    return;
+  }
+
+  const id = String(musicId || '').trim();
+  if (!id) {
+    setStatus('Impossible d\'ouvrir editions: identifiant de musique introuvable.');
+    return;
+  }
+
+  descriptionFrame.src = `editions.html?id=${encodeURIComponent(id)}&popup=1`;
+  descriptionModal.classList.remove('is-hidden');
+  descriptionModal.setAttribute('aria-hidden', 'false');
+}
+
 async function loadLibrary() {
   try {
     const response = await fetch('list_library.php', { credentials: 'same-origin' });
@@ -512,6 +542,40 @@ async function handleArtistPlaySong(song) {
   }
 
   setStatus('Lecture impossible depuis Artistes: Id non supporte pour telechargement.');
+}
+
+async function handleListPlaySong(song) {
+  const musicId = String((song && song.Id) || '').trim();
+  if (!musicId) {
+    setStatus('Impossible de lire cette musique depuis Listes (Id manquant).');
+    return;
+  }
+
+  const libraryMatch = findLibraryTrackByMusicId(musicId);
+  if (libraryMatch) {
+    const playableMatch = {
+      ...libraryMatch,
+      title: String(song.Titre || libraryMatch.title || ''),
+      artist: String(song.Artiste || libraryMatch.artist || ''),
+      albumId: String(song.Album || libraryMatch.albumId || ''),
+      views: Number(song.NombreVue || libraryMatch.views || 0),
+      videoId: isValidVideoId(musicId) ? musicId : String(libraryMatch.videoId || ''),
+    };
+    playTrack(playableMatch, state.library.findIndex((track) => track.path === libraryMatch.path));
+    setStatus(`Lecture de "${playableMatch.title || musicId}" depuis Listes.`);
+    return;
+  }
+
+  if (isValidVideoId(musicId)) {
+    await downloadAndPlay(musicId, String(song.Titre || 'titre'), {
+      artist: String(song.Artiste || ''),
+      albumId: String(song.Album || ''),
+      views: Number(song.NombreVue || 0),
+    });
+    return;
+  }
+
+  setStatus('Lecture impossible depuis Listes: Id non supporte pour telechargement.');
 }
 
 async function downloadAndPlay(videoId, title, options = {}) {
