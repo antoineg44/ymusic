@@ -126,7 +126,7 @@ def main() -> int:
         print(json.dumps({"success": False, "error": "Usage: python download_audio.py <musicId>"}))
         return 1
 
-    output_dir = base_dir / 'data' / 'temp'
+    output_dir = base_dir / '..' / 'data' / 'temp'
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
