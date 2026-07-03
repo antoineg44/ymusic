@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Editions - YMusic</title>
+		<link rel="stylesheet" href="styles.css" />
+		<style>
+			.editions-page {
+				max-width: 1400px;
+				margin: 0 auto;
+				padding: 24px;
+			}
+
+			.editions-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.editions-back {
+				color: #bae6fd;
+			}
+
+			.editions-table-wrap {
+				overflow-x: auto;
+			}
+
+			.editions-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.editions-table th,
+			.editions-table td {
+				text-align: left;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 8px;
+				vertical-align: top;
+			}
+
+			.editions-table input {
+				width: 100%;
+				box-sizing: border-box;
+				border: 1px solid #475569;
+				border-radius: 8px;
+				background: #111827;
+				color: #f8fafc;
+				padding: 8px;
+			}
+
+			.save-btn {
+				border: 0;
+				border-radius: 8px;
+				padding: 8px 10px;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="editions-page">
+			<section class="panel">
+				<div class="editions-head">
+					<div>
+						<h1>Editer les musiques</h1>
+						<p id="editionsStatus" class="status">Chargement...</p>
+					</div>
+					<a class="editions-back" href="index.html">Retour au lecteur</a>
+				</div>
+
+				<div class="editions-table-wrap">
+					<table class="editions-table" aria-label="Edition musiques">
+						<thead>
+							<tr>
+								<th>Id</th>
+								<th>Titre</th>
+								<th>Artiste</th>
+								<th>Utilisateur</th>
+								<th>Album</th>
+								<th>Duree</th>
+								<th>Annee</th>
+								<th>Genre</th>
+								<th>NombreVue</th>
+								<th>NombreVueInterne</th>
+								<th>Action</th>
+							</tr>
+						</thead>
+						<tbody id="editionsBody"></tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			const editionsBody = document.getElementById('editionsBody');
+			const editionsStatus = document.getElementById('editionsStatus');
+
+			function escapeHtml(value) {
+				return String(value ?? '')
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function setStatus(message, isError = false) {
+				editionsStatus.textContent = message;
+				editionsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function numberValue(value) {
+				if (value === '' || value === null || value === undefined) {
+					return '';
+				}
+				const parsed = Number(value);
+				return Number.isFinite(parsed) ? String(Math.max(0, Math.floor(parsed))) : '';
+			}
+
+			function renderRows(rows) {
+				editionsBody.innerHTML = '';
+
+				if (!rows.length) {
+					editionsBody.innerHTML = '<tr><td colspan="11">Aucune musique a editer</td></tr>';
+					return;
+				}
+
+				rows.forEach((row) => {
+					const tr = document.createElement('tr');
+					tr.dataset.id = row.Id;
+					tr.innerHTML = `
+						<td>${escapeHtml(row.Id)}</td>
+						<td><input data-field="Titre" value="${escapeHtml(row.Titre)}" /></td>
+						<td><input data-field="Artiste" value="${escapeHtml(row.Artiste)}" /></td>
+						<td><input data-field="Utilisateur" value="${escapeHtml(row.Utilisateur)}" /></td>
+						<td><input data-field="Album" value="${escapeHtml(row.Album)}" /></td>
+						<td><input data-field="Duree" value="${escapeHtml(row.Duree)}" /></td>
+						<td><input data-field="AnneeParution" value="${escapeHtml(row.AnneeParution)}" /></td>
+						<td><input data-field="Genre" value="${escapeHtml(row.Genre)}" /></td>
+						<td><input data-field="NombreVue" value="${escapeHtml(numberValue(row.NombreVue))}" /></td>
+						<td><input data-field="NombreVueInterne" value="${escapeHtml(numberValue(row.NombreVueInterne))}" /></td>
+						<td><button class="save-btn" type="button" data-action="save">Enregistrer</button></td>
+					`;
+					editionsBody.appendChild(tr);
+				});
+			}
+
+			async function loadRows() {
+				try {
+					const response = await fetch('interface.php?musiques=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de charger les musiques');
+					}
+
+					const rows = Array.isArray(payload.musiques) ? payload.musiques : [];
+					renderRows(rows);
+					setStatus(`${rows.length} musique(s) chargee(s).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			async function saveRow(tr) {
+				const id = tr.dataset.id;
+				if (!id) {
+					return;
+				}
+
+				const getValue = (field) => {
+					const input = tr.querySelector(`input[data-field="${field}"]`);
+					return input ? String(input.value || '').trim() : '';
+				};
+
+				const body = new URLSearchParams({
+					updateMusic: '1',
+					Id: id,
+					Titre: getValue('Titre'),
+					Artiste: getValue('Artiste'),
+					Utilisateur: getValue('Utilisateur'),
+					Album: getValue('Album'),
+					Duree: getValue('Duree'),
+					AnneeParution: getValue('AnneeParution'),
+					Genre: getValue('Genre'),
+					NombreVue: getValue('NombreVue'),
+					NombreVueInterne: getValue('NombreVueInterne'),
+				});
+
+				const button = tr.querySelector('button[data-action="save"]');
+				const initialLabel = button ? button.textContent : 'Enregistrer';
+				if (button) {
+					button.disabled = true;
+					button.textContent = '...';
+				}
+
+				try {
+					const response = await fetch('interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						body,
+					});
+					const payload = await response.json();
+
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Echec de la mise a jour');
+					}
+
+					setStatus(`Musique ${id} mise a jour.`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de mise a jour.', true);
+				} finally {
+					if (button) {
+						button.disabled = false;
+						button.textContent = initialLabel || 'Enregistrer';
+					}
+				}
+			}
+
+			editionsBody.addEventListener('click', (event) => {
+				const target = event.target;
+				if (!(target instanceof HTMLElement)) {
+					return;
+				}
+				if (target.dataset.action !== 'save') {
+					return;
+				}
+
+				const tr = target.closest('tr');
+				if (!tr) {
+					return;
+				}
+
+				void saveRow(tr);
+			});
+
+			void loadRows();
+		</script>
+	</body>
+</html>

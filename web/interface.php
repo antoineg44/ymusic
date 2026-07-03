@@ -217,6 +217,186 @@ if (!empty($_GET['query'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['artists'])) {
+
+    try {
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $stmt = $pdo->query(
+            "SELECT
+                Artiste,
+                COUNT(*) AS TotalMusiques,
+                COALESCE(SUM(NombreVueInterne), 0) AS TotalVuesInternes
+             FROM Musiques
+             WHERE TRIM(Artiste) <> ''
+             GROUP BY Artiste
+             ORDER BY Artiste ASC"
+        );
+
+        $artists = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'artists' => $artists,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['albums'])) {
+
+    try {
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $stmt = $pdo->query(
+            "SELECT
+                Album,
+                COUNT(*) AS TotalMusiques,
+                COALESCE(SUM(NombreVue), 0) AS TotalVues,
+                COALESCE(SUM(NombreVueInterne), 0) AS TotalVuesInternes
+             FROM Musiques
+             WHERE TRIM(Album) <> ''
+             GROUP BY Album
+             ORDER BY Album ASC"
+        );
+
+        $albums = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'albums' => $albums,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['musiques'])) {
+
+    try {
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $stmt = $pdo->query(
+            "SELECT
+                Id,
+                Titre,
+                Artiste,
+                Utilisateur,
+                Album,
+                Duree,
+                AnneeParution,
+                Genre,
+                NombreVue,
+                NombreVueInterne,
+                DateAjout
+             FROM Musiques
+             ORDER BY DateAjout DESC"
+        );
+
+        $musiques = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'musiques' => $musiques,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['updateMusic']) || !empty($_POST['updateMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $id = trim((string) ($payload['Id'] ?? ''));
+        if ($id === '') {
+            throw new RuntimeException('Id requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $stmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
+        $stmt->execute([':id' => $id]);
+        if ($stmt->fetch(PDO::FETCH_ASSOC) === false) {
+            throw new RuntimeException('Musique introuvable');
+        }
+
+        $titre = trim((string) ($payload['Titre'] ?? ''));
+        $artiste = trim((string) ($payload['Artiste'] ?? ''));
+        $utilisateur = trim((string) ($payload['Utilisateur'] ?? ''));
+        $album = trim((string) ($payload['Album'] ?? ''));
+        $genre = trim((string) ($payload['Genre'] ?? ''));
+        $duree = ($payload['Duree'] ?? '') === '' ? null : (int) $payload['Duree'];
+        $anneeParution = ($payload['AnneeParution'] ?? '') === '' ? null : (int) $payload['AnneeParution'];
+        $nombreVue = max(0, (int) ($payload['NombreVue'] ?? 0));
+        $nombreVueInterne = max(0, (int) ($payload['NombreVueInterne'] ?? 0));
+
+        if ($titre === '') {
+            throw new RuntimeException('Titre requis');
+        }
+
+        $update = $pdo->prepare(
+            'UPDATE Musiques
+             SET
+                Titre = :titre,
+                Artiste = :artiste,
+                Utilisateur = :utilisateur,
+                Album = :album,
+                Duree = :duree,
+                AnneeParution = :anneeParution,
+                Genre = :genre,
+                NombreVue = :nombreVue,
+                NombreVueInterne = :nombreVueInterne
+             WHERE Id = :id'
+        );
+
+        $update->execute([
+            ':id' => $id,
+            ':titre' => $titre,
+            ':artiste' => $artiste,
+            ':utilisateur' => $utilisateur,
+            ':album' => $album,
+            ':duree' => $duree,
+            ':anneeParution' => $anneeParution,
+            ':genre' => $genre,
+            ':nombreVue' => $nombreVue,
+            ':nombreVueInterne' => $nombreVueInterne,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Musique mise a jour',
+            'music' => [
+                'Id' => $id,
+                'Titre' => $titre,
+                'Artiste' => $artiste,
+                'Utilisateur' => $utilisateur,
+                'Album' => $album,
+                'Duree' => $duree,
+                'AnneeParution' => $anneeParution,
+                'Genre' => $genre,
+                'NombreVue' => $nombreVue,
+                'NombreVueInterne' => $nombreVueInterne,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } else {
 
     echo json_encode([

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Albums - YMusic</title>
+		<link rel="stylesheet" href="styles.css" />
+		<style>
+			.albums-page {
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 24px;
+			}
+
+			.albums-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.albums-back {
+				color: #bae6fd;
+			}
+
+			.albums-table-wrap {
+				overflow-x: auto;
+			}
+
+			.albums-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.albums-table th,
+			.albums-table td {
+				text-align: left;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="albums-page">
+			<section class="panel">
+				<div class="albums-head">
+					<div>
+						<h1>Albums en base</h1>
+						<p id="albumsStatus" class="status">Chargement...</p>
+					</div>
+					<a class="albums-back" href="index.html">Retour au lecteur</a>
+				</div>
+
+				<div class="albums-table-wrap">
+					<table class="albums-table" aria-label="Liste des albums">
+						<thead>
+							<tr>
+								<th>Album</th>
+								<th>Nombre de musiques</th>
+								<th>Vues totales</th>
+								<th>Vues internes</th>
+							</tr>
+						</thead>
+						<tbody id="albumsBody"></tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			const albumsBody = document.getElementById('albumsBody');
+			const albumsStatus = document.getElementById('albumsStatus');
+
+			function escapeHtml(value) {
+				return String(value)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function setStatus(message, isError = false) {
+				albumsStatus.textContent = message;
+				albumsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			async function loadAlbums() {
+				try {
+					const response = await fetch('interface.php?albums=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer la liste des albums');
+					}
+
+					const albums = Array.isArray(payload.albums) ? payload.albums : [];
+
+					albumsBody.innerHTML = '';
+					if (!albums.length) {
+						albumsBody.innerHTML = '<tr><td colspan="4">Aucun album en base</td></tr>';
+						setStatus('Aucun album trouve.');
+						return;
+					}
+
+					albums.forEach((album) => {
+						const row = document.createElement('tr');
+						row.innerHTML = `
+							<td>${escapeHtml(album.Album || '')}</td>
+							<td>${Number(album.TotalMusiques || 0)}</td>
+							<td>${Number(album.TotalVues || 0)}</td>
+							<td>${Number(album.TotalVuesInternes || 0)}</td>
+						`;
+						albumsBody.appendChild(row);
+					});
+
+					setStatus(`${albums.length} album(s) charge(s).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			void loadAlbums();
+		</script>
+	</body>
+</html>

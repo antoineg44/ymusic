@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Liste des musiques - YMusic</title>
+		<link rel="stylesheet" href="styles.css" />
+		<style>
+			.musiques-page {
+				max-width: 1300px;
+				margin: 0 auto;
+				padding: 24px;
+			}
+
+			.musiques-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.musiques-back {
+				color: #bae6fd;
+			}
+
+			.musiques-table-wrap {
+				overflow-x: auto;
+			}
+
+			.musiques-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.musiques-table th,
+			.musiques-table td {
+				text-align: left;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 10px;
+				white-space: nowrap;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="musiques-page">
+			<section class="panel">
+				<div class="musiques-head">
+					<div>
+						<h1>Toutes les musiques en base</h1>
+						<p id="musiquesStatus" class="status">Chargement...</p>
+					</div>
+					<a class="musiques-back" href="index.html">Retour au lecteur</a>
+				</div>
+
+				<div class="musiques-table-wrap">
+					<table class="musiques-table" aria-label="Liste complete des musiques">
+						<thead>
+							<tr>
+								<th>Id</th>
+								<th>Titre</th>
+								<th>Artiste</th>
+								<th>Utilisateur</th>
+								<th>Album</th>
+								<th>Duree</th>
+								<th>Annee</th>
+								<th>Genre</th>
+								<th>NombreVue</th>
+								<th>NombreVueInterne</th>
+								<th>DateAjout</th>
+							</tr>
+						</thead>
+						<tbody id="musiquesBody"></tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			const musiquesBody = document.getElementById('musiquesBody');
+			const musiquesStatus = document.getElementById('musiquesStatus');
+
+			function escapeHtml(value) {
+				return String(value ?? '')
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function setStatus(message, isError = false) {
+				musiquesStatus.textContent = message;
+				musiquesStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function renderMusiques(rows) {
+				musiquesBody.innerHTML = '';
+
+				if (!rows.length) {
+					musiquesBody.innerHTML = '<tr><td colspan="11">Aucune musique en base</td></tr>';
+					return;
+				}
+
+				rows.forEach((row) => {
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td>${escapeHtml(row.Id)}</td>
+						<td>${escapeHtml(row.Titre)}</td>
+						<td>${escapeHtml(row.Artiste)}</td>
+						<td>${escapeHtml(row.Utilisateur)}</td>
+						<td>${escapeHtml(row.Album)}</td>
+						<td>${escapeHtml(row.Duree)}</td>
+						<td>${escapeHtml(row.AnneeParution)}</td>
+						<td>${escapeHtml(row.Genre)}</td>
+						<td>${Number(row.NombreVue || 0)}</td>
+						<td>${Number(row.NombreVueInterne || 0)}</td>
+						<td>${escapeHtml(row.DateAjout)}</td>
+					`;
+					musiquesBody.appendChild(tr);
+				});
+			}
+
+			async function loadMusiques() {
+				try {
+					const response = await fetch('interface.php?musiques=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer la liste des musiques');
+					}
+
+					const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+					renderMusiques(musiques);
+					setStatus(`${musiques.length} musique(s) chargee(s).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			void loadMusiques();
+		</script>
+	</body>
+</html>

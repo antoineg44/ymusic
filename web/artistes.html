@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Artistes - YMusic</title>
+		<link rel="stylesheet" href="styles.css" />
+		<style>
+			.artists-page {
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 24px;
+			}
+
+			.artists-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.artists-back {
+				color: #bae6fd;
+			}
+
+			.artists-table-wrap {
+				overflow-x: auto;
+			}
+
+			.artists-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.artists-table th,
+			.artists-table td {
+				text-align: left;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="artists-page">
+			<section class="panel">
+				<div class="artists-head">
+					<div>
+						<h1>Artistes en base</h1>
+						<p id="artistsStatus" class="status">Chargement...</p>
+					</div>
+					<a class="artists-back" href="index.html">Retour au lecteur</a>
+				</div>
+
+				<div class="artists-table-wrap">
+					<table class="artists-table" aria-label="Liste des artistes">
+						<thead>
+							<tr>
+								<th>Artiste</th>
+								<th>Nombre de musiques</th>
+								<th>Vues internes</th>
+							</tr>
+						</thead>
+						<tbody id="artistsBody"></tbody>
+					</table>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			const artistsBody = document.getElementById('artistsBody');
+			const artistsStatus = document.getElementById('artistsStatus');
+
+			function escapeHtml(value) {
+				return String(value)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function setStatus(message, isError = false) {
+				artistsStatus.textContent = message;
+				artistsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			async function loadArtists() {
+				try {
+					const response = await fetch('interface.php?artists=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer la liste des artistes');
+					}
+
+					const artists = Array.isArray(payload.artists) ? payload.artists : [];
+
+					artistsBody.innerHTML = '';
+					if (!artists.length) {
+						artistsBody.innerHTML = '<tr><td colspan="3">Aucun artiste en base</td></tr>';
+						setStatus('Aucun artiste trouve.');
+						return;
+					}
+
+					artists.forEach((artist) => {
+						const row = document.createElement('tr');
+						row.innerHTML = `
+							<td>${escapeHtml(artist.Artiste || '')}</td>
+							<td>${Number(artist.TotalMusiques || 0)}</td>
+							<td>${Number(artist.TotalVuesInternes || 0)}</td>
+						`;
+						artistsBody.appendChild(row);
+					});
+
+					setStatus(`${artists.length} artiste(s) charge(s).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			void loadArtists();
+		</script>
+	</body>
+</html>
