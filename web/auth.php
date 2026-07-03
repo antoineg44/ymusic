@@ -252,11 +252,10 @@ function handle_login(): void
 
     $updateStmt = $pdo->prepare(
         'UPDATE Utilisateurs
-         SET DateMiseAJour = :dateMiseAJour
+         SET DateMiseAJour = NOW()
          WHERE Id = :id'
     );
     $updateStmt->execute([
-        ':dateMiseAJour' => date('Y-m-d H:i:s'),
         ':id' => (int) $user['Id'],
     ]);
 
