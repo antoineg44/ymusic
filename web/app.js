@@ -169,6 +169,23 @@ function normalize(value) {
     .trim();
 }
 
+function parseViewCount(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+
+  if (typeof value !== 'string') {
+    return 0;
+  }
+
+  const digits = value.replace(/[^0-9]/g, '');
+  if (!digits) {
+    return 0;
+  }
+
+  return Number.parseInt(digits, 10) || 0;
+}
+
 function isValidVideoId(value) {
   return typeof value === 'string' && /^[0-9A-Za-z_-]{11}$/.test(value.trim());
 }
@@ -199,12 +216,15 @@ async function saveLikedMusic(track) {
     return;
   }
 
+  const parsedViews = parseViewCount(track.views);
+
   const params = new URLSearchParams({
     addMusic: '1',
     Titre: String(track.title || ''),
     Artiste: String(track.artist || ''),
-    Album: String(track.folder || ''),
+    Album: String(track.albumId || track.folder || ''),
     Duree: Number.isFinite(audio.duration) ? String(Math.round(audio.duration)) : '',
+    NombreVue: String(parsedViews),
     Utilisateur: 'ToComplete',
     DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
   });
@@ -338,8 +358,10 @@ function renderSearchResults(results) {
   searchResults.innerHTML = '';
   results.forEach((result) => {
     const match = findLocalMatch(result);
-    const item = document.createElement('li');
     const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
+    const albumId = String((result.album && result.album.id) || '').trim();
+    const views = parseViewCount(result.views);
+    const item = document.createElement('li');
     item.innerHTML = `
       <div class="track-info">
         <strong>${escapeHtml(result.title || 'Titre inconnu')}</strong>
@@ -360,11 +382,18 @@ function renderSearchResults(results) {
         }
         const playableMatch = {
           ...match,
+          artist: artists || match.artist || '',
+          albumId: albumId || match.albumId || '',
+          views: views || match.views || 0,
           videoId: result.videoId || match.videoId || '',
         };
         playTrack(playableMatch, state.library.findIndex((track) => track.path === match.path));
       } else if (result.videoId) {
-        await downloadAndPlay(result.videoId, result.title || 'titre');
+        await downloadAndPlay(result.videoId, result.title || 'titre', {
+          artist: artists,
+          albumId,
+          views,
+        });
       } else {
         resetPlaylistQueue();
         setStatus('Aucun fichier local correspondant n’a été trouvé.');
@@ -382,7 +411,7 @@ function findLocalMatch(result) {
 }
 
 async function downloadAndPlay(videoId, title, options = {}) {
-  const { skipQueueLoad = false } = options;
+  const { skipQueueLoad = false, artist = '', albumId = '', views = 0 } = options;
 
   if (!isValidVideoId(videoId)) {
     setStatus('Identifiant video invalide pour le telechargement.');
@@ -414,6 +443,9 @@ async function downloadAndPlay(videoId, title, options = {}) {
 
     const track = {
       title,
+      artist: String(artist || '').trim(),
+      albumId: String(albumId || '').trim(),
+      views: parseViewCount(views),
       path: `data/temp/${downloadedFile}`,
       file: downloadedFile,
       folder: 'temp',
@@ -424,6 +456,44 @@ async function downloadAndPlay(videoId, title, options = {}) {
     await loadLibrary();
 
     const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
+    const resolvedTitle = String(title || '').trim();
+
+    if (resolvedTitle) {
+      downloadedTrack.title = resolvedTitle;
+
+      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
+      if (libraryTrack) {
+        libraryTrack.title = resolvedTitle;
+      }
+    }
+
+    if (track.artist) {
+      downloadedTrack.artist = track.artist;
+
+      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
+      if (libraryTrack) {
+        libraryTrack.artist = track.artist;
+      }
+    }
+
+    if (track.albumId) {
+      downloadedTrack.albumId = track.albumId;
+
+      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
+      if (libraryTrack) {
+        libraryTrack.albumId = track.albumId;
+      }
+    }
+
+    if (track.views > 0) {
+      downloadedTrack.views = track.views;
+
+      const libraryTrack = state.library.find((entry) => entry.path === downloadedTrack.path || entry.file === downloadedTrack.file);
+      if (libraryTrack) {
+        libraryTrack.views = track.views;
+      }
+    }
+
     downloadedTrack.videoId = videoId;
     playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path));
     setStatus(`Lecture de “${title}” depuis le téléchargement.`);
@@ -545,7 +615,12 @@ async function playPrevious() {
       }
 
       state.queueIndex = index;
-      await downloadAndPlay(previous.videoId, previous.title || 'titre', { skipQueueLoad: true });
+        await downloadAndPlay(previous.videoId, previous.title || 'titre', {
+          skipQueueLoad: true,
+          artist: Array.isArray(previous.artists) ? previous.artists.join(', ') : '',
+          albumId: String((previous.album && previous.album.id) || ''),
+          views: previous.views || 0,
+        });
       return;
     }
   }
@@ -579,7 +654,12 @@ async function playNext() {
         }
 
         state.queueIndex = index;
-        await downloadAndPlay(next.videoId, next.title || 'titre', { skipQueueLoad: true });
+        await downloadAndPlay(next.videoId, next.title || 'titre', {
+          skipQueueLoad: true,
+          artist: Array.isArray(next.artists) ? next.artists.join(', ') : '',
+          albumId: String((next.album && next.album.id) || ''),
+          views: next.views || 0,
+        });
         return;
       }
     }
