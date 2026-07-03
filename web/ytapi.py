@@ -24,7 +24,12 @@ def search(query, limit=10):
             "artists": [
                 artist.get("name")
                 for artist in item.get("artists", [])
-            ]
+            ],
+            "album": {
+                "name": item.get("album", {}).get("name"),
+                "id": item.get("album", {}).get("id"),
+            },
+            "views": item.get("views")
         })
 
     return data
