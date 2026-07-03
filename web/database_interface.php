@@ -48,6 +48,7 @@ function ensure_music_table(PDO $pdo): void
 			Id VARCHAR(191) NOT NULL,
 			Titre VARCHAR(255) NOT NULL,
 			Artiste VARCHAR(255) NOT NULL DEFAULT '',
+			Utilisateur VARCHAR(100) NOT NULL DEFAULT '',
 			Album VARCHAR(255) NOT NULL DEFAULT '',
 			Duree INT NULL,
 			AnneeParution SMALLINT NULL,
@@ -71,6 +72,12 @@ function ensure_music_table(PDO $pdo): void
 			 WHERE Id IS NULL OR Id = ''"
 		);
 		$pdo->exec("ALTER TABLE Musiques MODIFY COLUMN Id VARCHAR(191) NOT NULL");
+	}
+
+	$userColumnStmt = $pdo->query("SHOW COLUMNS FROM Musiques LIKE 'Utilisateur'");
+	$userColumnExists = $userColumnStmt !== false && $userColumnStmt->fetch(PDO::FETCH_ASSOC) !== false;
+	if (!$userColumnExists) {
+		$pdo->exec("ALTER TABLE Musiques ADD COLUMN Utilisateur VARCHAR(100) NOT NULL DEFAULT '' AFTER Artiste");
 	}
 
 	$primaryStmt = $pdo->query(
@@ -125,6 +132,10 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 	}
 
 	$artiste = trim((string) ($payload['Artiste'] ?? ''));
+	$utilisateur = trim((string) ($payload['Utilisateur'] ?? ''));
+	if ($utilisateur === '' && !empty($_SESSION['user']['username'])) {
+		$utilisateur = trim((string) $_SESSION['user']['username']);
+	}
 	$album = trim((string) ($payload['Album'] ?? ''));
 	$duree = get_int_or_null($payload['Duree'] ?? null);
 	$anneeParution = get_int_or_null($payload['AnneeParution'] ?? null);
@@ -134,17 +145,56 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 	}
 
 	$nombreVue = get_int_or_null($payload['NombreVue'] ?? 0) ?? 0;
-	$nombreVueInterne = get_int_or_null($payload['NombreVueInterne'] ?? 0) ?? 0;
+	$nombreVueInterneRaw = get_int_or_null($payload['NombreVueInterne'] ?? null);
+	$nombreVueInterne = $nombreVueInterneRaw ?? 1;
 	$dateAjoutRaw = trim((string) ($payload['DateAjout'] ?? ''));
 	$dateAjout = $dateAjoutRaw !== '' ? date('Y-m-d H:i:s', strtotime($dateAjoutRaw)) : date('Y-m-d H:i:s');
 	$idRaw = trim((string) ($payload['Id'] ?? ''));
 	$id = $idRaw !== '' ? $idRaw : build_music_id($titre, $artiste, $album);
+
+	$existsStmt = $db->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
+	$existsStmt->execute([':id' => $id]);
+	$alreadyExists = $existsStmt->fetch(PDO::FETCH_ASSOC) !== false;
+
+	if ($alreadyExists) {
+		$updateStmt = $db->prepare(
+			'UPDATE Musiques
+			 SET
+				Utilisateur = :utilisateur,
+				Duree = COALESCE(:duree, Duree),
+				AnneeParution = COALESCE(:anneeParution, AnneeParution),
+				Genre = COALESCE(:genre, Genre),
+				NombreVue = :nombreVue,
+				NombreVueInterne = NombreVueInterne + 1,
+				DateAjout = :dateAjout
+			 WHERE Id = :id'
+		);
+
+		$updateStmt->execute([
+			':id' => $id,
+			':utilisateur' => $utilisateur,
+			':duree' => $duree,
+			':anneeParution' => $anneeParution,
+			':genre' => $genre,
+			':nombreVue' => max(0, $nombreVue),
+			':dateAjout' => $dateAjout,
+		]);
+
+		return [
+			'Id' => $id,
+			'Titre' => $titre,
+			'Artiste' => $artiste,
+			'Utilisateur' => $utilisateur,
+			'Album' => $album,
+		];
+	}
 
 	$stmt = $db->prepare(
 		'INSERT INTO Musiques (
 			Id,
 			Titre,
 			Artiste,
+			Utilisateur,
 			Album,
 			Duree,
 			AnneeParution,
@@ -156,6 +206,7 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 			:id,
 			:titre,
 			:artiste,
+			:utilisateur,
 			:album,
 			:duree,
 			:anneeParution,
@@ -163,25 +214,20 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 			:nombreVue,
 			:nombreVueInterne,
 			:dateAjout
-		) ON DUPLICATE KEY UPDATE
-			Duree = VALUES(Duree),
-			AnneeParution = VALUES(AnneeParution),
-			Genre = VALUES(Genre),
-			NombreVue = VALUES(NombreVue),
-			NombreVueInterne = VALUES(NombreVueInterne),
-			DateAjout = VALUES(DateAjout)'
+		)'
 	);
 
 	$stmt->execute([
 		':id' => $id,
 		':titre' => $titre,
 		':artiste' => $artiste,
+		':utilisateur' => $utilisateur,
 		':album' => $album,
 		':duree' => $duree,
 		':anneeParution' => $anneeParution,
 		':genre' => $genre,
 		':nombreVue' => max(0, $nombreVue),
-		':nombreVueInterne' => max(0, $nombreVueInterne),
+		':nombreVueInterne' => max(1, $nombreVueInterne),
 		':dateAjout' => $dateAjout,
 	]);
 
@@ -189,6 +235,7 @@ function add_music_to_database(array $payload, ?PDO $pdo = null): array
 		'Id' => $id,
 		'Titre' => $titre,
 		'Artiste' => $artiste,
+		'Utilisateur' => $utilisateur,
 		'Album' => $album,
 	];
 }
@@ -225,6 +272,7 @@ function sync_music_table(PDO $pdo): array
 			Id,
 			Titre,
 			Artiste,
+			Utilisateur,
 			Album,
 			Duree,
 			AnneeParution,
@@ -236,6 +284,7 @@ function sync_music_table(PDO $pdo): array
 			:id,
 			:titre,
 			:artiste,
+			:utilisateur,
 			:album,
 			:duree,
 			:anneeParution,
@@ -245,6 +294,7 @@ function sync_music_table(PDO $pdo): array
 			:dateAjout
 		) ON DUPLICATE KEY UPDATE
 			DateAjout = VALUES(DateAjout),
+			Utilisateur = VALUES(Utilisateur),
 			Duree = COALESCE(VALUES(Duree), Duree),
 			AnneeParution = COALESCE(VALUES(AnneeParution), AnneeParution),
 			Genre = COALESCE(VALUES(Genre), Genre)'
@@ -275,6 +325,7 @@ function sync_music_table(PDO $pdo): array
 			':id' => $id,
 			':titre' => $title,
 			':artiste' => $artist,
+			':utilisateur' => '',
 			':album' => $album,
 			':duree' => null,
 			':anneeParution' => null,

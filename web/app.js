@@ -248,7 +248,7 @@ async function saveLikedMusic(track) {
     Album: String(track.albumId || track.folder || ''),
     Duree: Number.isFinite(audio.duration) ? String(Math.round(audio.duration)) : '',
     NombreVue: String(parsedViews),
-    Utilisateur: 'ToComplete',
+    Utilisateur: String((state.currentUser && state.currentUser.username) || ''),
     DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
   });
 
