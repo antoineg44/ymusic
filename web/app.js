@@ -294,8 +294,14 @@ async function saveLikedMusic(track) {
     return;
   }
 
-  let parsedViews = parseViewCount(track.views);
-  let persistedAlbumId = String(track.albumId || '').trim();
+  const rawViews = track.views ?? track.NombreVue ?? track.viewCount ?? '';
+  let parsedViews = parseViewCount(rawViews);
+  let persistedAlbumId = String(
+    track.albumId
+    || track.Album
+    || (track.album && track.album.id)
+    || ''
+  ).trim();
   const persistedId = isValidVideoId(track.videoId)
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
@@ -335,6 +341,33 @@ async function saveLikedMusic(track) {
       }
     } catch (error) {
       console.debug('Fallback music details unavailable for addMusic payload:', error);
+    }
+  }
+
+  if (persistedId && (!persistedAlbumId || parsedViews <= 0)) {
+    try {
+      const playlistResponse = await fetch(`interface.php?videoId=${encodeURIComponent(persistedId)}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+
+      if (playlistResponse.ok) {
+        const playlistPayload = await playlistResponse.json();
+        const playlist = Array.isArray(playlistPayload.playlist) ? playlistPayload.playlist : [];
+        const currentEntry = playlist.find((entry) => entry && entry.videoId === persistedId) || playlist[0] || null;
+
+        if (currentEntry) {
+          if (!persistedAlbumId) {
+            persistedAlbumId = String((currentEntry.album && currentEntry.album.id) || '').trim();
+          }
+
+          if (parsedViews <= 0) {
+            parsedViews = parseViewCount(currentEntry.views);
+          }
+        }
+      }
+    } catch (error) {
+      console.debug('Fallback playlist metadata unavailable for addMusic payload:', error);
     }
   }
 
