@@ -71,6 +71,63 @@ function move_downloaded_webm_for_music(array $payload): ?array
     ];
 }
 
+function find_music_by_id(string $id): ?array
+{
+    $pdo = get_database_pdo();
+    ensure_music_table($pdo);
+
+    $stmt = $pdo->prepare(
+        'SELECT Id, Titre, Artiste, Album, NombreVue, NombreVueInterne
+         FROM Musiques
+         WHERE Id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $id]);
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function find_downloaded_file_for_music_id(string $id): ?array
+{
+    $baseDir = __DIR__ . '/data';
+    if (!is_dir($baseDir)) {
+        return null;
+    }
+
+    $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $fileInfo) {
+        if (!$fileInfo->isFile()) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($fileInfo->getFilename(), PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowedExtensions, true)) {
+            continue;
+        }
+
+        $filenameWithoutExt = pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME);
+        if ($filenameWithoutExt !== $id) {
+            continue;
+        }
+
+        $relativePath = str_replace('\\\\', '/', substr($fileInfo->getPathname(), strlen(__DIR__) + 1));
+
+        return [
+            'file' => $fileInfo->getFilename(),
+            'path' => $relativePath,
+        ];
+    }
+
+    return null;
+}
+
 if (empty($_SESSION['user'])) {
     http_response_code(401);
     echo json_encode([
@@ -99,7 +156,34 @@ if (!empty($_GET['query'])) {
 } elseif (!empty($_GET['musicId'])) {
 
     try {
-        $result = $yt->download($_GET['musicId']);
+        $musicId = trim((string) $_GET['musicId']);
+        if ($musicId === '') {
+            throw new RuntimeException('musicId requis');
+        }
+
+        $existingMusic = find_music_by_id($musicId);
+
+        if ($existingMusic !== null) {
+            $existingFile = find_downloaded_file_for_music_id($musicId);
+
+            if ($existingFile === null) {
+                throw new RuntimeException('Musique deja presente en base, mais fichier audio introuvable');
+            }
+
+            echo json_encode([
+                'success' => true,
+                'download' => [
+                    'success' => true,
+                    'alreadyInDatabase' => true,
+                    'file' => $existingFile['file'],
+                    'path' => $existingFile['path'],
+                ],
+                'music' => $existingMusic,
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $result = $yt->download($musicId);
 
         echo json_encode([
             'success' => true,

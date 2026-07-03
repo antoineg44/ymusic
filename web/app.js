@@ -458,6 +458,7 @@ async function downloadAndPlay(videoId, title, options = {}) {
 
     const downloadPayload = payload.download || {};
     const downloadedFile = downloadPayload.file || (Array.isArray(downloadPayload) ? downloadPayload.find((entry) => typeof entry === 'string' && entry.trim()) : '');
+    const downloadedPath = String(downloadPayload.path || '').trim();
 
     if (!downloadedFile) {
       setStatus(downloadPayload.error || 'Le téléchargement n’a pas produit de fichier audio.');
@@ -469,11 +470,17 @@ async function downloadAndPlay(videoId, title, options = {}) {
       artist: String(artist || '').trim(),
       albumId: String(albumId || '').trim(),
       views: parseViewCount(views),
-      path: `data/temp/${downloadedFile}`,
+      path: downloadedPath || `data/temp/${downloadedFile}`,
       file: downloadedFile,
       folder: 'temp',
       videoId,
     };
+
+    if (downloadedPath) {
+      const pathParts = downloadedPath.split('/');
+      const folder = pathParts.length > 1 ? pathParts[pathParts.length - 2] : 'Bibliotheque';
+      track.folder = folder;
+    }
 
     await waitForMediaReady(track.path);
     await loadLibrary();
