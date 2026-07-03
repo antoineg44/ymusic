@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Description musique</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+
+      .description-page {
+        padding: 16px;
+      }
+
+      .description-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .description-item {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 10px;
+        align-items: start;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 10px;
+        padding: 10px;
+      }
+
+      .description-key {
+        color: #cbd5e1;
+        font-weight: 700;
+      }
+
+      .description-value {
+        color: #f8fafc;
+        overflow-wrap: anywhere;
+      }
+
+      @media (max-width: 700px) {
+        .description-item {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="description-page">
+      <section class="panel">
+        <h1>Description de la musique</h1>
+        <p id="descriptionStatus" class="status">Chargement...</p>
+        <ul id="descriptionList" class="description-list"></ul>
+      </section>
+    </main>
+
+    <script>
+      const descriptionStatus = document.getElementById('descriptionStatus');
+      const descriptionList = document.getElementById('descriptionList');
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;');
+      }
+
+      function setStatus(message, isError = false) {
+        descriptionStatus.textContent = message;
+        descriptionStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+      }
+
+      function renderMusicDetails(music) {
+        const orderedKeys = [
+          'Id',
+          'Titre',
+          'Artiste',
+          'Utilisateur',
+          'Album',
+          'Duree',
+          'AnneeParution',
+          'Genre',
+          'NombreVue',
+          'NombreVueInterne',
+          'DateAjout',
+        ];
+
+        descriptionList.innerHTML = '';
+
+        orderedKeys.forEach((key) => {
+          const item = document.createElement('li');
+          item.className = 'description-item';
+
+          const rawValue = music[key];
+          const value = rawValue === null || rawValue === undefined || String(rawValue).trim() === '' ? '-' : String(rawValue);
+
+          item.innerHTML = `
+            <span class="description-key">${escapeHtml(key)}</span>
+            <span class="description-value">${escapeHtml(value)}</span>
+          `;
+
+          descriptionList.appendChild(item);
+        });
+      }
+
+      async function loadDescription() {
+        const params = new URLSearchParams(window.location.search);
+        const id = String(params.get('id') || '').trim();
+
+        if (!id) {
+          setStatus('Aucune musique selectionnee.', true);
+          return;
+        }
+
+        setStatus(`Chargement des details pour ${id}...`);
+
+        try {
+          const response = await fetch(`interface.php?musicDetails=1&id=${encodeURIComponent(id)}`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+
+          if (response.status === 401) {
+            window.location.replace('login.html');
+            return;
+          }
+
+          const payload = await response.json();
+          if (!response.ok || !payload.success || !payload.music) {
+            throw new Error(payload.error || 'Impossible de recuperer la description de la musique');
+          }
+
+          renderMusicDetails(payload.music);
+          setStatus('Details charges.');
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || 'Erreur de chargement.', true);
+        }
+      }
+
+      void loadDescription();
+    </script>
+  </body>
+</html>

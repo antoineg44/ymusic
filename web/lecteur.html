@@ -51,6 +51,7 @@
 			const nowPlaying = document.getElementById('nowPlaying');
 			const nowPlayingMeta = document.getElementById('nowPlayingMeta');
 			const audio = document.getElementById('audioPlayer');
+			const playerCard = document.querySelector('.player-card');
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'lecteur', type, ...payload }, '*');
@@ -129,6 +130,18 @@
 			});
 			audio.addEventListener('pause', () => {
 				playButton.textContent = '▶';
+			});
+
+			playerCard.addEventListener('click', (event) => {
+				const target = event.target;
+				if (
+					target instanceof Element
+					&& (target.closest('button') || target.closest('input') || target.closest('audio'))
+				) {
+					return;
+				}
+
+				postToParent('OPEN_DESCRIPTION');
 			});
 
 			window.addEventListener('message', (event) => {

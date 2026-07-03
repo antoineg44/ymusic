@@ -61,6 +61,16 @@
 			.artist-songs-panel.is-hidden {
 				display: none;
 			}
+
+			.song-play-button {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
+			}
 		</style>
 	</head>
 	<body>
@@ -98,11 +108,13 @@
 									<th>Album</th>
 									<th>Duree</th>
 									<th>Vues internes</th>
+									<th>Action</th>
 								</tr>
 							</thead>
 							<tbody id="songsBody"></tbody>
 						</table>
 					</div>
+					<audio id="artistPreviewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
 				</div>
 			</section>
 		</main>
@@ -114,6 +126,7 @@
 			const songsTitle = document.getElementById('songsTitle');
 			const songsStatus = document.getElementById('songsStatus');
 			const songsBody = document.getElementById('songsBody');
+			const artistPreviewAudio = document.getElementById('artistPreviewAudio');
 
 			function escapeHtml(value) {
 				return String(value)
@@ -176,7 +189,7 @@
 					songsBody.innerHTML = '';
 
 					if (!songs.length) {
-						songsBody.innerHTML = '<tr><td colspan="4">Aucune musique pour cet artiste</td></tr>';
+						songsBody.innerHTML = '<tr><td colspan="5">Aucune musique pour cet artiste</td></tr>';
 						setSongsStatus('Aucune musique trouvee pour cet artiste.');
 						return;
 					}
@@ -188,7 +201,13 @@
 							<td>${escapeHtml(song.Album || '')}</td>
 							<td>${formatDuration(song.Duree)}</td>
 							<td>${Number(song.NombreVueInterne || 0)}</td>
+							<td><button type="button" class="song-play-button">▶</button></td>
 						`;
+
+						const playButton = row.querySelector('.song-play-button');
+						playButton.addEventListener('click', () => {
+							void playArtistSong(song);
+						});
 						songsBody.appendChild(row);
 					});
 
@@ -196,6 +215,45 @@
 				} catch (error) {
 					console.error(error);
 					setSongsStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			async function playArtistSong(song) {
+				const id = String((song && song.Id) || '').trim();
+				if (!id) {
+					setSongsStatus('Impossible de lire cette musique (Id manquant).', true);
+					return;
+				}
+
+				setSongsStatus(`Preparation de la lecture pour ${song.Titre || id}...`);
+
+				try {
+					const response = await fetch(`interface.php?musicId=${encodeURIComponent(id)}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Lecture impossible');
+					}
+
+					const path = String((payload.download && payload.download.path) || '').trim();
+					if (!path) {
+						throw new Error('Fichier audio introuvable pour cette musique');
+					}
+
+					artistPreviewAudio.src = encodeURI(path);
+					await artistPreviewAudio.play();
+					setSongsStatus(`Lecture en cours: ${song.Titre || id}`);
+				} catch (error) {
+					console.error(error);
+					setSongsStatus(error.message || 'Erreur de lecture.', true);
 				}
 			}
 

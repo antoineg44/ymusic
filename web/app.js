@@ -23,11 +23,23 @@ const statusBox = document.getElementById('status');
 const sidebarLinks = Array.from(document.querySelectorAll('.sidebar-link'));
 const playerFrame = document.getElementById('playerFrame');
 const logoutButton = document.getElementById('logoutButton');
+const descriptionModal = document.getElementById('descriptionModal');
+const descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
+const descriptionFrame = document.getElementById('descriptionFrame');
+const descriptionCloseButton = document.getElementById('descriptionCloseButton');
 
 if (logoutButton) {
   logoutButton.addEventListener('click', () => {
     void logout();
   });
+}
+
+if (descriptionCloseButton) {
+  descriptionCloseButton.addEventListener('click', closeDescriptionPopup);
+}
+
+if (descriptionBackdrop) {
+  descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
 }
 
 window.addEventListener('message', (event) => {
@@ -80,6 +92,11 @@ window.addEventListener('message', (event) => {
 
   if (message.type === 'PLAYER_ERROR' && message.error) {
     setStatus(String(message.error));
+    return;
+  }
+
+  if (message.type === 'OPEN_DESCRIPTION') {
+    openDescriptionPopup();
   }
 });
 
@@ -290,6 +307,54 @@ function sendPlayerMessage(type, payload = {}) {
   }
 
   playerFrame.contentWindow.postMessage({ target: 'lecteur', type, ...payload }, '*');
+}
+
+function resolveCurrentTrackId() {
+  const track = state.currentTrack;
+  if (!track) {
+    return '';
+  }
+
+  if (isValidVideoId(track.videoId)) {
+    return track.videoId;
+  }
+
+  const candidates = [track.file, track.path]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .map((value) => {
+      const filename = value.split('/').pop() || '';
+      return filename.replace(/\.[^.]+$/, '').trim();
+    });
+
+  const matched = candidates.find((candidate) => isValidVideoId(candidate));
+  return matched || '';
+}
+
+function openDescriptionPopup() {
+  if (!descriptionModal || !descriptionFrame) {
+    return;
+  }
+
+  const musicId = resolveCurrentTrackId();
+  if (!musicId) {
+    setStatus('Impossible d\'ouvrir la description: identifiant de musique introuvable.');
+    return;
+  }
+
+  descriptionFrame.src = `description.html?id=${encodeURIComponent(musicId)}`;
+  descriptionModal.classList.remove('is-hidden');
+  descriptionModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeDescriptionPopup() {
+  if (!descriptionModal || !descriptionFrame) {
+    return;
+  }
+
+  descriptionModal.classList.add('is-hidden');
+  descriptionModal.setAttribute('aria-hidden', 'true');
+  descriptionFrame.src = 'about:blank';
 }
 
 async function loadLibrary() {

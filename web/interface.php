@@ -287,6 +287,52 @@ if (!empty($_GET['query'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['musicDetails'])) {
+
+    try {
+        $id = trim((string) ($_GET['id'] ?? ''));
+        if ($id === '') {
+            throw new RuntimeException('Id requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $stmt = $pdo->prepare(
+            'SELECT
+                Id,
+                Titre,
+                Artiste,
+                Utilisateur,
+                Album,
+                Duree,
+                AnneeParution,
+                Genre,
+                NombreVue,
+                NombreVueInterne,
+                DateAjout
+             FROM Musiques
+             WHERE Id = :id
+             LIMIT 1'
+        );
+        $stmt->execute([':id' => $id]);
+
+        $music = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($music === false) {
+            throw new RuntimeException('Musique introuvable');
+        }
+
+        echo json_encode([
+            'success' => true,
+            'music' => $music,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['albums'])) {
 
     try {
