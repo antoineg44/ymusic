@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Menu</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+
+      .sidebar {
+        padding: 18px;
+        position: static;
+        top: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar" aria-label="Menu principal">
+      <h2>Navigation</h2>
+      <nav>
+        <ul>
+          <li><a href="#" class="sidebar-link is-active" data-tab="accueil"><span class="menu-icon" aria-hidden="true">&#8962;</span><span class="menu-label">Accueil</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="recherche"><span class="menu-icon" aria-hidden="true">&#128269;</span><span class="menu-label">Recherche</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="listes"><span class="menu-icon" aria-hidden="true">&#9835;</span><span class="menu-label">Listes</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="artists"><span class="menu-icon" aria-hidden="true">&#127908;</span><span class="menu-label">Artistes</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="playlists"><span class="menu-icon" aria-hidden="true">&#9658;</span><span class="menu-label">Playlists</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="mes-playlists"><span class="menu-icon" aria-hidden="true">&#9829;</span><span class="menu-label">Mes Playlists</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="playlists-communaute"><span class="menu-icon" aria-hidden="true">&#127758;</span><span class="menu-label">Playlists de la communauté</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="albums"><span class="menu-icon" aria-hidden="true">&#128191;</span><span class="menu-label">Albums</span></a></li>
+          <li><a href="#" class="sidebar-link" data-tab="parametres"><span class="menu-icon" aria-hidden="true">&#9881;</span><span class="menu-label">Paramètres</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <script>
+      const sidebarLinks = Array.from(document.querySelectorAll('.sidebar-link'));
+
+      function setActiveTab(tab) {
+        sidebarLinks.forEach((link) => {
+          link.classList.toggle('is-active', (link.dataset.tab || '') === tab);
+        });
+      }
+
+      sidebarLinks.forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const tab = String(link.dataset.tab || 'accueil');
+          setActiveTab(tab);
+          window.parent.postMessage({ source: 'menu', type: 'MENU_TAB_SELECTED', tab }, '*');
+        });
+      });
+
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (!message || message.target !== 'menu') {
+          return;
+        }
+
+        if (message.type === 'SET_ACTIVE_TAB') {
+          setActiveTab(String(message.tab || 'accueil'));
+        }
+      });
+    </script>
+  </body>
+</html>

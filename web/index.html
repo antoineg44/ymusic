@@ -9,22 +9,15 @@
   <body>
     <div class="app">
       <div class="app-shell">
-        <aside class="sidebar" aria-label="Menu principal">
-          <h2>Navigation</h2>
-          <nav>
-            <ul>
-              <li><a href="#" class="sidebar-link is-active" data-tab="accueil">Accueil</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="recherche">Recherche</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="listes">Listes</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="artists">Artistes</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="playlists">Playlists</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="mes-playlists">Mes Playlists</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="playlists-communaute">Playlists de la communauté</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="albums">Albums</a></li>
-              <li><a href="#" class="sidebar-link" data-tab="parametres">Paramètres</a></li>
-            </ul>
-          </nav>
-        </aside>
+        <section class="menu-frame-shell" aria-label="Menu principal">
+          <iframe
+            id="menuFrame"
+            class="menu-frame"
+            src="menu.html"
+            title="Menu"
+            loading="eager"
+          ></iframe>
+        </section>
 
         <main class="content">
           <section class="hero">

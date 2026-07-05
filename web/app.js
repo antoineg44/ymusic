@@ -22,7 +22,7 @@ const albumsPanel = document.getElementById('albumsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
-const sidebarLinks = Array.from(document.querySelectorAll('.sidebar-link'));
+const menuFrame = document.getElementById('menuFrame');
 const playerFrame = document.getElementById('playerFrame');
 const logoutButton = document.getElementById('logoutButton');
 const descriptionModal = document.getElementById('descriptionModal');
@@ -96,6 +96,13 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.source === 'menu') {
+    if (message.type === 'MENU_TAB_SELECTED') {
+      setActiveTab(String(message.tab || 'accueil'));
+    }
+    return;
+  }
+
   if (message.source === 'lecteur') {
     playerController.handleMessage(message);
     return;
@@ -131,20 +138,13 @@ function setActiveTab(tab) {
   albumsPanel.classList.toggle('is-hidden', !isAlbumsTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
-  sidebarLinks.forEach((link) => {
-    link.classList.toggle('is-active', (link.dataset.tab || '') === tab);
-  });
+  if (menuFrame && menuFrame.contentWindow) {
+    menuFrame.contentWindow.postMessage({ target: 'menu', type: 'SET_ACTIVE_TAB', tab }, '*');
+  }
 }
 
 function initializeSidebarMenu() {
   setActiveTab('accueil');
-
-  sidebarLinks.forEach((link) => {
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      setActiveTab(link.dataset.tab || 'accueil');
-    });
-  });
 }
 
 function setStatus(message) {
