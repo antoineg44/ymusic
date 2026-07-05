@@ -14,7 +14,6 @@ const state = {
   searchReady: false,
 };
 
-const libraryList = document.getElementById('libraryList');
 const libraryPanel = document.getElementById('libraryPanel');
 const searchPanel = document.getElementById('searchPanel');
 const artistsPanel = document.getElementById('artistsPanel');
@@ -432,34 +431,11 @@ async function loadLibrary() {
 
     const tracks = await response.json();
     state.library = tracks || [];
-    renderLibrary();
     setStatus(`Bibliothèque chargée (${state.library.length} titres)`);
   } catch (error) {
     console.error(error);
     setStatus('Impossible de charger la bibliothèque locale.');
   }
-}
-
-function renderLibrary() {
-  if (!state.library.length) {
-    libraryList.innerHTML = '<li>Aucune piste locale n’a été trouvée.</li>';
-    return;
-  }
-
-  libraryList.innerHTML = '';
-  state.library.forEach((track, index) => {
-    const item = document.createElement('li');
-    item.innerHTML = `
-      <div class="track-info">
-        <strong>${escapeHtml(track.title)}</strong>
-        <small>${escapeHtml(track.folder || 'Bibliothèque')}</small>
-      </div>
-      <div class="actions">
-        <button class="track-action" data-index="${index}" type="button">▶</button>
-      </div>`;
-    item.querySelector('button').addEventListener('click', () => playerController.playTrack(track, index));
-    libraryList.appendChild(item);
-  });
 }
 
 function findLibraryTrackByMusicId(musicId) {

@@ -91,7 +91,6 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  gap: 20px;
 }
 
 .menu-frame-shell {
@@ -108,6 +107,9 @@ body {
 .content {
   min-width: 0;
   padding-bottom: 130px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
 
@@ -209,6 +211,8 @@ body {
   grid-template-columns: 1.1fr 1fr;
   gap: 20px;
   margin-bottom: 20px;
+  display: flex;
+  overflow: hidden;
 }
 
 .panel {

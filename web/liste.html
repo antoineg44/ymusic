@@ -4,12 +4,23 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Liste des musiques - YMusic</title>
-		<link rel="stylesheet" href="styles.css" />
+		<link rel="stylesheet" href="css/colors.css" />
 		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: var(--background);
+				position: static;
+				top: auto;
+				color-scheme: dark;
+				font-family: Inter, Arial, sans-serif;
+				color: #e2e8f0;
+			}
+
 			.musiques-page {
 				max-width: 1300px;
 				margin: 0 auto;
-				padding: 24px;
 			}
 
 			.musiques-head {
@@ -24,10 +35,6 @@
 				color: #bae6fd;
 			}
 
-			.musiques-table-wrap {
-				overflow-x: auto;
-			}
-
 			.musiques-table {
 				width: 100%;
 				border-collapse: collapse;
@@ -36,7 +43,7 @@
 			.musiques-table th,
 			.musiques-table td {
 				text-align: left;
-				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				border-bottom: 1px solid var(--background);
 				padding: 10px;
 				white-space: nowrap;
 			}
@@ -59,6 +66,40 @@
 				color: #082f49;
 				font-weight: 700;
 			}
+
+			.panel {
+				width: 100%;
+				grid-column: 1 / -1;
+			}
+
+			.panel.is-hidden {
+				display: none;
+			}
+
+			.panel h2 {
+				margin-top: 0;
+				font-size: 1.1rem;
+			}
+
+			.panel ul {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			.panel li {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 10px;
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.15);
+				border-radius: 12px;
+				padding: 10px 12px;
+			}
 		</style>
 	</head>
 	<body>
@@ -66,10 +107,8 @@
 			<section class="panel">
 				<div class="musiques-head">
 					<div>
-						<h1>Toutes les musiques en base</h1>
 						<p id="musiquesStatus" class="status">Chargement...</p>
 					</div>
-					<a class="musiques-back" href="index.html">Retour au lecteur</a>
 				</div>
 
 				<div class="musiques-table-wrap">
@@ -183,6 +222,7 @@
 
 			async function loadMusiques() {
 				try {
+					console.log("Liste.html : loadMusiques");
 					const params = new URLSearchParams({
 						musiques: '1',
 						sortBy: currentSortBy,
@@ -237,7 +277,25 @@
 				});
 			});
 
-			void loadMusiques();
+			function initEvent() {
+				window.addEventListener('message', (event) => {
+					const message = event.data;
+					if (!message || message.target !== 'liste') {
+					return;
+					}
+
+					if (message.type === 'REFRESH_LIST') {
+						void loadMusiques();
+					}
+				});
+			}
+
+			function init() {
+				void loadMusiques();
+				initEvent();
+			}
+
+			init();
 		</script>
 	</body>
 </html>
