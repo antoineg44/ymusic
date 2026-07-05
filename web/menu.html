@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Menu</title>
     <link rel="stylesheet" />
+    <link rel="stylesheet" href="css/colors.css" />
     <style>
       html,
       body {
         margin: 0;
         padding: 0;
-        background: #0f172a;
-        color: #e2e8f0;
+        background: var(--background);
         position: static;
         top: auto;
       }
@@ -37,7 +37,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(30, 41, 59, 0.7);
+        background: var(--background-menu);
         border: 1px solid rgba(148, 163, 184, 0.15);
         border-radius: 0 16px 16px 0;
         height: 100%;
@@ -45,7 +45,7 @@
 
       .sidebar-link:hover,
       .sidebar-link.is-active {
-        background: rgba(14, 165, 233, 0.22);
+        background: var(--background-selected);
         border-color: rgba(56, 189, 248, 0.7);
       }
 
@@ -126,7 +126,8 @@
         });
       });
 
-      window.addEventListener('message', (event) => {
+      // Pour changer de tab
+      /*window.addEventListener('message', (event) => {
         const message = event.data;
         if (!message || message.target !== 'menu') {
           return;
@@ -135,7 +136,7 @@
         if (message.type === 'SET_ACTIVE_TAB') {
           setActiveTab(String(message.tab || 'accueil'));
         }
-      });
+      });*/
     </script>
   </body>
 </html>

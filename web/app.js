@@ -124,6 +124,8 @@ async function initializeApp() {
 }
 
 function setActiveTab(tab) {
+  console.log("change tab to", tab);
+
   const isSearchTab = tab === 'recherche';
   const isListTab = tab === 'listes';
   const isArtistsTab = tab === 'artists';
@@ -138,9 +140,10 @@ function setActiveTab(tab) {
   albumsPanel.classList.toggle('is-hidden', !isAlbumsTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
-  if (menuFrame && menuFrame.contentWindow) {
+  // Pour demander un changement de tab à l'iframe menu
+  /*if (menuFrame && menuFrame.contentWindow) {
     menuFrame.contentWindow.postMessage({ target: 'menu', type: 'SET_ACTIVE_TAB', tab }, '*');
-  }
+  }*/
 }
 
 function initializeSidebarMenu() {
