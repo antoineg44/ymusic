@@ -110,73 +110,12 @@ body {
   padding-bottom: 130px;
 }
 
-.sidebar,
 
 .app {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 24px;
 }
 
-.hero,
-
-.sidebar {
-  padding: 18px;
-  align-self: start;
-  position: sticky;
-  top: 20px;
-}
-
-.sidebar h2 {
-  margin: 0 0 12px;
-  font-size: 1rem;
-  color: #cbd5e1;
-}
-
-.sidebar ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  color: #dbeafe;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: rgba(30, 41, 59, 0.45);
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.menu-icon {
-  width: 1.1rem;
-  text-align: center;
-  opacity: 0.95;
-}
-
-.menu-label {
-  min-width: 0;
-}
-
-.sidebar-link:hover,
-.sidebar-link.is-active {
-  background: rgba(14, 165, 233, 0.22);
-  border-color: rgba(56, 189, 248, 0.7);
-}
-.panel,
-.player-card {
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
-}
 
 .hero {
   padding: 24px;
@@ -543,7 +482,7 @@ input[type='range'] {
   min-width: 180px;
 }
 
-@media (max-width: 1180px) and (min-width: 901px) {
+@media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 86px 1fr;
   }
@@ -563,49 +502,3 @@ input[type='range'] {
   }
 }
 
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .menu-frame {
-    min-height: 360px;
-  }
-
-  .sidebar {
-    position: static;
-  }
-
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .users-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-topbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .content {
-    padding-bottom: 160px;
-  }
-
-  .player-card {
-    width: calc(100% - 12px);
-  }
-
-  .player-frame-shell {
-    width: calc(100% - 12px);
-  }
-
-  .search-frame {
-    min-height: 520px;
-  }
-
-  .description-modal-content {
-    height: min(calc(100% - 24px), 720px);
-  }
-}

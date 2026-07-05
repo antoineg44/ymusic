@@ -4,25 +4,95 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Menu</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" />
     <style>
       html,
       body {
         margin: 0;
         padding: 0;
-        background: transparent;
-      }
-
-      .sidebar {
-        padding: 18px;
+        background: #0f172a;
+        color: #e2e8f0;
         position: static;
         top: auto;
       }
+
+      .sidebar {
+        height: 100vh;
+      }
+
+      nav {
+        height: 100%;
+      }
+
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 0 16px 16px 0;
+        height: 100%;
+      }
+
+      .sidebar-link:hover,
+      .sidebar-link.is-active {
+        background: rgba(14, 165, 233, 0.22);
+        border-color: rgba(56, 189, 248, 0.7);
+      }
+
+      a {
+        display: flex;
+        align-items: center;
+        gap: 2.5vw;
+        text-decoration: none;
+        color: #dbeafe;
+        background: rgba(30, 41, 59, 0.45);
+        transition: background 0.2s ease, border-color 0.2s ease;
+        width: 100%;
+        height: 100%;
+        font-size: clamp(1rem, 4vw, 4rem);
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      .menu-icon {
+        font-size: 1.3em; /* l'icône grandit avec le texte */
+        width: 1.1rem;
+        text-align: center;
+        opacity: 0.95;
+        margin-right:5px;
+      }
+
+      @media (max-width: 180px) {
+          .menu-label {
+              display: none;
+          }
+
+          a {
+              justify-content: center;
+              padding: 0;
+          }
+
+          .menu-icon {
+              width: auto;
+              font-size: 1.4em;
+          }
+      }
+
+      
     </style>
   </head>
   <body>
     <aside class="sidebar" aria-label="Menu principal">
-      <h2>Navigation</h2>
       <nav>
         <ul>
           <li><a href="#" class="sidebar-link is-active" data-tab="accueil"><span class="menu-icon" aria-hidden="true">&#8962;</span><span class="menu-label">Accueil</span></a></li>

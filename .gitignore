@@ -1,4 +1,5 @@
 web/.venv
 web/data/*
-web/cookies.txt
-web/connexion.php
+web/php/connexion.php
+web/php/.venv/*
+web/python/cookies.txt
