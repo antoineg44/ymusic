@@ -5,6 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Connexion YMusic</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .button-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-left: 8px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        vertical-align: text-bottom;
+        animation: button-spin 0.7s linear infinite;
+      }
+
+      .is-hidden {
+        display: none;
+      }
+
+      @keyframes button-spin {
+        from {
+          transform: rotate(0deg);
+        }
+
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="app login-layout">
@@ -20,7 +47,7 @@
           <input class="login-input" id="password" name="password" type="password" autocomplete="current-password" required />
 
           <div class="login-actions">
-            <button id="loginButton" type="submit">Se connecter</button>
+            <button id="loginButton" type="submit">Se connecter<span id="loginSpinner" class="button-spinner is-hidden" aria-hidden="true"></span></button>
             <button id="registerButton" type="button" class="secondary">Creer un compte</button>
           </div>
 
@@ -32,6 +59,7 @@
     <script>
       const form = document.getElementById('authForm');
       const loginButton = document.getElementById('loginButton');
+      const loginSpinner = document.getElementById('loginSpinner');
       const registerButton = document.getElementById('registerButton');
       const message = document.getElementById('authMessage');
 
@@ -44,6 +72,11 @@
       function lockButtons(locked) {
         loginButton.disabled = locked;
         registerButton.disabled = locked;
+      }
+
+      function setLoginLoading(isLoading) {
+        loginSpinner.classList.toggle('is-hidden', !isLoading);
+        loginButton.setAttribute('aria-busy', isLoading ? 'true' : 'false');
       }
 
       async function callAuth(action, body) {
@@ -84,6 +117,7 @@
 
         setMessage('');
         lockButtons(true);
+        setLoginLoading(action === 'login');
 
         try {
           const payload = await callAuth(action, { username, password });
@@ -101,6 +135,7 @@
           console.error(error);
           setMessage(error instanceof Error ? error.message : 'Erreur reseau, reessayez.');
         } finally {
+          setLoginLoading(false);
           lockButtons(false);
         }
       }
