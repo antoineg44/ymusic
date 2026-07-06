@@ -21,6 +21,12 @@ const albumsPanel = document.getElementById('albumsPanel');
 const playlistsPanel = document.getElementById('playlistsPanel');
 const myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
+const listFrame = document.getElementById('listFrame');
+const searchFrame = document.getElementById('searchFrame');
+const artistsFrame = document.getElementById('artistsFrame');
+const albumsFrame = document.getElementById('albumsFrame');
+const playlistsFrame = document.getElementById('playlistsFrame');
+const myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
 const menuFrame = document.getElementById('menuFrame');
@@ -155,10 +161,57 @@ function setActiveTab(tab) {
   myPlaylistsPanel.classList.toggle('is-hidden', !isMyPlaylistsTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
+  ensureTabIframeLoaded(tab);
+
   // Pour demander un changement de tab à l'iframe menu
   /*if (menuFrame && menuFrame.contentWindow) {
     menuFrame.contentWindow.postMessage({ target: 'menu', type: 'SET_ACTIVE_TAB', tab }, '*');
   }*/
+}
+
+function ensureIframeLoaded(iframe) {
+  if (!iframe || iframe.dataset.loaded === '1') {
+    return;
+  }
+
+  const src = String(iframe.dataset.src || '').trim();
+  if (!src) {
+    return;
+  }
+
+  iframe.src = src;
+  iframe.dataset.loaded = '1';
+}
+
+function ensureTabIframeLoaded(tab) {
+  if (tab === 'listes') {
+    ensureIframeLoaded(listFrame);
+    return;
+  }
+
+  if (tab === 'recherche') {
+    ensureIframeLoaded(searchFrame);
+    return;
+  }
+
+  if (tab === 'artists') {
+    ensureIframeLoaded(artistsFrame);
+    return;
+  }
+
+  if (tab === 'albums') {
+    ensureIframeLoaded(albumsFrame);
+    return;
+  }
+
+  if (tab === 'playlists') {
+    ensureIframeLoaded(playlistsFrame);
+    return;
+  }
+
+  if (tab === 'mes-playlists') {
+    ensureIframeLoaded(myPlaylistsFrame);
+  }
 }
 
 function initializeSidebarMenu() {
