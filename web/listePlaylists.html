@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Liste des playlists - YMusic</title>
+		<link rel="stylesheet" href="css/colors.css" />
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: var(--background);
+				color-scheme: dark;
+				font-family: Inter, Arial, sans-serif;
+				color: #e2e8f0;
+			}
+
+			.playlists-page {
+				max-width: 1300px;
+				margin: 0 auto;
+			}
+
+			.playlists-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.content-grid {
+				display: grid;
+				grid-template-columns: 360px 1fr;
+				gap: 16px;
+			}
+
+			.card {
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.15);
+				border-radius: 12px;
+				padding: 12px;
+			}
+
+			.playlists-list {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			.playlist-btn {
+				width: 100%;
+				background: transparent;
+				border: 1px solid rgba(148, 163, 184, 0.25);
+				border-radius: 10px;
+				padding: 10px;
+				color: #e2e8f0;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.playlist-btn:hover,
+			.playlist-btn.is-active {
+				border-color: #38bdf8;
+				background: rgba(56, 189, 248, 0.12);
+			}
+
+			.playlist-title {
+				display: block;
+				font-weight: 700;
+			}
+
+			.playlist-meta {
+				display: block;
+				font-size: 0.84rem;
+				margin-top: 4px;
+				color: #94a3b8;
+			}
+
+			.musiques-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.musiques-table th,
+			.musiques-table td {
+				text-align: left;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 10px;
+				white-space: nowrap;
+			}
+
+			.play-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
+			}
+
+			.status {
+				margin: 0;
+				color: #7dd3fc;
+			}
+
+			@media (max-width: 980px) {
+				.content-grid {
+					grid-template-columns: 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main class="playlists-page">
+			<section class="playlists-head">
+				<div>
+					<p id="playlistsStatus" class="status">Chargement des playlists...</p>
+				</div>
+			</section>
+
+			<section class="content-grid">
+				<article class="card" aria-label="Liste des playlists">
+					<h2>Playlists</h2>
+					<ul id="playlistsList" class="playlists-list"></ul>
+				</article>
+
+				<article class="card" aria-label="Musiques de la playlist">
+					<h2 id="songsTitle">Musiques</h2>
+					<div class="musiques-table-wrap">
+						<table class="musiques-table" aria-label="Musiques de playlist">
+							<thead>
+								<tr>
+									<th>Titre</th>
+									<th>Artiste</th>
+									<th>Album</th>
+									<th>Vues</th>
+									<th>Vues internes</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody id="songsBody"></tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+		</main>
+
+		<script>
+			const playlistsStatus = document.getElementById('playlistsStatus');
+			const playlistsList = document.getElementById('playlistsList');
+			const songsBody = document.getElementById('songsBody');
+			const songsTitle = document.getElementById('songsTitle');
+
+			let activePlaylistId = '';
+
+			function postToParent(type, payload = {}) {
+				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
+			}
+
+			function escapeHtml(value) {
+				return String(value ?? '')
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function setStatus(message, isError = false) {
+				playlistsStatus.textContent = message;
+				playlistsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function formatMeta(playlist) {
+				const total = Number(playlist.TotalMusiques || 0);
+				const by = String(playlist.UtilisateurCreateur || '').trim();
+				if (by) {
+					return `${total} musique(s) · ${by}`;
+				}
+				return `${total} musique(s)`;
+			}
+
+			function renderPlaylists(playlists) {
+				playlistsList.innerHTML = '';
+
+				if (!playlists.length) {
+					playlistsList.innerHTML = '<li>Aucune playlist en base.</li>';
+					return;
+				}
+
+				playlists.forEach((playlist) => {
+					const id = String(playlist.PlaylistId || '').trim();
+					const li = document.createElement('li');
+					li.innerHTML = `
+						<button type="button" class="playlist-btn ${activePlaylistId === id ? 'is-active' : ''}" data-id="${escapeHtml(id)}">
+							<span class="playlist-title">${escapeHtml(playlist.NomPlaylist || 'Playlist')}</span>
+							<span class="playlist-meta">${escapeHtml(formatMeta(playlist))}</span>
+						</button>
+					`;
+
+					const button = li.querySelector('button');
+					button.addEventListener('click', () => {
+						activePlaylistId = id;
+						void loadPlaylistSongs(id, playlist.NomPlaylist || id);
+						const allButtons = playlistsList.querySelectorAll('.playlist-btn');
+						allButtons.forEach((el) => el.classList.remove('is-active'));
+						button.classList.add('is-active');
+					});
+
+					playlistsList.appendChild(li);
+				});
+			}
+
+			function renderSongs(rows) {
+				songsBody.innerHTML = '';
+
+				if (!rows.length) {
+					songsBody.innerHTML = '<tr><td colspan="6">Aucune musique liee a cette playlist.</td></tr>';
+					return;
+				}
+
+				rows.forEach((row) => {
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td>${escapeHtml(row.Titre)}</td>
+						<td>${escapeHtml(row.Artiste)}</td>
+						<td>${escapeHtml(row.Album)}</td>
+						<td>${Number(row.NombreVue || 0)}</td>
+						<td>${Number(row.NombreVueInterne || 0)}</td>
+						<td><button type="button" class="play-btn">▶</button></td>
+					`;
+
+					tr.querySelector('.play-btn').addEventListener('click', () => {
+						postToParent('LIST_PLAY_SONG', { song: row });
+						setStatus(`Lecture envoyee au lecteur: ${row.Titre || row.Id}`);
+					});
+
+					songsBody.appendChild(tr);
+				});
+			}
+
+			async function loadPlaylistSongs(playlistId, playlistName) {
+				try {
+					songsTitle.textContent = `Musiques - ${playlistName}`;
+					const response = await fetch(`php/interface.php?playlistSongs=1&id=${encodeURIComponent(playlistId)}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer les musiques de la playlist.');
+					}
+
+					const rows = Array.isArray(payload.songs) ? payload.songs : [];
+					renderSongs(rows);
+					setStatus(`Playlist "${playlistName}" chargee (${rows.length} musique(s)).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement des musiques.', true);
+				}
+			}
+
+			async function loadPlaylists() {
+				try {
+					const response = await fetch('php/interface.php?dbPlaylists=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer la liste des playlists.');
+					}
+
+					const playlists = Array.isArray(payload.playlists) ? payload.playlists : [];
+					renderPlaylists(playlists);
+					setStatus(`${playlists.length} playlist(s) chargee(s).`);
+
+					if (playlists.length > 0) {
+						const first = playlists[0];
+						activePlaylistId = String(first.PlaylistId || '').trim();
+						if (activePlaylistId) {
+							void loadPlaylistSongs(activePlaylistId, first.NomPlaylist || activePlaylistId);
+						}
+					}
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			function initEvent() {
+				window.addEventListener('message', (event) => {
+					const message = event.data;
+					if (!message || message.target !== 'listePlaylists') {
+						return;
+					}
+
+					if (message.type === 'REFRESH_LISTE_PLAYLISTS') {
+						void loadPlaylists();
+					}
+				});
+			}
+
+			function init() {
+				void loadPlaylists();
+				initEvent();
+			}
+
+			init();
+		</script>
+	</body>
+</html>

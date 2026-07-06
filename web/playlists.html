@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playlists</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+
+      .search-embed {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+      }
+
+      .search-results {
+        list-style: none;
+        margin: 12px 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .search-results li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="panel search-embed">
+      <div class="search-row">
+        <input id="searchInput" type="text" placeholder="Rechercher une playlist YouTube" />
+        <button id="searchButton" type="button">Rechercher</button>
+      </div>
+      <div id="suggestions" class="suggestions" aria-live="polite"></div>
+      <div id="searchStatus" class="status"></div>
+      <ul id="searchResults" class="search-results"></ul>
+    </section>
+
+    <script>
+      let suggestionTimer = null;
+
+      const searchInput = document.getElementById('searchInput');
+      const searchButton = document.getElementById('searchButton');
+      const suggestionsBox = document.getElementById('suggestions');
+      const statusBox = document.getElementById('searchStatus');
+      const searchResults = document.getElementById('searchResults');
+
+      function postToParent(type, payload = {}) {
+        window.parent.postMessage({ source: 'playlists', type, ...payload }, '*');
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;');
+      }
+
+      function setStatus(message) {
+        statusBox.textContent = message;
+      }
+
+      async function loadSuggestions(query) {
+        try {
+          const response = await fetch(`php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
+          const payload = await response.json();
+          renderSuggestions(payload.suggestions || []);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      async function searchPlaylists() {
+        const query = searchInput.value.trim();
+
+        if (!query) {
+          setStatus('Saisissez un terme de recherche.');
+          return;
+        }
+
+        setStatus(`Recherche de playlists pour "${query}"...`);
+
+        try {
+          const response = await fetch(`php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
+          const payload = await response.json();
+
+          if (!payload.success) {
+            setStatus(payload.error || 'Recherche impossible.');
+            searchResults.innerHTML = '<li>Aucun resultat disponible.</li>';
+            return;
+          }
+
+          const results = payload.results || [];
+          const suggestions = payload.suggestions || [];
+          renderSuggestions(suggestions);
+          renderSearchResults(results);
+          setStatus(`${results.length} playlist(s) trouvee(s) via YouTube Music.`);
+        } catch (error) {
+          console.error(error);
+          setStatus('La recherche de playlists a echoue.');
+        }
+      }
+
+      function renderSuggestions(suggestions) {
+        if (!suggestions.length) {
+          suggestionsBox.innerHTML = '';
+          return;
+        }
+
+        suggestionsBox.innerHTML = '';
+        suggestions.forEach((suggestion) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'suggestion-chip';
+          button.textContent = suggestion;
+          button.addEventListener('click', () => {
+            searchInput.value = suggestion;
+            searchPlaylists();
+          });
+          suggestionsBox.appendChild(button);
+        });
+      }
+
+      function renderSearchResults(results) {
+        if (!results.length) {
+          searchResults.innerHTML = '<li>Aucune playlist trouvee.</li>';
+          return;
+        }
+
+        searchResults.innerHTML = '';
+
+        results.forEach((result) => {
+          const author = String(result.author || '').trim();
+          const itemCount = String(result.itemCount || '').trim();
+          const metaParts = [];
+          if (author) {
+            metaParts.push(author);
+          }
+          if (itemCount) {
+            metaParts.push(`${itemCount} titres`);
+          }
+
+          const item = document.createElement('li');
+          item.innerHTML = `
+            <div class="track-info">
+              <strong>${escapeHtml(result.title || 'Playlist inconnue')}</strong>
+              <small>${escapeHtml(metaParts.join(' · ') || 'Sans informations')}</small>
+            </div>
+            <div class="actions">
+              <button class="queue-action" type="button">▶</button>
+            </div>
+          `;
+
+          item.querySelector('button').addEventListener('click', () => {
+            void playPlaylist(result);
+          });
+
+          searchResults.appendChild(item);
+        });
+      }
+
+      async function savePlayedPlaylist(playlist, tracks) {
+        const params = new URLSearchParams({
+          savePlayedPlaylist: '1',
+          PlaylistId: String(playlist.playlistId || '').trim(),
+          NomPlaylist: String(playlist.title || '').trim(),
+          UtilisateurCreateur: String(playlist.author || '').trim(),
+          MusicIds: JSON.stringify(
+            tracks
+              .map((track) => String((track && track.videoId) || '').trim())
+              .filter(Boolean)
+          ),
+        });
+
+        const response = await fetch('php/interface.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: params,
+        });
+
+        if (response.status === 401) {
+          window.location.replace('login.html');
+          return;
+        }
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'Impossible d\'enregistrer la playlist en base.');
+        }
+      }
+
+      async function playPlaylist(result) {
+        const playlistId = String((result && result.playlistId) || '').trim();
+        if (!playlistId) {
+          setStatus('Impossible de lire cette playlist (Id manquant).');
+          return;
+        }
+
+        try {
+          setStatus('Chargement de la playlist...');
+
+          const response = await fetch(`php/interface.php?playlistItems=1&id=${encodeURIComponent(playlistId)}`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+
+          if (response.status === 401) {
+            window.location.replace('login.html');
+            return;
+          }
+
+          const payload = await response.json();
+          if (!response.ok || !payload.success || !payload.playlist) {
+            throw new Error(payload.error || 'Impossible de charger la playlist.');
+          }
+
+          const playlist = payload.playlist;
+          const tracks = Array.isArray(playlist.tracks) ? playlist.tracks : [];
+          const firstTrack = tracks.find((track) => track && String(track.videoId || '').trim());
+
+          if (!firstTrack) {
+            throw new Error('Cette playlist ne contient aucun titre lisible.');
+          }
+
+          await savePlayedPlaylist(
+            {
+              playlistId,
+              title: String(playlist.title || result.title || ''),
+              author: String(result.author || ''),
+            },
+            tracks
+          );
+
+          postToParent('PLAYLIST_PLAY_RESULT', {
+            result: {
+              title: String(firstTrack.title || ''),
+              videoId: String(firstTrack.videoId || ''),
+              artists: Array.isArray(firstTrack.artists) ? firstTrack.artists : [],
+              views: 0,
+              album: {
+                id: '',
+              },
+            },
+          });
+
+          setStatus(`Lecture de la playlist "${playlist.title || result.title || playlistId}".`);
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || 'La lecture de la playlist a echoue.');
+        }
+      }
+
+      searchButton.addEventListener('click', () => {
+        void searchPlaylists();
+      });
+
+      searchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          void searchPlaylists();
+        }
+      });
+
+      searchInput.addEventListener('input', (event) => {
+        const query = event.target.value.trim();
+
+        if (!query) {
+          suggestionsBox.innerHTML = '';
+          return;
+        }
+
+        window.clearTimeout(suggestionTimer);
+        suggestionTimer = window.setTimeout(() => {
+          void loadSuggestions(query);
+        }, 250);
+      });
+    </script>
+  </body>
+</html>

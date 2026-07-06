@@ -79,11 +79,27 @@ class YouTubeMusic
         ]);
     }
 
+    public function searchPlaylists(string $query): array
+    {
+        return $this->run([
+            'playlist_search',
+            $query
+        ]);
+    }
+
     public function playlist(string $videoId): array
     {
         return $this->run([
             'playlist',
             $videoId
+        ]);
+    }
+
+    public function playlistItems(string $playlistId): array
+    {
+        return $this->run([
+            'playlist_items',
+            $playlistId
         ]);
     }
 

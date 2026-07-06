@@ -35,6 +35,35 @@ def search(query, limit=10):
     return data
 
 
+def search_playlists(query, limit=10):
+    results = ytmusic.search(
+        query=query,
+        filter="playlists",
+        limit=limit
+    )
+
+    data = []
+
+    for item in results:
+        author_name = ""
+        author_data = item.get("author")
+        if isinstance(author_data, dict):
+            author_name = author_data.get("name") or ""
+        elif isinstance(author_data, list) and author_data:
+            first_author = author_data[0]
+            if isinstance(first_author, dict):
+                author_name = first_author.get("name") or ""
+
+        data.append({
+            "title": item.get("title"),
+            "playlistId": item.get("playlistId"),
+            "author": author_name,
+            "itemCount": item.get("itemCount"),
+        })
+
+    return data
+
+
 def get_suggestions(query, limit=8):
     try:
         raw_items = ytmusic.get_search_suggestions(query)
@@ -80,6 +109,33 @@ def playlist(video_id):
     return tracks
 
 
+def playlist_items(playlist_id, limit=200):
+    payload = ytmusic.get_playlist(playlist_id, limit=limit)
+
+    tracks = []
+    for track in payload.get("tracks", []) or []:
+        if not isinstance(track, dict):
+            continue
+
+        tracks.append({
+            "title": track.get("title"),
+            "videoId": track.get("videoId"),
+            "duration": track.get("duration"),
+            "artists": [
+                artist.get("name")
+                for artist in track.get("artists", [])
+                if isinstance(artist, dict)
+            ]
+        })
+
+    return {
+        "playlistId": playlist_id,
+        "title": payload.get("title"),
+        "author": (payload.get("author") or {}).get("name") if isinstance(payload.get("author"), dict) else payload.get("author"),
+        "tracks": tracks,
+    }
+
+
 try:
 
     action = sys.argv[1]
@@ -94,6 +150,16 @@ try:
             "suggestions": get_suggestions(query)
         }))
 
+    elif action == "playlist_search":
+
+        query = sys.argv[2]
+
+        print(json.dumps({
+            "success": True,
+            "results": search_playlists(query),
+            "suggestions": get_suggestions(query)
+        }))
+
     elif action == "playlist":
 
         video_id = sys.argv[2]
@@ -101,6 +167,15 @@ try:
         print(json.dumps({
             "success": True,
             "playlist": playlist(video_id)
+        }))
+
+    elif action == "playlist_items":
+
+        playlist_id = sys.argv[2]
+
+        print(json.dumps({
+            "success": True,
+            "playlist": playlist_items(playlist_id)
         }))
 
     else:

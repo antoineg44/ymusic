@@ -101,10 +101,10 @@ function find_downloaded_file_for_music_id(string $id): ?array
 
     $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
 
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
-    );
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
 
     foreach ($iterator as $fileInfo) {
         if (!$fileInfo->isFile()) {
@@ -132,6 +132,57 @@ function find_downloaded_file_for_music_id(string $id): ?array
     return null;
 }
 
+    function table_exists(PDO $pdo, string $tableName): bool
+    {
+        $stmt = $pdo->prepare('SHOW TABLES LIKE :name');
+        $stmt->execute([':name' => $tableName]);
+        return $stmt->fetch(PDO::FETCH_NUM) !== false;
+    }
+
+    function find_first_existing_column(PDO $pdo, string $tableName, array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM {$tableName} LIKE :name");
+            $stmt->execute([':name' => $candidate]);
+            if ($stmt->fetch(PDO::FETCH_ASSOC) !== false) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    function resolve_playlist_table_and_columns(PDO $pdo): ?array
+    {
+        $playlistTable = null;
+        if (table_exists($pdo, 'Playlist')) {
+            $playlistTable = 'Playlist';
+        } elseif (table_exists($pdo, 'PlaylistsYoutube')) {
+            $playlistTable = 'PlaylistsYoutube';
+        }
+
+        if ($playlistTable === null) {
+            return null;
+        }
+
+        $idColumn = find_first_existing_column($pdo, $playlistTable, ['IdPlaylist', 'PlaylistId', 'Id', 'id']);
+        $nameColumn = find_first_existing_column($pdo, $playlistTable, ['NomPlaylist', 'Titre', 'PlaylistName', 'Nom', 'Name']);
+        $creatorColumn = find_first_existing_column($pdo, $playlistTable, ['UtilisateurCreateur', 'Utilisateur', 'Createur', 'Auteur', 'Author']);
+        $dateColumn = find_first_existing_column($pdo, $playlistTable, ['DateLecture', 'DateAjout', 'DateCreation', 'CreatedAt']);
+
+        if ($idColumn === null || $nameColumn === null) {
+            throw new RuntimeException('Structure de table playlist invalide');
+        }
+
+        return [
+            'table' => $playlistTable,
+            'id' => $idColumn,
+            'name' => $nameColumn,
+            'creator' => $creatorColumn,
+            'date' => $dateColumn,
+        ];
+    }
+
 if (empty($_SESSION['user'])) {
     // Toutes les routes de cette API necessitent une session utilisateur active.
     http_response_code(401);
@@ -156,6 +207,157 @@ if (!empty($_GET['query'])) {
             $yt->search($query),
             JSON_UNESCAPED_UNICODE
         );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['playlistQuery'])) {
+
+    try {
+        $query = trim((string) $_GET['playlistQuery']);
+        if ($query === '') {
+            throw new RuntimeException('Requete de playlist vide');
+        }
+
+        echo json_encode(
+            $yt->searchPlaylists($query),
+            JSON_UNESCAPED_UNICODE
+        );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['playlistItems'])) {
+
+    try {
+        $playlistId = trim((string) ($_GET['id'] ?? ''));
+        if ($playlistId === '') {
+            throw new RuntimeException('Id de playlist requis');
+        }
+
+        echo json_encode(
+            $yt->playlistItems($playlistId),
+            JSON_UNESCAPED_UNICODE
+        );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['savePlayedPlaylist']) || !empty($_POST['savePlayedPlaylist'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $saved = save_played_playlist($payload);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Playlist enregistree',
+            'playlist' => $saved,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+} elseif (!empty($_GET['dbPlaylists'])) {
+
+    try {
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $playlistMeta = resolve_playlist_table_and_columns($pdo);
+        if ($playlistMeta === null) {
+            echo json_encode([
+                'success' => true,
+                'playlists' => [],
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $playlistTable = $playlistMeta['table'];
+        $idColumn = $playlistMeta['id'];
+        $nameColumn = $playlistMeta['name'];
+        $creatorColumn = $playlistMeta['creator'];
+        $dateColumn = $playlistMeta['date'];
+
+        $creatorSql = $creatorColumn !== null ? "p.{$creatorColumn}" : "''";
+        $dateSql = $dateColumn !== null ? "p.{$dateColumn}" : 'NULL';
+
+        $stmt = $pdo->query(
+            "SELECT
+                p.{$idColumn} AS PlaylistId,
+                p.{$nameColumn} AS NomPlaylist,
+                {$creatorSql} AS UtilisateurCreateur,
+                {$dateSql} AS DateLecture,
+                COUNT(pm.IdMusique) AS TotalMusiques
+             FROM {$playlistTable} p
+             LEFT JOIN PlaylistMusiques pm ON pm.IdPlaylist = p.{$idColumn}
+             GROUP BY p.{$idColumn}, p.{$nameColumn}, {$creatorSql}, {$dateSql}
+             ORDER BY {$dateSql} DESC, p.{$nameColumn} ASC"
+        );
+
+        $playlists = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'playlists' => $playlists,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['playlistSongs'])) {
+
+    try {
+        $playlistId = trim((string) ($_GET['id'] ?? ''));
+        if ($playlistId === '') {
+            throw new RuntimeException('Id de playlist requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+        ensure_playlists_tables($pdo);
+
+        $stmt = $pdo->prepare(
+            'SELECT
+                m.Id,
+                m.Titre,
+                m.Artiste,
+                m.Utilisateur,
+                m.Album,
+                m.Duree,
+                m.AnneeParution,
+                m.Genre,
+                m.NombreVue,
+                m.NombreVueInterne,
+                m.DateAjout,
+                pm.PositionLecture
+             FROM PlaylistMusiques pm
+             INNER JOIN Musiques m ON m.Id = pm.IdMusique
+             WHERE pm.IdPlaylist = :playlistId
+             ORDER BY pm.PositionLecture ASC, m.Titre ASC'
+        );
+        $stmt->execute([':playlistId' => $playlistId]);
+        $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
+            'songs' => $songs,
+        ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,

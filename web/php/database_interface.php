@@ -352,6 +352,115 @@ function sync_music_table(PDO $pdo): array
 	return ['processed' => $processed];
 }
 
+function ensure_playlists_tables(PDO $pdo): void
+{
+	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS PlaylistsYoutube (
+			IdPlaylist VARCHAR(191) NOT NULL,
+			NomPlaylist VARCHAR(255) NOT NULL,
+			UtilisateurCreateur VARCHAR(100) NOT NULL DEFAULT '',
+			DateLecture DATETIME NOT NULL,
+			PRIMARY KEY (IdPlaylist)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+
+	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS PlaylistMusiques (
+			IdPlaylist VARCHAR(191) NOT NULL,
+			IdMusique VARCHAR(191) NOT NULL,
+			PositionLecture INT UNSIGNED NULL,
+			DateAjout DATETIME NOT NULL,
+			PRIMARY KEY (IdPlaylist, IdMusique),
+			KEY idx_playlist_musiques_music (IdMusique)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+}
+
+function save_played_playlist(array $payload, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_playlists_tables($db);
+
+	$playlistId = trim((string) ($payload['PlaylistId'] ?? ''));
+	$playlistName = trim((string) ($payload['NomPlaylist'] ?? ''));
+	$creator = trim((string) ($payload['UtilisateurCreateur'] ?? ''));
+
+	if ($playlistId === '') {
+		throw new InvalidArgumentException('PlaylistId requis');
+	}
+
+	if ($playlistName === '') {
+		$playlistName = 'Playlist inconnue';
+	}
+
+	if ($creator === '' && !empty($_SESSION['user']['username'])) {
+		$creator = trim((string) $_SESSION['user']['username']);
+	}
+
+	$musicIdsInput = $payload['MusicIds'] ?? [];
+	if (is_string($musicIdsInput)) {
+		$decoded = json_decode($musicIdsInput, true);
+		if (is_array($decoded)) {
+			$musicIdsInput = $decoded;
+		}
+	}
+
+	$musicIds = [];
+	if (is_array($musicIdsInput)) {
+		foreach ($musicIdsInput as $musicId) {
+			$value = trim((string) $musicId);
+			if ($value !== '') {
+				$musicIds[] = $value;
+			}
+		}
+	}
+
+	$musicIds = array_values(array_unique($musicIds));
+	$now = date('Y-m-d H:i:s');
+
+	$upsert = $db->prepare(
+		'INSERT INTO PlaylistsYoutube (IdPlaylist, NomPlaylist, UtilisateurCreateur, DateLecture)
+		 VALUES (:id, :name, :creator, :dateLecture)
+		 ON DUPLICATE KEY UPDATE
+			NomPlaylist = VALUES(NomPlaylist),
+			UtilisateurCreateur = VALUES(UtilisateurCreateur),
+			DateLecture = VALUES(DateLecture)'
+	);
+
+	$upsert->execute([
+		':id' => $playlistId,
+		':name' => $playlistName,
+		':creator' => $creator,
+		':dateLecture' => $now,
+	]);
+
+	$deleteLinks = $db->prepare('DELETE FROM PlaylistMusiques WHERE IdPlaylist = :id');
+	$deleteLinks->execute([':id' => $playlistId]);
+
+	if ($musicIds) {
+		$insertLink = $db->prepare(
+			'INSERT INTO PlaylistMusiques (IdPlaylist, IdMusique, PositionLecture, DateAjout)
+			 VALUES (:playlistId, :musicId, :positionLecture, :dateAjout)'
+		);
+
+		foreach ($musicIds as $index => $musicId) {
+			$insertLink->execute([
+				':playlistId' => $playlistId,
+				':musicId' => $musicId,
+				':positionLecture' => $index + 1,
+				':dateAjout' => $now,
+			]);
+		}
+	}
+
+	return [
+		'PlaylistId' => $playlistId,
+		'NomPlaylist' => $playlistName,
+		'UtilisateurCreateur' => $creator,
+		'TotalMusiques' => count($musicIds),
+	];
+}
+
 if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
 	header('Content-Type: application/json');
 

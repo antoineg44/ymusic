@@ -18,6 +18,8 @@ const libraryPanel = document.getElementById('libraryPanel');
 const searchPanel = document.getElementById('searchPanel');
 const artistsPanel = document.getElementById('artistsPanel');
 const albumsPanel = document.getElementById('albumsPanel');
+const playlistsPanel = document.getElementById('playlistsPanel');
+const myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
@@ -88,6 +90,16 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.source === 'playlists') {
+    if (message.type === 'PLAYLIST_PLAY_RESULT' && message.result) {
+      rechercheController.handleMessage({
+        type: 'SEARCH_PLAY_RESULT',
+        result: message.result,
+      });
+    }
+    return;
+  }
+
   if (message.source === 'description') {
     if (message.type === 'OPEN_EDITIONS') {
       openEditionsPopup(String(message.id || '').trim());
@@ -129,6 +141,8 @@ function setActiveTab(tab) {
   const isListTab = tab === 'listes';
   const isArtistsTab = tab === 'artists';
   const isAlbumsTab = tab === 'albums';
+  const isPlaylistsTab = tab === 'playlists';
+  const isMyPlaylistsTab = tab === 'mes-playlists';
   const isSettingsTab = tab === 'parametres';
 
   state.currentTab = tab;
@@ -137,6 +151,8 @@ function setActiveTab(tab) {
   libraryPanel.classList.toggle('is-hidden', !isListTab);
   artistsPanel.classList.toggle('is-hidden', !isArtistsTab);
   albumsPanel.classList.toggle('is-hidden', !isAlbumsTab);
+  playlistsPanel.classList.toggle('is-hidden', !isPlaylistsTab);
+  myPlaylistsPanel.classList.toggle('is-hidden', !isMyPlaylistsTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
   // Pour demander un changement de tab à l'iframe menu
