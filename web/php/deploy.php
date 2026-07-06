@@ -13,9 +13,9 @@ $branch_name = (String) trim($_GET['branch_name']);
 
 // Configurations
 if($branch_name == "main") {
-    $path = "../../music";
+    $path = "../../../music";
 } else {
-    $path = "../../".$branch_name;
+    $path = "../../../".$branch_name;
 }
 
 // Repo
