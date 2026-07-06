@@ -34,6 +34,22 @@
         font-weight: 700;
       }
 
+      .head-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .download-button {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 14px;
+        cursor: pointer;
+        background: #22c55e;
+        color: #052e16;
+        font-weight: 700;
+      }
+
       .description-list {
         list-style: none;
         margin: 0;
@@ -75,7 +91,10 @@
       <section class="panel">
         <div class="description-head">
           <h1>Description de la musique</h1>
-          <button id="editButton" class="edit-button" type="button">Editer</button>
+          <div class="head-actions">
+            <button id="downloadButton" class="download-button" type="button">Télécharger</button>
+            <button id="editButton" class="edit-button" type="button">Editer</button>
+          </div>
         </div>
         <p id="descriptionStatus" class="status">Chargement...</p>
         <ul id="descriptionList" class="description-list"></ul>
@@ -86,6 +105,8 @@
       const descriptionStatus = document.getElementById('descriptionStatus');
       const descriptionList = document.getElementById('descriptionList');
       const editButton = document.getElementById('editButton');
+      const downloadButton = document.getElementById('downloadButton');
+      let currentMusic = null;
 
       function escapeHtml(value) {
         return String(value ?? '')
@@ -137,6 +158,36 @@
         });
       }
 
+      function sanitizeFileName(value) {
+        return String(value || '')
+          .trim()
+          .replace(/[\\/:*?"<>|]+/g, '-')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function getDownloadExtension(downloadPayload) {
+        const payloadPath = String((downloadPayload && downloadPayload.path) || '').trim();
+        const payloadFile = String((downloadPayload && downloadPayload.file) || '').trim();
+        const source = payloadPath || payloadFile;
+        const match = source.match(/\.([a-zA-Z0-9]+)$/);
+        return match ? `.${match[1]}` : '.mp3';
+      }
+
+      function resolveDownloadPath(downloadPayload) {
+        const payloadPath = String((downloadPayload && downloadPayload.path) || '').trim();
+        if (payloadPath) {
+          return payloadPath;
+        }
+
+        const payloadFile = String((downloadPayload && downloadPayload.file) || '').trim();
+        if (payloadFile) {
+          return `data/temp/${payloadFile}`;
+        }
+
+        return '';
+      }
+
       async function loadDescription() {
         const params = new URLSearchParams(window.location.search);
         const id = String(params.get('id') || '').trim();
@@ -177,6 +228,8 @@
             throw new Error(payload.error || 'Impossible de recuperer la description de la musique');
           }
 
+          currentMusic = payload.music;
+
           renderMusicDetails(payload.music);
 
           if (payload.found === false) {
@@ -200,6 +253,57 @@
         }
 
         postToParent('OPEN_EDITIONS', { id });
+      });
+
+      downloadButton.addEventListener('click', async () => {
+        const params = new URLSearchParams(window.location.search);
+        const id = String(params.get('id') || '').trim();
+
+        if (!id) {
+          setStatus('Impossible de telecharger (Id manquant).', true);
+          return;
+        }
+
+        try {
+          setStatus('Preparation du telechargement...');
+
+          const response = await fetch(`php/interface.php?musicId=${encodeURIComponent(id)}`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+
+          if (response.status === 401) {
+            window.location.replace('login.html');
+            return;
+          }
+
+          const payload = await response.json();
+          if (!response.ok || !payload.success || !payload.download) {
+            throw new Error(payload.error || 'Impossible de preparer le telechargement');
+          }
+
+          const sourcePath = resolveDownloadPath(payload.download);
+          if (!sourcePath) {
+            throw new Error('Le serveur n\'a retourne aucun fichier telechargeable.');
+          }
+
+          const musicTitle = sanitizeFileName((currentMusic && currentMusic.Titre) || id) || id;
+          const extension = getDownloadExtension(payload.download);
+          const downloadName = `${musicTitle}${extension}`;
+
+          const link = document.createElement('a');
+          link.href = sourcePath;
+          link.download = downloadName;
+          link.rel = 'noopener';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+
+          setStatus(`Telechargement lance: ${downloadName}`);
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || 'Erreur de telechargement.', true);
+        }
       });
 
       void loadDescription();
