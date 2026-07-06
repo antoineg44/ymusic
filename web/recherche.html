@@ -40,6 +40,21 @@
         border-radius: 12px;
         padding: 10px 12px;
       }
+
+      .search-results li.search-result-present {
+        background: rgba(56, 189, 248, 0.28);
+        border-color: rgba(14, 165, 233, 0.8);
+      }
+
+      .search-results li.search-result-missing {
+        background: #ffffff;
+        border-color: rgba(148, 163, 184, 0.6);
+      }
+
+      .search-results li.search-result-missing .track-info strong,
+      .search-results li.search-result-missing .track-info small {
+        color: #0f172a;
+      }
     </style>
   </head>
   <body>
@@ -78,6 +93,49 @@
         statusBox.textContent = message;
       }
 
+      async function checkMusicInDatabase(result) {
+        const id = String((result && result.videoId) || '').trim();
+        if (!id) {
+          return false;
+        }
+
+        const title = String((result && result.title) || '').trim();
+        const artist = Array.isArray(result && result.artists)
+          ? String(result.artists[0] || '').trim()
+          : '';
+
+        const requestParams = new URLSearchParams({
+          musicDetails: '1',
+          id,
+        });
+
+        if (title) {
+          requestParams.set('title', title);
+        }
+
+        if (artist) {
+          requestParams.set('artist', artist);
+        }
+
+        try {
+          const response = await fetch(`php/interface.php?${requestParams.toString()}`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+
+          if (response.status === 401) {
+            window.location.replace('login.html');
+            return false;
+          }
+
+          const payload = await response.json();
+          return Boolean(response.ok && payload.success && payload.found === true);
+        } catch (error) {
+          console.debug('Presence check failed for search result:', error);
+          return false;
+        }
+      }
+
       async function loadSuggestions(query) {
         try {
           const response = await fetch(`php/interface.php?query=${encodeURIComponent(query)}`);
@@ -111,8 +169,7 @@
           const results = payload.results || [];
           const suggestions = payload.suggestions || [];
           renderSuggestions(suggestions);
-          renderSearchResults(results);
-          setStatus(`${results.length} resultat(s) trouve(s) via YouTube Music.`);
+          await renderSearchResults(results);
         } catch (error) {
           console.error(error);
           setStatus('La recherche YouTube Music a echoue.');
@@ -139,13 +196,14 @@
         });
       }
 
-      function renderSearchResults(results) {
+      async function renderSearchResults(results) {
         if (!results.length) {
           searchResults.innerHTML = '<li>Aucun resultat trouve.</li>';
           return;
         }
 
         searchResults.innerHTML = '';
+        const renderedItems = [];
 
         results.forEach((result) => {
           const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
@@ -164,7 +222,21 @@
           });
 
           searchResults.appendChild(item);
+          renderedItems.push({ item, result });
         });
+
+        setStatus(`${results.length} resultat(s) trouve(s). Verification en base...`);
+
+        const checks = await Promise.all(
+          renderedItems.map(async ({ item, result }) => {
+            const inDatabase = await checkMusicInDatabase(result);
+            item.classList.add(inDatabase ? 'search-result-present' : 'search-result-missing');
+            return inDatabase;
+          })
+        );
+
+        const presentCount = checks.filter(Boolean).length;
+        setStatus(`${results.length} resultat(s) trouve(s) via YouTube Music. ${presentCount} present(s) en base.`);
       }
 
       searchButton.addEventListener('click', () => {
