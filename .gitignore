@@ -3,3 +3,4 @@ web/data/*
 web/php/connexion.php
 web/php/.venv/*
 web/python/cookies.txt
+web/python/.venv/*

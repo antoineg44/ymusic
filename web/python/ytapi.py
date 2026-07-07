@@ -45,18 +45,11 @@ def search_playlists(query, limit=10):
     data = []
 
     for item in results:
-        author_name = ""
-        author_data = item.get("author")
-        if isinstance(author_data, dict):
-            author_name = author_data.get("name") or ""
-        elif isinstance(author_data, list) and author_data:
-            first_author = author_data[0]
-            if isinstance(first_author, dict):
-                author_name = first_author.get("name") or ""
+        author_name = item.get("author")
 
         data.append({
             "title": item.get("title"),
-            "playlistId": item.get("playlistId"),
+            "playlistId": item.get("browseId"),
             "author": author_name,
             "itemCount": item.get("itemCount"),
         })
