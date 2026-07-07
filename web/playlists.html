@@ -40,10 +40,73 @@
         border-radius: 12px;
         padding: 10px 12px;
       }
+
+      .playlist-view {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .playlist-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .back-button {
+        padding: 8px 16px;
+        background: rgba(56, 189, 248, 0.2);
+        border: 1px solid rgba(56, 189, 248, 0.5);
+        border-radius: 8px;
+        color: #38bdf8;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background 0.2s ease;
+      }
+
+      .back-button:hover {
+        background: rgba(56, 189, 248, 0.3);
+      }
+
+      .playlist-title {
+        flex: 1;
+        color: #dbeafe;
+        font-size: 1.2em;
+        font-weight: bold;
+      }
+
+      .playlist-tracks {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .playlist-tracks li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+
+      .track-info {
+        flex: 1;
+      }
+
+      .hidden {
+        display: none;
+      }
     </style>
   </head>
   <body>
-    <section class="panel search-embed">
+    <section id="searchSection" class="panel search-embed">
       <div class="search-row">
         <input id="searchInput" type="text" placeholder="Rechercher une playlist YouTube" />
         <button id="searchButton" type="button">Rechercher</button>
@@ -53,14 +116,32 @@
       <ul id="searchResults" class="search-results"></ul>
     </section>
 
+    <section id="playlistSection" class="panel search-embed hidden">
+      <div class="playlist-view">
+        <div class="playlist-header">
+          <button id="backButton" class="back-button" type="button">← Retour</button>
+          <div class="playlist-title" id="playlistTitle"></div>
+        </div>
+        <div id="playlistStatus" class="status"></div>
+        <ul id="playlistTracks" class="playlist-tracks"></ul>
+      </div>
+    </section>
+
     <script>
       let suggestionTimer = null;
+      let currentPlaylist = null;
 
       const searchInput = document.getElementById('searchInput');
       const searchButton = document.getElementById('searchButton');
       const suggestionsBox = document.getElementById('suggestions');
       const statusBox = document.getElementById('searchStatus');
       const searchResults = document.getElementById('searchResults');
+      const searchSection = document.getElementById('searchSection');
+      const playlistSection = document.getElementById('playlistSection');
+      const playlistTitle = document.getElementById('playlistTitle');
+      const playlistStatus = document.getElementById('playlistStatus');
+      const playlistTracks = document.getElementById('playlistTracks');
+      const backButton = document.getElementById('backButton');
 
       function postToParent(type, payload = {}) {
         window.parent.postMessage({ source: 'playlists', type, ...payload }, '*');
@@ -76,6 +157,22 @@
 
       function setStatus(message) {
         statusBox.textContent = message;
+      }
+
+      function setPlaylistStatus(message) {
+        playlistStatus.textContent = message;
+      }
+
+      function showSearchView() {
+        searchSection.classList.remove('hidden');
+        playlistSection.classList.add('hidden');
+        currentPlaylist = null;
+      }
+
+      function showPlaylistView(playlist) {
+        searchSection.classList.add('hidden');
+        playlistSection.classList.remove('hidden');
+        currentPlaylist = playlist;
       }
 
       async function loadSuggestions(query) {
@@ -165,12 +262,12 @@
               <small>${escapeHtml(metaParts.join(' · ') || 'Sans informations')}</small>
             </div>
             <div class="actions">
-              <button class="queue-action" type="button">▶</button>
+              <button class="show-tracks-action" type="button">👁️ Voir</button>
             </div>
           `;
 
           item.querySelector('button').addEventListener('click', () => {
-            void playPlaylist(result);
+            void loadPlaylistTracks(result);
           });
 
           searchResults.appendChild(item);
@@ -207,7 +304,7 @@
         }
       }
 
-      async function playPlaylist(result) {
+      async function loadPlaylistTracks(result) {
         const playlistId = String((result && result.playlistId) || '').trim();
         if (!playlistId) {
           setStatus('Impossible de lire cette playlist (Id manquant).');
@@ -215,7 +312,9 @@
         }
 
         try {
-          setStatus('Chargement de la playlist...');
+          setPlaylistStatus('Chargement de la playlist...');
+          showPlaylistView(result);
+          playlistTitle.textContent = String(result.title || 'Playlist inconnue');
 
           const response = await fetch(`php/interface.php?playlistItems=1&id=${encodeURIComponent(playlistId)}`, {
             credentials: 'same-origin',
@@ -234,11 +333,6 @@
 
           const playlist = payload.playlist;
           const tracks = Array.isArray(playlist.tracks) ? playlist.tracks : [];
-          const firstTrack = tracks.find((track) => track && String(track.videoId || '').trim());
-
-          if (!firstTrack) {
-            throw new Error('Cette playlist ne contient aucun titre lisible.');
-          }
 
           await savePlayedPlaylist(
             {
@@ -249,23 +343,69 @@
             tracks
           );
 
-          postToParent('PLAYLIST_PLAY_RESULT', {
-            result: {
-              title: String(firstTrack.title || ''),
-              videoId: String(firstTrack.videoId || ''),
-              artists: Array.isArray(firstTrack.artists) ? firstTrack.artists : [],
-              views: 0,
-              album: {
-                id: '',
-              },
-            },
-          });
-
-          setStatus(`Lecture de la playlist "${playlist.title || result.title || playlistId}".`);
+          renderPlaylistTracks(tracks);
+          setPlaylistStatus('');
         } catch (error) {
           console.error(error);
-          setStatus(error.message || 'La lecture de la playlist a echoue.');
+          setPlaylistStatus(error.message || 'Le chargement de la playlist a echoue.');
         }
+      }
+
+      function renderPlaylistTracks(tracks) {
+        if (!tracks.length) {
+          playlistTracks.innerHTML = '<li>Aucune musique dans cette playlist.</li>';
+          return;
+        }
+
+        playlistTracks.innerHTML = '';
+
+        tracks.forEach((track) => {
+          if (!track || !String((track && track.videoId) || '').trim()) {
+            return;
+          }
+
+          const artists = Array.isArray(track.artists) ? track.artists.join(', ') : '';
+          const title = String(track.title || 'Musique inconnue').trim();
+
+          const item = document.createElement('li');
+          item.innerHTML = `
+            <div class="track-info">
+              <strong>${escapeHtml(title)}</strong>
+              <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
+            </div>
+            <div class="actions">
+              <button class="play-track-action" type="button">▶</button>
+            </div>
+          `;
+
+          item.querySelector('button').addEventListener('click', () => {
+            void playTrack(track);
+          });
+
+          playlistTracks.appendChild(item);
+        });
+      }
+
+      async function playTrack(track) {
+        const videoId = String(track.videoId || '').trim();
+        if (!videoId) {
+          setPlaylistStatus('Impossible de lire cette musique (Id manquant).');
+          return;
+        }
+
+        postToParent('PLAYLIST_PLAY_RESULT', {
+          result: {
+            title: String(track.title || ''),
+            videoId: videoId,
+            artists: Array.isArray(track.artists) ? track.artists : [],
+            views: 0,
+            album: {
+              id: '',
+            },
+          },
+        });
+
+        setPlaylistStatus(`Lecture de "${String(track.title || 'musique')}"...`);
       }
 
       searchButton.addEventListener('click', () => {
@@ -290,6 +430,10 @@
         suggestionTimer = window.setTimeout(() => {
           void loadSuggestions(query);
         }, 250);
+      });
+
+      backButton.addEventListener('click', () => {
+        showSearchView();
       });
     </script>
   </body>
