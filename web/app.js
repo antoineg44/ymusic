@@ -429,7 +429,7 @@ async function saveLikedMusic(track) {
     }
   }
 
-  if (persistedId && (!persistedAlbumId || parsedViews <= 0)) {
+  if (persistedId && (!persistedAlbumId || parsedViews <= 0) && (!Array.isArray(state.queue) || state.queue.length === 0)) {
     try {
       const playlistResponse = await fetch(`php/interface.php?videoId=${encodeURIComponent(persistedId)}`, {
         credentials: 'same-origin',
@@ -727,8 +727,8 @@ function updateTimeDisplay() {
 }
 
 function updateQueueDisplay() {
-  // Met à jour l'affichage de la queue si l'onglet est actif et que la queue iframe est chargée
-  if (state.currentTab === 'queue' && queueFrame && queueFrame.contentWindow) {
+  // Met à jour l'affichage de la queue chaque fois que la musique change
+  if (queueFrame && queueFrame.contentWindow) {
     let currentPlayingIndex = -1;
     if (state.currentVideoId && Array.isArray(state.queue)) {
       currentPlayingIndex = state.queue.findIndex(
