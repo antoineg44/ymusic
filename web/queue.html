@@ -213,10 +213,81 @@
       const queueStatus = document.getElementById('queueStatus');
       const queueEmpty = document.getElementById('queueEmpty');
 
-      const queueController = window.createDisplayController({
-        queueList,
-        queueEmpty,
-      });
+      async function checkMusicInDatabase(track) {
+        const id = String((track && track.videoId) || '').trim();
+        if (!id) {
+          return false;
+        }
+
+        const title = String((track && track.title) || '').trim();
+        const artist = Array.isArray(track && track.artists)
+          ? String(track.artists[0] || '').trim()
+          : '';
+
+        const requestParams = new URLSearchParams({
+          musicDetails: '1',
+          id,
+        });
+
+        if (title) {
+          requestParams.set('title', title);
+        }
+
+        if (artist) {
+          requestParams.set('artist', artist);
+        }
+
+        try {
+          const response = await fetch(`php/interface.php?${requestParams.toString()}`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+
+          if (response.status === 401) {
+            window.location.replace('login.html');
+            return false;
+          }
+
+          const payload = await response.json();
+          return Boolean(response.ok && payload.success && payload.found === true);
+        } catch (error) {
+          console.debug('Presence check failed for queue track:', error);
+          return false;
+        }
+      }
+
+      async function renderQueue(queue, currentIndex) {
+        if (!queue || !Array.isArray(queue) || queue.length === 0) {
+          queueList.innerHTML = '';
+          queueEmpty.style.display = 'block';
+          return;
+        }
+
+        queueEmpty.style.display = 'none';
+        queueList.innerHTML = '';
+
+        // Afficher seulement à partir de la musique actuelle
+        const startIndex = Math.max(0, currentIndex >= 0 ? currentIndex : 0);
+
+        for (let index = startIndex; index < queue.length; index += 1) {
+          const track = queue[index];
+          if (!track) {
+            continue;
+          }
+
+          track.isPlaying = (index === currentIndex);
+
+          // Vérifier si la musique existe en base
+          track.isInDatabase = await checkMusicInDatabase(track);
+
+          // buttons configurations
+          track.buttons = { buttons: { play: {type: 'QUEUE_PLAY_TRACK'}, delete: {type: 'QUEUE_REMOVE_TRACK'} }, source: 'queue' };
+
+          const item = renderElement(track, index);
+
+          queueList.appendChild(item);
+        }
+      }
 
       // Écouter les messages du parent
       window.addEventListener('message', (event) => {
@@ -226,7 +297,7 @@
         }
 
         if (message.type === 'UPDATE_QUEUE') {
-          void queueController.renderQueue(message.queue, message.currentIndex);
+          void renderQueue(message.queue, message.currentIndex);
           const count = message.queue ? message.queue.length : 0;
           queueStatus.textContent = count > 0
             ? `${count} musique${count > 1 ? 's' : ''} en attente`
