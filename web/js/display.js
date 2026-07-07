@@ -44,6 +44,10 @@ function renderElement(el, index) {
     ? el.artists.join(', ')
     : String(el.artist || '').trim();
 
+  const duration = (el.duration || 0);
+  const views = (el.views || 0);
+  const metadata = `${duration} • ${views} vues`;
+
   // Recalculer l'index d'affichage à partir de la musique actuelle
   const indexClass = el.isPlaying ? 'queue-item-index playing' : 'queue-item-index';
   const indexContent = el.isPlaying
@@ -56,6 +60,7 @@ function renderElement(el, index) {
     <div class="track-info">
       <strong>${escapeHtml(title)}</strong>
       <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
+      <small style="font-size: 0.8em; opacity: 0.7;">${escapeHtml(metadata)}</small>
     </div>
   `;
 
