@@ -274,7 +274,10 @@
         queueEmpty.style.display = 'none';
         queueList.innerHTML = '';
 
-        for (let index = 0; index < queue.length; index += 1) {
+        // Afficher seulement à partir de la musique actuelle
+        const startIndex = Math.max(0, currentIndex >= 0 ? currentIndex : 0);
+        
+        for (let index = startIndex; index < queue.length; index += 1) {
           const track = queue[index];
           if (!track) {
             continue;
@@ -285,11 +288,13 @@
             ? track.artists.join(', ')
             : String(track.artist || '').trim();
 
-          const isPlaying = index === currentIndex;
+          // Recalculer l'index d'affichage à partir de la musique actuelle
+          const displayIndex = index - startIndex;
+          const isPlaying = (index === currentIndex);
           const indexClass = isPlaying ? 'queue-item-index playing' : 'queue-item-index';
           const indexContent = isPlaying
             ? '<div class="playing-icon"><span></span><span></span><span></span></div>'
-            : String(index + 1);
+            : String(displayIndex + 1);
 
           const item = document.createElement('li');
           item.innerHTML = `
