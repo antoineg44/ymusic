@@ -216,7 +216,7 @@
       async function checkMusicInDatabase(track) {
         const id = String((track && track.videoId) || '').trim();
         if (!id) {
-          return false;
+          return { found: false, duration: 0, views: 0 };
         }
 
         const title = String((track && track.title) || '').trim();
@@ -245,14 +245,21 @@
 
           if (response.status === 401) {
             window.location.replace('login.html');
-            return false;
+            return { found: false, duration: 0, views: 0 };
           }
 
           const payload = await response.json();
-          return Boolean(response.ok && payload.success && payload.found === true);
+          const found = Boolean(response.ok && payload.success && payload.found === true);
+          const music = payload.music || {};
+          
+          return {
+            found,
+            duration: Number(music.Duree || 0),
+            views: Number(music.NombreVue || 0),
+          };
         } catch (error) {
           console.debug('Presence check failed for queue track:', error);
-          return false;
+          return { found: false, duration: 0, views: 0 };
         }
       }
 
@@ -277,8 +284,17 @@
 
           track.isPlaying = (index === currentIndex);
 
-          // Vérifier si la musique existe en base
-          track.isInDatabase = await checkMusicInDatabase(track);
+          // Vérifier si la musique existe en base et récupérer les détails
+          const musicInfo = await checkMusicInDatabase(track);
+          track.isInDatabase = musicInfo.found;
+          
+          // Utiliser les durée et vues de la base si disponibles
+          if (!track.duration) {
+            track.duration = musicInfo.duration;
+          }
+          if (!track.views) {
+            track.views = musicInfo.views;
+          }
 
           // buttons configurations
           track.buttons = { buttons: { play: {type: 'QUEUE_PLAY_TRACK'}, delete: {type: 'QUEUE_REMOVE_TRACK'} }, source: 'queue' };
