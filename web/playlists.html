@@ -151,6 +151,7 @@
     <script>
       let suggestionTimer = null;
       let currentPlaylist = null;
+      let currentPlaylistTracks = [];
 
       const searchInput = document.getElementById('searchInput');
       const searchButton = document.getElementById('searchButton');
@@ -374,10 +375,12 @@
       function renderPlaylistTracks(tracks) {
         if (!tracks.length) {
           playlistTracks.innerHTML = '<li>Aucune musique dans cette playlist.</li>';
+          currentPlaylistTracks = [];
           return;
         }
 
         playlistTracks.innerHTML = '';
+        currentPlaylistTracks = tracks.filter((track) => track && String((track && track.videoId) || '').trim());
 
         tracks.forEach((track) => {
           if (!track || !String((track && track.videoId) || '').trim()) {
@@ -428,6 +431,26 @@
         setPlaylistStatus(`Lecture de "${String(track.title || 'musique')}"...`);
       }
 
+      async function playAllTracks() {
+        if (!currentPlaylistTracks || currentPlaylistTracks.length === 0) {
+          setPlaylistStatus('Aucune musique a lire dans cette playlist.');
+          return;
+        }
+
+        const firstTrack = currentPlaylistTracks[0];
+        if (!firstTrack || !String(firstTrack.videoId || '').trim()) {
+          setPlaylistStatus('Impossible de lire cette playlist (premiere musique invalide).');
+          return;
+        }
+
+        // Envoyer un message au parent pour charger la playlist complète dans la queue
+        postToParent('PLAYLIST_LOAD_ALL', {
+          tracks: currentPlaylistTracks,
+        });
+
+        setPlaylistStatus(`Chargement de la playlist (${currentPlaylistTracks.length} musiques)...`);
+      }
+
       searchButton.addEventListener('click', () => {
         void searchPlaylists();
       });
@@ -457,15 +480,7 @@
       });
 
       playAllButton.addEventListener('click', () => {
-        const allTracks = Array.from(playlistTracks.querySelectorAll('li'));
-        const firstValidTrack = allTracks.find((li) => {
-          return li.querySelector('button');
-        });
-
-        if (firstValidTrack) {
-          const button = firstValidTrack.querySelector('button');
-          button.click();
-        }
+        void playAllTracks();
       });
     </script>
   </body>

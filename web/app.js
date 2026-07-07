@@ -104,6 +104,18 @@ window.addEventListener('message', (event) => {
         type: 'SEARCH_PLAY_RESULT',
         result: message.result,
       });
+    } else if (message.type === 'PLAYLIST_LOAD_ALL' && Array.isArray(message.tracks) && message.tracks.length > 0) {
+      // Charger toute la playlist dans la queue
+      state.queue = message.tracks;
+      state.queueIndex = 0;
+      const firstTrack = message.tracks[0];
+      
+      if (firstTrack && isValidVideoId(firstTrack.videoId)) {
+        void playerController.downloadAndPlay(firstTrack.videoId, firstTrack.title, {
+          artist: Array.isArray(firstTrack.artists) ? firstTrack.artists.join(', ') : '',
+          views: 0,
+        });
+      }
     }
     return;
   }
