@@ -122,6 +122,11 @@
       });
       syncFavoriteState();
       syncNextTrackPreview();
+      
+      // Notifier le parent pour mettre à jour l'affichage de la queue
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ source: 'lecteur', type: 'TRACK_CHANGED' }, '*');
+      }
     }
 
     const musiqueSuivanteController = window.createMusiqueSuivanteController({

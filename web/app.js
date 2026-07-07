@@ -118,6 +118,30 @@ window.addEventListener('message', (event) => {
           views: 0,
         });
       }
+    } else if (message.type === 'QUEUE_REMOVE_TRACK' && typeof message.index === 'number') {
+      if (Array.isArray(state.queue) && message.index >= 0 && message.index < state.queue.length) {
+        state.queue.splice(message.index, 1);
+        // Mettre à jour l'affichage de la queue si l'onglet est actif
+        if (state.currentTab === 'queue' && queueFrame && queueFrame.contentWindow) {
+          // Trouver l'index de la musique actuellement en cours de lecture dans la queue
+          let currentPlayingIndex = -1;
+          if (state.currentVideoId && Array.isArray(state.queue)) {
+            currentPlayingIndex = state.queue.findIndex(
+              (track) => track && track.videoId === state.currentVideoId
+            );
+          }
+          if (currentPlayingIndex < 0) {
+            currentPlayingIndex = state.queueIndex;
+          }
+
+          queueFrame.contentWindow.postMessage({
+            target: 'queue',
+            type: 'UPDATE_QUEUE',
+            queue: state.queue || [],
+            currentIndex: currentPlayingIndex,
+          }, '*');
+        }
+      }
     }
     return;
   }
@@ -138,6 +162,11 @@ window.addEventListener('message', (event) => {
 
   if (message.source === 'lecteur') {
     playerController.handleMessage(message);
+    
+    // Mettre à jour l'affichage de la queue quand la musique change
+    if (message.type === 'TRACK_CHANGED') {
+      updateQueueDisplay();
+    }
     return;
   }
 });
@@ -183,11 +212,22 @@ function setActiveTab(tab) {
 
   // Mettre à jour la queue si l'onglet queue est affiché
   if (isQueueTab && queueFrame && queueFrame.contentWindow) {
+    // Trouver l'index de la musique actuellement en cours de lecture dans la queue
+    let currentPlayingIndex = -1;
+    if (state.currentVideoId && Array.isArray(state.queue)) {
+      currentPlayingIndex = state.queue.findIndex(
+        (track) => track && track.videoId === state.currentVideoId
+      );
+    }
+    if (currentPlayingIndex < 0) {
+      currentPlayingIndex = state.queueIndex;
+    }
+
     queueFrame.contentWindow.postMessage({
       target: 'queue',
       type: 'UPDATE_QUEUE',
       queue: state.queue || [],
-      currentIndex: state.queueIndex,
+      currentIndex: currentPlayingIndex,
     }, '*');
   }
 
@@ -684,4 +724,26 @@ async function playNext() {
 
 function updateTimeDisplay() {
   playerController.updateTimeDisplay();
+}
+
+function updateQueueDisplay() {
+  // Met à jour l'affichage de la queue si l'onglet est actif et que la queue iframe est chargée
+  if (state.currentTab === 'queue' && queueFrame && queueFrame.contentWindow) {
+    let currentPlayingIndex = -1;
+    if (state.currentVideoId && Array.isArray(state.queue)) {
+      currentPlayingIndex = state.queue.findIndex(
+        (track) => track && track.videoId === state.currentVideoId
+      );
+    }
+    if (currentPlayingIndex < 0) {
+      currentPlayingIndex = state.queueIndex;
+    }
+
+    queueFrame.contentWindow.postMessage({
+      target: 'queue',
+      type: 'UPDATE_QUEUE',
+      queue: state.queue || [],
+      currentIndex: currentPlayingIndex,
+    }, '*');
+  }
 }

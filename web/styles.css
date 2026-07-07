@@ -112,10 +112,10 @@ body {
 
 .content {
   min-width: 0;
-  padding-bottom: 130px;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - 130px);
+  overflow-y: auto;
 }
 
 
