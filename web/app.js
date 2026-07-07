@@ -112,6 +112,7 @@ window.addEventListener('message', (event) => {
       
       if (firstTrack && isValidVideoId(firstTrack.videoId)) {
         void playerController.downloadAndPlay(firstTrack.videoId, firstTrack.title, {
+          skipQueueLoad: true,
           artist: Array.isArray(firstTrack.artists) ? firstTrack.artists.join(', ') : '',
           views: 0,
         });
