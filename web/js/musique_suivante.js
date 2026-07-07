@@ -10,12 +10,14 @@
     } = deps;
 
     function resetPlaylistQueue() {
+      console.log('Musique suivante - Réinitialisation de la file YouTube Music.');
       state.queue = [];
       state.queueIndex = -1;
       state.currentVideoId = '';
     }
 
     async function loadPlaylistQueue(videoId) {
+      console.log('Musique suivante - loadPlaylistQueue', videoId);
       // Charge et normalise la playlist liée à la vidéo courante.
       if (!isValidVideoId(videoId)) {
         resetPlaylistQueue();
@@ -48,6 +50,7 @@
     }
 
     async function playNext() {
+      console.log('Musique suivante - playNext');
       // Lit la prochaine entrée de la queue, avec fallback sur la bibliothèque locale.
       if (isValidVideoId(state.currentVideoId)) {
         if (!state.queue.length || state.queueIndex < 0) {
