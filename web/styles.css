@@ -89,17 +89,23 @@ body {
 }
 
 .app-shell {
-  display: grid;
-  grid-template-columns: 240px 1fr;
+  display: block;
+  margin-left: 240px;
 }
 
 .menu-frame-shell {
-  min-width: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 100vh;
+  z-index: 100;
+  min-width: auto;
 }
 
 .menu-frame {
   width: 100%;
-  min-height: 720px;
+  height: 100%;
   border: 0;
   background: transparent;
 }

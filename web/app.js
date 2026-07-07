@@ -21,12 +21,14 @@ const albumsPanel = document.getElementById('albumsPanel');
 const playlistsPanel = document.getElementById('playlistsPanel');
 const myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
+const queuePanel = document.getElementById('queuePanel');
 const listFrame = document.getElementById('listFrame');
 const searchFrame = document.getElementById('searchFrame');
 const artistsFrame = document.getElementById('artistsFrame');
 const albumsFrame = document.getElementById('albumsFrame');
 const playlistsFrame = document.getElementById('playlistsFrame');
 const myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
+const queueFrame = document.getElementById('queueFrame');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
 const menuFrame = document.getElementById('menuFrame');
@@ -106,6 +108,20 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.source === 'queue') {
+    if (message.type === 'QUEUE_PLAY_TRACK' && typeof message.index === 'number') {
+      if (Array.isArray(state.queue) && state.queue[message.index]) {
+        state.queueIndex = message.index;
+        const track = state.queue[message.index];
+        void playerController.downloadAndPlay(track.videoId, track.title, {
+          artist: Array.isArray(track.artists) ? track.artists.join(', ') : '',
+          views: 0,
+        });
+      }
+    }
+    return;
+  }
+
   if (message.source === 'description') {
     if (message.type === 'OPEN_EDITIONS') {
       openEditionsPopup(String(message.id || '').trim());
@@ -149,6 +165,7 @@ function setActiveTab(tab) {
   const isAlbumsTab = tab === 'albums';
   const isPlaylistsTab = tab === 'playlists';
   const isMyPlaylistsTab = tab === 'mes-playlists';
+  const isQueueTab = tab === 'queue';
   const isSettingsTab = tab === 'parametres';
 
   state.currentTab = tab;
@@ -159,9 +176,20 @@ function setActiveTab(tab) {
   albumsPanel.classList.toggle('is-hidden', !isAlbumsTab);
   playlistsPanel.classList.toggle('is-hidden', !isPlaylistsTab);
   myPlaylistsPanel.classList.toggle('is-hidden', !isMyPlaylistsTab);
+  queuePanel.classList.toggle('is-hidden', !isQueueTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
   ensureTabIframeLoaded(tab);
+
+  // Mettre à jour la queue si l'onglet queue est affiché
+  if (isQueueTab && queueFrame && queueFrame.contentWindow) {
+    queueFrame.contentWindow.postMessage({
+      target: 'queue',
+      type: 'UPDATE_QUEUE',
+      queue: state.queue || [],
+      currentIndex: state.queueIndex,
+    }, '*');
+  }
 
   // Pour demander un changement de tab à l'iframe menu
   /*if (menuFrame && menuFrame.contentWindow) {
@@ -206,6 +234,11 @@ function ensureTabIframeLoaded(tab) {
 
   if (tab === 'playlists') {
     ensureIframeLoaded(playlistsFrame);
+    return;
+  }
+
+  if (tab === 'queue') {
+    ensureIframeLoaded(queueFrame);
     return;
   }
 
@@ -486,9 +519,41 @@ function openEditionsPopup(musicId) {
   descriptionModal.setAttribute('aria-hidden', 'false');
 }
 
-async function loadLibrary() {
+async function loadLibrary(filePath) {
   try {
-    const response = await fetch('php/list_library.php', { credentials: 'same-origin' });
+    let url = 'php/list_library.php';
+    
+    // Si un chemin de fichier est fourni, on cherche juste cette musique
+    if (filePath) {
+      url = `php/list_library.php?file=${encodeURIComponent(filePath)}`;
+      const response = await fetch(url, { credentials: 'same-origin' });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.replace('login.html');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const track = await response.json();
+      if (track) {
+        // Ajouter ou mettre à jour la musique dans la bibliothèque
+        const existingIndex = state.library.findIndex(
+          (t) => t.file === track.file || t.path === track.path
+        );
+        
+        if (existingIndex >= 0) {
+          state.library[existingIndex] = track;
+        } else {
+          state.library.push(track);
+        }
+      }
+      return;
+    }
+
+    // Charger toute la bibliothèque (comportement par défaut)
+    const response = await fetch(url, { credentials: 'same-origin' });
 
     if (!response.ok) {
       if (response.status === 401) {

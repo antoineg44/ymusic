@@ -193,7 +193,7 @@
         }
 
         await waitForMediaReady(track.path);
-        await loadLibrary();
+        await loadLibrary(track.path);
 
         const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
         const resolvedTitle = String(title || '').trim();

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Queue - YMusic</title>
+    <link rel="stylesheet" href="css/colors.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--background);
+        position: static;
+        top: auto;
+        color-scheme: dark;
+        font-family: Inter, Arial, sans-serif;
+        color: #e2e8f0;
+      }
+
+      .queue-page {
+        max-width: 1300px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+
+      .queue-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .queue-title {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #dbeafe;
+        margin: 0;
+      }
+
+      .panel {
+        width: 100%;
+      }
+
+      .panel.is-hidden {
+        display: none;
+      }
+
+      .panel ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .panel li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+
+      .queue-item-index {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: rgba(56, 189, 248, 0.2);
+        border-radius: 50%;
+        color: #38bdf8;
+        font-weight: bold;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+      }
+
+      .track-info {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        flex: 1;
+      }
+
+      .track-info strong {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .track-info small {
+        color: #94a3b8;
+      }
+
+      .play-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 10px;
+        cursor: pointer;
+        background: #38bdf8;
+        color: #082f49;
+        font-weight: 700;
+      }
+
+      .status {
+        margin-top: 10px;
+        color: #7dd3fc;
+        min-height: 1.3em;
+      }
+
+      .queue-empty {
+        text-align: center;
+        color: #94a3b8;
+        padding: 40px 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="queue-page">
+      <section class="panel">
+        <div class="queue-header">
+          <h1 class="queue-title">Musiques en attente</h1>
+        </div>
+        <div id="queueStatus" class="status"></div>
+        <ul id="queueList"></ul>
+        <div id="queueEmpty" class="queue-empty" style="display: none;">
+          Aucune musique en attente
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const queueList = document.getElementById('queueList');
+      const queueStatus = document.getElementById('queueStatus');
+      const queueEmpty = document.getElementById('queueEmpty');
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;');
+      }
+
+      function renderQueue(queue, currentIndex) {
+        if (!queue || !Array.isArray(queue) || queue.length === 0) {
+          queueList.innerHTML = '';
+          queueEmpty.style.display = 'block';
+          return;
+        }
+
+        queueEmpty.style.display = 'none';
+        queueList.innerHTML = '';
+
+        queue.forEach((track, index) => {
+          if (!track) {
+            return;
+          }
+
+          const title = String(track.title || track.videoId || 'Musique inconnue').trim();
+          const artists = Array.isArray(track.artists)
+            ? track.artists.join(', ')
+            : String(track.artist || '').trim();
+
+          const item = document.createElement('li');
+          item.innerHTML = `
+            <div class="queue-item-index">${index + 1}</div>
+            <div class="track-info">
+              <strong>${escapeHtml(title)}</strong>
+              <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
+            </div>
+            <div class="actions">
+              <button class="play-btn" type="button">▶</button>
+            </div>
+          `;
+
+          item.querySelector('button').addEventListener('click', () => {
+            window.parent.postMessage(
+              { source: 'queue', type: 'QUEUE_PLAY_TRACK', index },
+              '*'
+            );
+          });
+
+          queueList.appendChild(item);
+        });
+      }
+
+      // Écouter les messages du parent
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (!message || message.target !== 'queue') {
+          return;
+        }
+
+        if (message.type === 'UPDATE_QUEUE') {
+          renderQueue(message.queue, message.currentIndex);
+          const count = message.queue ? message.queue.length : 0;
+          queueStatus.textContent = count > 0
+            ? `${count} musique${count > 1 ? 's' : ''} en attente`
+            : '';
+        }
+      });
+    </script>
+  </body>
+</html>
