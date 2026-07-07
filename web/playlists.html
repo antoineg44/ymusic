@@ -103,6 +103,26 @@
       .hidden {
         display: none;
       }
+
+      .play-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 10px;
+        cursor: pointer;
+        background: #38bdf8;
+        color: #082f49;
+        font-weight: 700;
+      }
+
+      .play-all-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 10px;
+        cursor: pointer;
+        background: #38bdf8;
+        color: #082f49;
+        font-weight: 700;
+      }
     </style>
   </head>
   <body>
@@ -121,6 +141,7 @@
         <div class="playlist-header">
           <button id="backButton" class="back-button" type="button">← Retour</button>
           <div class="playlist-title" id="playlistTitle"></div>
+          <button id="playAllButton" class="play-all-btn" type="button">▶ Lire tout</button>
         </div>
         <div id="playlistStatus" class="status"></div>
         <ul id="playlistTracks" class="playlist-tracks"></ul>
@@ -142,6 +163,7 @@
       const playlistStatus = document.getElementById('playlistStatus');
       const playlistTracks = document.getElementById('playlistTracks');
       const backButton = document.getElementById('backButton');
+      const playAllButton = document.getElementById('playAllButton');
 
       function postToParent(type, payload = {}) {
         window.parent.postMessage({ source: 'playlists', type, ...payload }, '*');
@@ -261,12 +283,10 @@
               <strong>${escapeHtml(result.title || 'Playlist inconnue')}</strong>
               <small>${escapeHtml(metaParts.join(' · ') || 'Sans informations')}</small>
             </div>
-            <div class="actions">
-              <button class="show-tracks-action" type="button">👁️ Voir</button>
-            </div>
           `;
 
-          item.querySelector('button').addEventListener('click', () => {
+          item.style.cursor = 'pointer';
+          item.addEventListener('click', () => {
             void loadPlaylistTracks(result);
           });
 
@@ -374,7 +394,7 @@
               <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
             </div>
             <div class="actions">
-              <button class="play-track-action" type="button">▶</button>
+              <button class="play-btn" type="button">▶</button>
             </div>
           `;
 
@@ -434,6 +454,18 @@
 
       backButton.addEventListener('click', () => {
         showSearchView();
+      });
+
+      playAllButton.addEventListener('click', () => {
+        const allTracks = Array.from(playlistTracks.querySelectorAll('li'));
+        const firstValidTrack = allTracks.find((li) => {
+          return li.querySelector('button');
+        });
+
+        if (firstValidTrack) {
+          const button = firstValidTrack.querySelector('button');
+          button.click();
+        }
       });
     </script>
   </body>
