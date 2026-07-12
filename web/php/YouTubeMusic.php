@@ -17,6 +17,7 @@ class YouTubeMusic
         $webDir = dirname(__DIR__);
         $projectDir = dirname($webDir);
         $candidates = [
+            $baseDir . '../python/.venv/bin/python',
             $projectDir . '/.venv/Scripts/python.exe',
             $webDir . '/.venv/Scripts/python.exe',
             $projectDir . '/.venv/bin/python',
