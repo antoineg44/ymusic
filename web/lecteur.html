@@ -99,6 +99,35 @@
 			const audio = document.getElementById('audioPlayer');
 			const playerCard = document.querySelector('.player-card');
 
+			let wakeLock = null;
+
+			async function requestWakeLock() {
+				if (!navigator.wakeLock) {
+					return;
+				}
+
+				try {
+					wakeLock = await navigator.wakeLock.request('screen');
+					console.log('Wake Lock acquired');
+				} catch (error) {
+					console.debug('Wake Lock request failed:', error);
+				}
+			}
+
+			function releaseWakeLock() {
+				if (!wakeLock) {
+					return;
+				}
+
+				try {
+					wakeLock.release();
+					wakeLock = null;
+					console.log('Wake Lock released');
+				} catch (error) {
+					console.debug('Wake Lock release failed:', error);
+				}
+			}
+
 			function setFavoriteState(isFavorite) {
 				favoriteButton.textContent = isFavorite ? '★' : '☆';
 				favoriteButton.classList.toggle('is-active', Boolean(isFavorite));
@@ -190,9 +219,11 @@
 			});
 			audio.addEventListener('play', () => {
 				playButton.textContent = '⏸';
+				void requestWakeLock();
 			});
 			audio.addEventListener('pause', () => {
 				playButton.textContent = '▶';
+				releaseWakeLock();
 			});
 
 			playerCard.addEventListener('click', (event) => {
@@ -233,6 +264,7 @@
 					audio.play().catch(() => {
 						postToParent('PLAYER_ERROR', { error: 'Lecture bloquee par le navigateur.' });
 					});
+					void requestWakeLock();
 					return;
 				}
 
@@ -243,6 +275,11 @@
 
 				if (message.type === 'SET_PLAY_PAUSE_ICON') {
 					playButton.textContent = message.isPlaying ? '⏸' : '▶';
+					if (message.isPlaying) {
+						void requestWakeLock();
+					} else {
+						releaseWakeLock();
+					}
 					return;
 				}
 
@@ -256,6 +293,19 @@
 
 				if (message.type === 'SET_FAVORITE_STATE') {
 					setFavoriteState(Boolean(message.isFavorite));
+				}
+			});
+
+			// Gérer la visibilité de la page (quand on quitte et revient à l'app)
+			document.addEventListener('visibilitychange', () => {
+				if (document.hidden) {
+					// La page est cachée, on peut garder le WakeLock si la musique joue
+					// (aucune action nécessaire, le WakeLock continue)
+				} else {
+					// La page est visible à nouveau
+					if (!audio.paused) {
+						void requestWakeLock();
+					}
 				}
 			});
 
