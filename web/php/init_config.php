@@ -4,7 +4,7 @@
 
 $baseDir = __DIR__ ;
 
-$venvDir = $baseDir . '/venv';
+$venvDir = $baseDir . '../python/.venv';
 
 if (!is_dir($baseDir)) {
     mkdir($baseDir, 0755, true);
