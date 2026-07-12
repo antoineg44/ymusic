@@ -259,11 +259,13 @@
             artists: Array.isArray(result.artists) ? result.artists : [],
             duration: result.duration || 0,
             views: result.views || 0,
+            showIndex: false,
             buttons: {
               buttons: {
                 play: {
                   type: 'SEARCH_PLAY_RESULT',
                   result,
+                  className: 'queue-action',
                 },
               },
               source: 'recherche',

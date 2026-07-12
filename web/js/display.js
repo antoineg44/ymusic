@@ -7,12 +7,19 @@ function escapeHtml(value) {
 }
 
 function getDisplayHTMLButtons(item, infos, index) {
+  const playClassName = infos.buttons.play && infos.buttons.play.className
+    ? String(infos.buttons.play.className)
+    : 'play-btn';
+  const deleteClassName = infos.buttons.delete && infos.buttons.delete.className
+    ? String(infos.buttons.delete.className)
+    : 'delete-btn';
+
   item.innerHTML += `<div class="actions">`;
   if (infos.buttons.play) {
-    item.innerHTML += `<button class="play-btn" type="button" data-action="play">▶</button>`;
+    item.innerHTML += `<button class="${playClassName}" type="button" data-action="play">▶</button>`;
   }
   if(infos.buttons.delete) {
-    item.innerHTML += `<button class="delete-btn" type="button" data-action="delete">✕</button>`;
+    item.innerHTML += `<button class="${deleteClassName}" type="button" data-action="delete">✕</button>`;
   }
   item.innerHTML += `</div>`;
 
@@ -66,6 +73,8 @@ function renderElement(el, index) {
   const views = (el.views || 0);
   const metadata = `${duration} • ${views} vues`;
 
+  const showIndex = el.showIndex !== false;
+
   // Recalculer l'index d'affichage à partir de la musique actuelle
   const indexClass = el.isPlaying ? 'queue-item-index playing' : 'queue-item-index';
   const indexContent = el.isPlaying
@@ -73,14 +82,24 @@ function renderElement(el, index) {
     : String(index + 1);
 
   const item = document.createElement('li');
-  item.innerHTML = `
-    <div class="${indexClass}">${indexContent}</div>
-    <div class="track-info">
-      <strong>${escapeHtml(title)}</strong>
-      <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
-      <small style="font-size: 0.8em; opacity: 0.7;">${escapeHtml(metadata)}</small>
-    </div>
-  `;
+  if (showIndex) {
+    item.innerHTML = `
+      <div class="${indexClass}">${indexContent}</div>
+      <div class="track-info">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
+        <small style="font-size: 0.8em; opacity: 0.7;">${escapeHtml(metadata)}</small>
+      </div>
+    `;
+  } else {
+    item.innerHTML = `
+      <div class="track-info">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
+        <small style="font-size: 0.8em; opacity: 0.7;">${escapeHtml(metadata)}</small>
+      </div>
+    `;
+  }
 
   // Vérifier si la musique existe en base
   if(el.isInDatabase == true)
