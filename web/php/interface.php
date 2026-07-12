@@ -456,7 +456,15 @@ if (!empty($_GET['deleteFile'])) {
             $existingFile = find_downloaded_file_for_music_id($musicId);
 
             if ($existingFile === null) {
-                throw new RuntimeException('Musique deja presente en base, mais fichier audio introuvable');
+                $result = $yt->download($musicId);
+
+                echo json_encode([
+                    'success' => true,
+                    'download' => $result,
+                    'music' => $existingMusic,
+                    'recoveredMissingAudio' => true,
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
             }
 
             echo json_encode([
