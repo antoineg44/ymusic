@@ -13,34 +13,7 @@ class YouTubeMusic
     public function __construct()
     {
         // Selectionne un binaire Python valide selon l'environnement (Windows/Linux, venv locale, fallback systeme).
-        $baseDir = __DIR__;
-        $webDir = dirname(__DIR__);
-        $projectDir = dirname($webDir);
-        $candidates = [
-            $baseDir . '../python/.venv/bin/python',
-            $projectDir . '/.venv/Scripts/python.exe',
-            $webDir . '/.venv/Scripts/python.exe',
-            $projectDir . '/.venv/bin/python',
-            $baseDir . '/.venv/bin/python',
-            $webDir . '/venv/Scripts/python.exe',
-            $webDir . '/venv/bin/python',
-            $baseDir . '/venv/bin/python',
-            '/usr/bin/python3',
-            '/usr/local/bin/python3',
-        ];
-
-        $this->python = '';
-
-        foreach ($candidates as $candidate) {
-            if (is_file($candidate) && is_executable($candidate)) {
-                $this->python = $candidate;
-                break;
-            }
-        }
-
-        if ($this->python === '') {
-            $this->python = 'python3';
-        }
+        $this->python = '../python/.venv/bin/python';
 
         $this->script = $webDir . '/python/ytapi.py';
 
