@@ -112,3 +112,6 @@ runCommand("git checkout " . escapeshellarg($branch_name));
 runCommand("git pull origin " . escapeshellarg($branch_name));
 
 echo "Déploiement terminé avec succès.\n";
+
+
+// sudo chown -R www-data:www-data /var/www/html && sudo chmod -R u+w /var/www/html
