@@ -77,6 +77,24 @@ class YouTubeMusic
         ]);
     }
 
+    public function getSongDetails(string $videoId, ?string $title = null, ?string $artist = null): array
+    {
+        $args = [
+            'get_song_details',
+            $videoId,
+        ];
+        
+        if ($title !== null) {
+            $args[] = $title;
+        }
+        
+        if ($artist !== null && $title !== null) {
+            $args[] = $artist;
+        }
+        
+        return $this->run($args);
+    }
+
     public function download(string $musicId): array
     {
         $command =

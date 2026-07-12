@@ -129,6 +129,48 @@ def playlist_items(playlist_id, limit=200):
     }
 
 
+def get_song_details(video_id, title=None, artist=None):
+    """Récupère les détails d'une chanson (durée, nombre de vues) par son videoId ou titre/artiste"""
+    try:
+        # Essayer d'abord avec l'ID vidéo
+        song = ytmusic.get_song(video_id)
+        
+        # Extraire les informations pertinentes
+        video_details = song.get("videoDetails", {})
+        result = {
+            "videoId": video_id,
+            "title": video_details.get("title"),
+            "duration": video_details.get("lengthSeconds"),
+            "views": video_details.get("viewCount"),
+        }
+        
+        return result
+    except Exception:
+        # Si get_song échoue, essayer de chercher par titre/artiste
+        if title:
+            try:
+                # Construire une requête de recherche
+                if artist:
+                    query = f"{title} {artist}"
+                else:
+                    query = title
+                
+                results = search(query, limit=5)
+                
+                # Chercher la correspondance exacte ou la meilleure correspondance
+                for result in results:
+                    if result.get("videoId") == video_id:
+                        return result
+                
+                # Si pas de correspondance exacte par ID, retourner la première
+                if results:
+                    return results[0]
+            except Exception:
+                pass
+        
+        raise Exception(f"Impossible de récupérer les détails de la chanson avec l'ID {video_id}")
+
+
 try:
 
     action = sys.argv[1]
@@ -169,6 +211,17 @@ try:
         print(json.dumps({
             "success": True,
             "playlist": playlist_items(playlist_id)
+        }))
+
+    elif action == "get_song_details":
+
+        video_id = sys.argv[2]
+        title = sys.argv[3] if len(sys.argv) > 3 else None
+        artist = sys.argv[4] if len(sys.argv) > 4 else None
+
+        print(json.dumps({
+            "success": True,
+            "song": get_song_details(video_id, title, artist)
         }))
 
     else:

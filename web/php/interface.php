@@ -604,6 +604,38 @@ if (!empty($_GET['query'])) {
         }
 
         if ($music === false) {
+            // Musique non trouvée en base de données, essayer de récupérer les infos depuis YouTube Music
+            try {
+                $ytDetails = $yt->getSongDetails($id, $title, $artist);
+                
+                if ($ytDetails['success'] && isset($ytDetails['song'])) {
+                    $songData = $ytDetails['song'];
+                    $finalTitle = $title !== '' ? $title : ($songData['title'] ?? '');
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'found' => false,
+                        'fromYouTube' => true,
+                        'music' => [
+                            'Id' => $id,
+                            'Titre' => $finalTitle,
+                            'Artiste' => $artist,
+                            'Utilisateur' => null,
+                            'Album' => null,
+                            'Duree' => $songData['duration'] ?? null,
+                            'AnneeParution' => null,
+                            'Genre' => null,
+                            'NombreVue' => $songData['views'] ?? null,
+                            'NombreVueInterne' => null,
+                            'DateAjout' => null,
+                        ],
+                    ], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+            } catch (Throwable $ytException) {
+                // Si la requête YouTube Music échoue, continuer avec les données partielles
+            }
+            
             echo json_encode([
                 'success' => true,
                 'found' => false,
