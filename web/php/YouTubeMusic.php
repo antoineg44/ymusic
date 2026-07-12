@@ -15,9 +15,9 @@ class YouTubeMusic
         // Selectionne un binaire Python valide selon l'environnement (Windows/Linux, venv locale, fallback systeme).
         $this->python = '../python/.venv/bin/python';
 
-        $this->script = $webDir . '/python/ytapi.py';
+        $this->script = '../python/ytapi.py';
 
-        $this->scriptDownload = $webDir . '/python/stream.py';
+        $this->scriptDownload = '../python/stream.py';
     }
 
     private function run(array $args): array
