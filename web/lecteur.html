@@ -40,6 +40,28 @@
 			.favorite-button.is-active {
 				color: #facc15;
 			}
+
+			.spinner {
+				display: none;
+				width: 20px;
+				height: 20px;
+				border: 2px solid rgba(148, 163, 184, 0.3);
+				border-top-color: rgba(56, 189, 248, 0.8);
+				border-radius: 50%;
+				animation: spin 0.8s linear infinite;
+				margin-left: 8px;
+				display: inline-block;
+			}
+
+			.spinner.hidden {
+				display: none;
+			}
+
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
 		</style>
 	</head>
 	<body>
@@ -48,6 +70,7 @@
 			<div class="player-head">
 				<div>
 					<strong id="nowPlaying">Aucune lecture en cours</strong>
+					<div class="spinner hidden" id="loadingSpinner" aria-label="Chargement en cours"></div>
 					<div id="nowPlayingMeta" class="status">Selectionnez un titre dans la bibliotheque</div>
 					<div id="nextPlaying" class="status">Prochaine musique: aucune</div>
 				</div>
@@ -71,6 +94,7 @@
 			const nowPlaying = document.getElementById('nowPlaying');
 			const nowPlayingMeta = document.getElementById('nowPlayingMeta');
 			const nextPlaying = document.getElementById('nextPlaying');
+			const loadingSpinner = document.getElementById('loadingSpinner');
 			const favoriteButton = document.getElementById('favoriteButton');
 			const audio = document.getElementById('audioPlayer');
 			const playerCard = document.querySelector('.player-card');
@@ -79,6 +103,14 @@
 				favoriteButton.textContent = isFavorite ? '★' : '☆';
 				favoriteButton.classList.toggle('is-active', Boolean(isFavorite));
 				favoriteButton.setAttribute('aria-label', isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris');
+			}
+
+			function showLoadingSpinner() {
+				loadingSpinner.classList.remove('hidden');
+			}
+
+			function hideLoadingSpinner() {
+				loadingSpinner.classList.add('hidden');
 			}
 
 			function postToParent(type, payload = {}) {
@@ -181,7 +213,18 @@
 					return;
 				}
 
+				if (message.type === 'SHOW_LOADING') {
+					showLoadingSpinner();
+					return;
+				}
+
+				if (message.type === 'HIDE_LOADING') {
+					hideLoadingSpinner();
+					return;
+				}
+
 				if (message.type === 'LOAD_TRACK') {
+					hideLoadingSpinner();
 					nowPlaying.textContent = String(message.title || 'Aucune lecture en cours');
 					nowPlayingMeta.textContent = String(message.meta || 'Bibliotheque locale');
 					setFavoriteState(Boolean(message.isFavorite));

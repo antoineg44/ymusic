@@ -117,7 +117,7 @@
       sendPlayerMessage('LOAD_TRACK', {
         src: source,
         title: track.title,
-        meta: track.folder || 'Bibliotheque locale',
+        meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
         isFavorite: Boolean(state.likedSaved),
       });
       syncFavoriteState();
@@ -156,8 +156,7 @@
         return;
       }
 
-      setStatus(`Téléchargement de “${title}”…`);
-
+      setStatus(`Téléchargement de “${title}”…`);      sendPlayerMessage('SHOW_LOADING', {});
       try {
         if (!skipQueueLoad) {
           await loadPlaylistQueue(videoId);
@@ -168,6 +167,7 @@
 
         if (!payload.success) {
           setStatus(payload.error || 'Le téléchargement a échoué.');
+          sendPlayerMessage('HIDE_LOADING', {});
           return;
         }
 
@@ -176,7 +176,8 @@
         const downloadedPath = String(downloadPayload.path || '').trim();
 
         if (!downloadedFile) {
-          setStatus(downloadPayload.error || 'Le téléchargement n’a pas produit de fichier audio.');
+          setStatus(downloadPayload.error || 'Le téléchargement n'a pas produit de fichier audio.');
+          sendPlayerMessage('HIDE_LOADING', {});
           return;
         }
 
@@ -240,8 +241,7 @@
         setStatus(`Lecture de “${title}” depuis le téléchargement.`);
       } catch (error) {
         console.error(error);
-        setStatus('Le téléchargement et la lecture ont échoué.');
-      }
+        setStatus('Le téléchargement et la lecture ont échoué.');        sendPlayerMessage('HIDE_LOADING', {});      }
     }
 
     async function playPrevious() {
