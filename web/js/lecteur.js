@@ -178,7 +178,7 @@
         const downloadedPath = String(downloadPayload.path || '').trim();
 
         if (!downloadedFile) {
-          setStatus(downloadPayload.error || 'Le téléchargement n'a pas produit de fichier audio.');
+          setStatus(downloadPayload.error || 'Le téléchargement n\'a pas produit de fichier audio.');
           sendPlayerMessage('HIDE_LOADING', {});
           return;
         }
