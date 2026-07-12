@@ -14,7 +14,7 @@ $commands = [
     "python3 -m venv " . escapeshellarg($venvDir),
     $venvDir . "/bin/pip install --upgrade pip",
     $venvDir . "/bin/pip install ytmusicapi",
-    $venvDir . "/bin/pip install yt-dlp"
+    $venvDir . "/bin/pip install pytube"
 ];
 
 foreach ($commands as $command) {
