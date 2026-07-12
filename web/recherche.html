@@ -155,6 +155,7 @@
         }
 
         setStatus(`Recherche de "${query}"...`);
+        suggestionsBox.innerHTML = '';
 
         try {
           const response = await fetch(`php/interface.php?query=${encodeURIComponent(query)}`);
@@ -167,7 +168,6 @@
           }
 
           const results = payload.results || [];
-          renderSuggestions(payload.suggestions || []);
           await renderSearchResults(results);
         } catch (error) {
           console.error(error);
