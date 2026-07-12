@@ -55,6 +55,27 @@
       .search-results li.search-result-missing .track-info small {
         color: #0f172a;
       }
+
+      .spinner {
+        display: none;
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(148, 163, 184, 0.3);
+        border-top-color: rgba(56, 189, 248, 0.8);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 8px 0;
+      }
+
+      .spinner.visible {
+        display: inline-block;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body>
@@ -64,7 +85,9 @@
         <button id="searchButton" type="button">Rechercher</button>
       </div>
       <div id="suggestions" class="suggestions" aria-live="polite"></div>
+      <div id="suggestionsSpinner" class="spinner" aria-label="Chargement des suggestions"></div>
       <div id="searchStatus" class="status"></div>
+      <div id="searchSpinner" class="spinner" aria-label="Recherche en cours"></div>
       <ul id="searchResults" class="search-results"></ul>
     </section>
 
@@ -74,7 +97,9 @@
       const searchInput = document.getElementById('searchInput');
       const searchButton = document.getElementById('searchButton');
       const suggestionsBox = document.getElementById('suggestions');
+      const suggestionsSpinner = document.getElementById('suggestionsSpinner');
       const statusBox = document.getElementById('searchStatus');
+      const searchSpinner = document.getElementById('searchSpinner');
       const searchResults = document.getElementById('searchResults');
 
       function postToParent(type, payload = {}) {
@@ -91,6 +116,22 @@
 
       function setStatus(message) {
         statusBox.textContent = message;
+      }
+
+      function showSuggestionsSpinner() {
+        suggestionsSpinner.classList.add('visible');
+      }
+
+      function hideSuggestionsSpinner() {
+        suggestionsSpinner.classList.remove('visible');
+      }
+
+      function showSearchSpinner() {
+        searchSpinner.classList.add('visible');
+      }
+
+      function hideSearchSpinner() {
+        searchSpinner.classList.remove('visible');
       }
 
       async function checkMusicInDatabase(result) {
@@ -138,11 +179,14 @@
 
       async function loadSuggestions(query) {
         try {
+          showSuggestionsSpinner();
           const response = await fetch(`php/interface.php?suggestions=${encodeURIComponent(query)}`);
           const payload = await response.json();
           renderSuggestions(payload.suggestions || []);
         } catch (error) {
           console.error(error);
+        } finally {
+          hideSuggestionsSpinner();
         }
       }
 
@@ -156,6 +200,7 @@
 
         setStatus(`Recherche de "${query}"...`);
         suggestionsBox.innerHTML = '';
+        showSearchSpinner();
 
         try {
           const response = await fetch(`php/interface.php?query=${encodeURIComponent(query)}`);
@@ -172,6 +217,8 @@
         } catch (error) {
           console.error(error);
           setStatus('La recherche YouTube Music a echoue.');
+        } finally {
+          hideSearchSpinner();
         }
       }
 
