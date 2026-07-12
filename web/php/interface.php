@@ -195,7 +195,46 @@ if (empty($_SESSION['user'])) {
 
 $yt = new YouTubeMusic();
 
-if (!empty($_GET['suggestions'])) {
+if (!empty($_GET['deleteFile'])) {
+
+    try {
+        $filePath = trim((string) $_GET['deleteFile']);
+        if ($filePath === '') {
+            throw new RuntimeException('Chemin du fichier vide');
+        }
+
+        // Vérifier que le fichier est dans le dossier temp pour éviter les suppressions non autorisées
+        $realPath = realpath($filePath);
+        $tempDir = realpath(__DIR__ . '/../data/temp');
+
+        if ($realPath === false || $tempDir === false || strpos($realPath, $tempDir) !== 0) {
+            throw new RuntimeException('Fichier non autorisé pour suppression');
+        }
+
+        if (!file_exists($realPath)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Fichier non trouvé',
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        if (unlink($realPath)) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Fichier supprimé avec succès',
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            throw new RuntimeException('Impossible de supprimer le fichier');
+        }
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['suggestions'])) {
 
     try {
         $query = trim((string) $_GET['suggestions']);

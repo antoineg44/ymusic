@@ -275,7 +275,35 @@
       playTrack(state.library[previousIndex], previousIndex);
     }
 
+    async function deleteTempFile(filePath) {
+      // Supprime un fichier temporaire au serveur.
+      if (!filePath) {
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({ deleteFile: filePath });
+        const response = await fetch(`php/interface.php?${params.toString()}`, {
+          credentials: 'same-origin',
+        });
+        const payload = await response.json();
+        
+        if (payload.success) {
+          console.debug('Fichier temporaire supprimé:', filePath);
+        } else {
+          console.debug('Erreur lors de la suppression du fichier:', payload.error);
+        }
+      } catch (error) {
+        console.debug('Erreur lors de la suppression du fichier:', error);
+      }
+    }
+
     async function playNext() {
+      // Avant de passer à la suivante, supprimer le fichier temp si la musique était aimée
+      if (state.currentTrack && state.likedSaved && state.currentTrack.folder === 'temp' && state.currentTrack.path) {
+        await deleteTempFile(state.currentTrack.path);
+      }
+
       await musiqueSuivanteController.playNext();
     }
 
