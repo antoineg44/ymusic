@@ -11,12 +11,17 @@ if(!isset($_GET['branch_name'])) {
 $branch_name = (String) trim($_GET['branch_name']);
 //$branch_name = "test";
 
-// Configurations
-if($branch_name == "main") {
-    $path = "../../../music";
+// Détermination robuste du chemin de destination à partir de l'emplacement du script.
+// Cela évite les problèmes lorsque PHP est lancé depuis un autre répertoire.
+$repoRoot = realpath(dirname(__DIR__, 2));
+$parentDir = dirname($repoRoot);
+
+if ($branch_name === "main") {
+    $path = $repoRoot;
 } else {
-    $path = "../../../".$branch_name;
+    $path = $parentDir . "/" . $branch_name;
 }
+$path = rtrim($path, "/");
 
 // Repo
 $repoUrl = "https://github.com/antoineg44/ymusic.git"; // Remplacez par l'URL de votre dépôt
@@ -50,7 +55,7 @@ if (!is_dir($path) || !is_dir("$path/.git")) {
 chdir($path);
 
 // Mettre à jour la branche spécifique
-runCommand("git checkout $branch_name");
-runCommand("git pull origin $branch_name");
+runCommand("git checkout " . escapeshellarg($branch_name));
+runCommand("git pull origin " . escapeshellarg($branch_name));
 
 echo "Déploiement terminé avec succès.\n";
