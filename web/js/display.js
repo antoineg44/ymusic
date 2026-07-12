@@ -21,15 +21,33 @@ function getDisplayHTMLButtons(item, infos, index) {
     button.addEventListener('click', () => {
       const action = button.dataset.action;
       if (action === 'play') {
-        window.parent.postMessage(
-          { source: infos.source, type: infos.buttons.play.type, index },
-          '*'
-        );
+        const message = {
+          source: infos.source,
+          type: infos.buttons.play.type,
+          index,
+        };
+
+        if (Object.prototype.hasOwnProperty.call(infos.buttons.play, 'result')) {
+          message.result = infos.buttons.play.result;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(infos.buttons.play, 'payload')) {
+          message.payload = infos.buttons.play.payload;
+        }
+
+        window.parent.postMessage(message, '*');
       } else if (action === 'delete') {
-        window.parent.postMessage(
-          { source: infos.source, type: infos.buttons.delete.type, index },
-          '*'
-        );
+        const message = {
+          source: infos.source,
+          type: infos.buttons.delete.type,
+          index,
+        };
+
+        if (Object.prototype.hasOwnProperty.call(infos.buttons.delete, 'payload')) {
+          message.payload = infos.buttons.delete.payload;
+        }
+
+        window.parent.postMessage(message, '*');
       }
     });
   });

@@ -91,6 +91,7 @@
       <ul id="searchResults" class="search-results"></ul>
     </section>
 
+    <script src="js/display.js"></script>
     <script>
       let suggestionTimer = null;
 
@@ -251,29 +252,27 @@
         searchResults.innerHTML = '';
         const renderedItems = [];
 
-        results.forEach((result) => {
-          const artists = Array.isArray(result.artists) ? result.artists.join(', ') : '';
-          const duration = (result.duration || 0);
-          const views = (result.views || 0);
-          const metadata = `${duration} • ${views} vues`;
-          
-          const item = document.createElement('li');
-          item.innerHTML = `
-            <div class="track-info">
-              <strong>${escapeHtml(result.title || 'Titre inconnu')}</strong>
-              <small>${escapeHtml(artists || 'Artiste inconnu')}</small>
-              <small style="font-size: 0.8em; opacity: 0.7;">${escapeHtml(metadata)}</small>
-            </div>
-            <div class="actions">
-              <button class="queue-action" type="button">▶</button>
-            </div>`;
+        results.forEach((result, index) => {
+          const preparedResult = {
+            ...result,
+            title: result.title || 'Titre inconnu',
+            artists: Array.isArray(result.artists) ? result.artists : [],
+            duration: result.duration || 0,
+            views: result.views || 0,
+            buttons: {
+              buttons: {
+                play: {
+                  type: 'SEARCH_PLAY_RESULT',
+                  result,
+                },
+              },
+              source: 'recherche',
+            },
+          };
 
-          item.querySelector('button').addEventListener('click', () => {
-            postToParent('SEARCH_PLAY_RESULT', { result });
-          });
-
+          const item = renderElement(preparedResult, index);
           searchResults.appendChild(item);
-          renderedItems.push({ item, result });
+          renderedItems.push({ item, result: preparedResult });
         });
 
         setStatus(`${results.length} resultat(s) trouve(s). Verification en base...`);
