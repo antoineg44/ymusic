@@ -110,6 +110,7 @@ body {
   flex-direction: column;
   height: calc(100vh - 130px);
   overflow-y: auto;
+  padding-bottom: 200px;
 }
 
 
