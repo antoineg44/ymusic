@@ -53,6 +53,14 @@ class YouTubeMusic
         ]);
     }
 
+    public function getSuggestions(string $query): array
+    {
+        return $this->run([
+            'suggest',
+            $query
+        ]);
+    }
+
     public function searchPlaylists(string $query): array
     {
         return $this->run([

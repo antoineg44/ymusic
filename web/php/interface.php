@@ -195,7 +195,26 @@ if (empty($_SESSION['user'])) {
 
 $yt = new YouTubeMusic();
 
-if (!empty($_GET['query'])) {
+if (!empty($_GET['suggestions'])) {
+
+    try {
+        $query = trim((string) $_GET['suggestions']);
+        if ($query === '') {
+            throw new RuntimeException('Requete de suggestion vide');
+        }
+
+        echo json_encode(
+            $yt->getSuggestions($query),
+            JSON_UNESCAPED_UNICODE
+        );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['query'])) {
 
     try {
         $query = trim((string) $_GET['query']);

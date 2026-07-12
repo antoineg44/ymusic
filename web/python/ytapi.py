@@ -133,7 +133,16 @@ try:
 
     action = sys.argv[1]
 
-    if action == "search":
+    if action == "suggest":
+
+        query = sys.argv[2]
+
+        print(json.dumps({
+            "success": True,
+            "suggestions": get_suggestions(query)
+        }))
+
+    elif action == "search":
 
         query = sys.argv[2]
 

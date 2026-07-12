@@ -138,7 +138,7 @@
 
       async function loadSuggestions(query) {
         try {
-          const response = await fetch(`php/interface.php?query=${encodeURIComponent(query)}`);
+          const response = await fetch(`php/interface.php?suggestions=${encodeURIComponent(query)}`);
           const payload = await response.json();
           renderSuggestions(payload.suggestions || []);
         } catch (error) {
@@ -167,8 +167,7 @@
           }
 
           const results = payload.results || [];
-          const suggestions = payload.suggestions || [];
-          renderSuggestions(suggestions);
+          renderSuggestions(payload.suggestions || []);
           await renderSearchResults(results);
         } catch (error) {
           console.error(error);
