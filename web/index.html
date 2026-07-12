@@ -9,7 +9,7 @@
   <body>
     <div class="app">
       <div class="app-shell">
-        <section class="menu-frame-shell" aria-label="Menu principal">
+        <section id="menu_liste" class="menu-frame-shell" aria-label="Menu principal">
           <iframe
             id="menuFrame"
             class="menu-frame"
@@ -113,16 +113,6 @@
             </section>
           </div>
 
-          <section class="player-frame-shell">
-            <iframe
-              id="playerFrame"
-              class="player-frame"
-              src="lecteur.html"
-              title="Lecteur audio"
-              loading="eager"
-            ></iframe>
-          </section>
-
           <section id="descriptionModal" class="description-modal is-hidden" aria-hidden="true">
             <div id="descriptionModalBackdrop" class="description-modal-backdrop"></div>
             <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Description musique">
@@ -137,6 +127,17 @@
             </div>
           </section>
         </main>
+
+        <section id="lecteur_musique" class="player-frame-shell">
+            <iframe
+              id="playerFrame"
+              class="player-frame"
+              src="lecteur.html"
+              title="Lecteur audio"
+              loading="eager"
+            ></iframe>
+          </section>
+
       </div>
     </div>
 
