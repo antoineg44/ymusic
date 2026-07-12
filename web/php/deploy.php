@@ -23,6 +23,12 @@ if ($branch_name === "main") {
 }
 $path = rtrim($path, "/");
 
+// Configuration Git temporaire pour éviter les erreurs de 'dubious ownership' lorsqu'exécuté par PHP/Apache.
+$gitConfigPath = sys_get_temp_dir() . "/music-deploy-gitconfig";
+file_put_contents($gitConfigPath, "[safe]\n\tdirectory = $path\n");
+putenv('GIT_CONFIG_GLOBAL=' . $gitConfigPath);
+putenv('GIT_TERMINAL_PROMPT=0');
+
 // Repo
 $repoUrl = "https://github.com/antoineg44/ymusic.git"; // Remplacez par l'URL de votre dépôt
 
