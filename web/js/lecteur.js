@@ -156,7 +156,9 @@
         return;
       }
 
-      setStatus(`Téléchargement de “${title}”…`);      sendPlayerMessage('SHOW_LOADING', {});
+      setStatus(`Téléchargement de "${title}"…`);
+      sendPlayerMessage('SHOW_LOADING', {});
+
       try {
         if (!skipQueueLoad) {
           await loadPlaylistQueue(videoId);
@@ -241,7 +243,9 @@
         setStatus(`Lecture de “${title}” depuis le téléchargement.`);
       } catch (error) {
         console.error(error);
-        setStatus('Le téléchargement et la lecture ont échoué.');        sendPlayerMessage('HIDE_LOADING', {});      }
+        setStatus('Le téléchargement et la lecture ont échoué.');
+        sendPlayerMessage('HIDE_LOADING', {});
+      }
     }
 
     async function playPrevious() {
