@@ -11,6 +11,7 @@
         margin: 0;
         padding: 0;
         background: transparent;
+        overflow: hidden;
       }
 
       .search-embed {
@@ -71,6 +72,25 @@
         display: inline-block;
       }
 
+      #searchButton .search-button-icon {
+        display: none;
+        line-height: 1;
+      }
+
+      #searchButton.is-icon-only {
+        min-width: 44px;
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      #searchButton.is-icon-only .search-button-label {
+        display: none;
+      }
+
+      #searchButton.is-icon-only .search-button-icon {
+        display: inline-block;
+      }
+
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -79,10 +99,13 @@
     </style>
   </head>
   <body>
-    <section class="panel search-embed">
+    <section class="search-embed">
       <div class="search-row">
         <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
-        <button id="searchButton" type="button">Rechercher</button>
+        <button id="searchButton" type="button">
+          <span class="search-button-label">Rechercher</span>
+          <span class="search-button-icon" aria-hidden="true">🔍</span>
+        </button>
       </div>
       <div id="suggestions" class="suggestions" aria-live="polite"></div>
       <div id="suggestionsSpinner" class="spinner" aria-label="Chargement des suggestions"></div>
@@ -94,7 +117,9 @@
     <script src="js/display.js"></script>
     <script>
       let suggestionTimer = null;
+      const MIN_INPUT_WIDTH_WITH_LABEL = 220;
 
+      const searchRow = document.querySelector('.search-row');
       const searchInput = document.getElementById('searchInput');
       const searchButton = document.getElementById('searchButton');
       const suggestionsBox = document.getElementById('suggestions');
@@ -102,9 +127,43 @@
       const statusBox = document.getElementById('searchStatus');
       const searchSpinner = document.getElementById('searchSpinner');
       const searchResults = document.getElementById('searchResults');
+      let lastSentHeight = 0;
 
       function postToParent(type, payload = {}) {
         window.parent.postMessage({ source: 'recherche', type, ...payload }, '*');
+      }
+
+      function updateSearchButtonLayout() {
+        if (!searchRow || !searchButton) {
+          return;
+        }
+
+        searchButton.classList.remove('is-icon-only');
+        searchButton.removeAttribute('aria-label');
+
+        const rowStyle = window.getComputedStyle(searchRow);
+        const gapValue = rowStyle.columnGap || rowStyle.gap || '10px';
+        const gap = Number.parseFloat(gapValue) || 10;
+        const requiredWidth = searchButton.offsetWidth + MIN_INPUT_WIDTH_WITH_LABEL + gap;
+        const shouldUseIconOnly = searchRow.clientWidth < requiredWidth;
+
+        searchButton.classList.toggle('is-icon-only', shouldUseIconOnly);
+        if (shouldUseIconOnly) {
+          searchButton.setAttribute('aria-label', 'Rechercher');
+        }
+      }
+
+      function notifyParentHeight() {
+        window.requestAnimationFrame(() => {
+          const bodyHeight = document.body ? document.body.scrollHeight : 0;
+          const rootHeight = document.documentElement ? document.documentElement.scrollHeight : 0;
+          const height = Math.max(bodyHeight, rootHeight, 1);
+
+          if (height !== lastSentHeight) {
+            lastSentHeight = height;
+            postToParent('SEARCH_RESIZE', { height });
+          }
+        });
       }
 
       function escapeHtml(value) {
@@ -117,22 +176,28 @@
 
       function setStatus(message) {
         statusBox.textContent = message;
+        //statusBox.style.color = "#FF0000";
+        notifyParentHeight();
       }
 
       function showSuggestionsSpinner() {
         suggestionsSpinner.classList.add('visible');
+        notifyParentHeight();
       }
 
       function hideSuggestionsSpinner() {
         suggestionsSpinner.classList.remove('visible');
+        notifyParentHeight();
       }
 
       function showSearchSpinner() {
         searchSpinner.classList.add('visible');
+        notifyParentHeight();
       }
 
       function hideSearchSpinner() {
         searchSpinner.classList.remove('visible');
+        notifyParentHeight();
       }
 
       async function checkMusicInDatabase(result) {
@@ -226,6 +291,7 @@
       function renderSuggestions(suggestions) {
         if (!suggestions.length) {
           suggestionsBox.innerHTML = '';
+          notifyParentHeight();
           return;
         }
 
@@ -241,11 +307,13 @@
           });
           suggestionsBox.appendChild(button);
         });
+        notifyParentHeight();
       }
 
       async function renderSearchResults(results) {
         if (!results.length) {
           searchResults.innerHTML = '<li>Aucun resultat trouve.</li>';
+          notifyParentHeight();
           return;
         }
 
@@ -289,6 +357,7 @@
 
         const presentCount = checks.filter(Boolean).length;
         setStatus(`${results.length} resultat(s) trouve(s) via YouTube Music. ${presentCount} present(s) en base.`);
+        notifyParentHeight();
       }
 
       searchButton.addEventListener('click', () => {
@@ -306,6 +375,7 @@
 
         if (!query) {
           suggestionsBox.innerHTML = '';
+          notifyParentHeight();
           return;
         }
 
@@ -316,6 +386,20 @@
       });
 
       postToParent('SEARCH_READY');
+      notifyParentHeight();
+      updateSearchButtonLayout();
+      window.addEventListener('load', notifyParentHeight);
+      window.addEventListener('resize', () => {
+        notifyParentHeight();
+        updateSearchButtonLayout();
+      });
+
+      if (window.ResizeObserver && searchRow) {
+        const searchRowObserver = new ResizeObserver(() => {
+          updateSearchButtonLayout();
+        });
+        searchRowObserver.observe(searchRow);
+      }
     </script>
   </body>
 </html>

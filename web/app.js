@@ -31,6 +31,7 @@ const myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
 const queueFrame = document.getElementById('queueFrame');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
+const heroSection = document.querySelector('.hero');
 const menuFrame = document.getElementById('menuFrame');
 const playerFrame = document.getElementById('playerFrame');
 const logoutButton = document.getElementById('logoutButton');
@@ -56,6 +57,7 @@ const rechercheController = window.createRechercheController({
   parseViewCount,
   normalize,
   playerController,
+  searchFrame,
 });
 
 const authController = window.createAuthController({
@@ -201,6 +203,7 @@ async function initializeApp() {
 function setActiveTab(tab) {
   console.log("change tab to", tab);
 
+  const isHomeTab = tab === 'accueil';
   const isSearchTab = tab === 'recherche';
   const isListTab = tab === 'listes';
   const isArtistsTab = tab === 'artists';
@@ -211,6 +214,10 @@ function setActiveTab(tab) {
   const isSettingsTab = tab === 'parametres';
 
   state.currentTab = tab;
+
+  if (heroSection) {
+    heroSection.hidden = !isHomeTab;
+  }
 
   searchPanel.classList.toggle('is-hidden', !isSearchTab);
   libraryPanel.classList.toggle('is-hidden', !isListTab);

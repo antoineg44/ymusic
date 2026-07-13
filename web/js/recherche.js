@@ -7,12 +7,22 @@
       parseViewCount,
       normalize,
       playerController,
+      searchFrame,
     } = deps;
 
     function handleMessage(message) {
       // Point d'entrée unique des messages provenant de l'iframe recherche.
       if (message.type === 'SEARCH_READY') {
         state.searchReady = true;
+        return;
+      }
+
+      if (message.type === 'SEARCH_RESIZE') {
+        const requestedHeight = Number(message.height || 0);
+        if (Number.isFinite(requestedHeight) && requestedHeight > 0 && searchFrame) {
+          const clampedHeight = Math.max(460, Math.ceil(requestedHeight));
+          searchFrame.style.height = `${clampedHeight}px`;
+        }
         return;
       }
 

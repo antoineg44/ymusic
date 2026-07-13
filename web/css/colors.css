@@ -1,6 +1,6 @@
 :root {
-    --background: #0f172a; 
-    --background-menu: rgba(30, 41, 59, 0.7);
+    --background: #1e293b; 
+    --background-menu: #11182778;
     --background-selected: rgba(14, 165, 233, 0.22); 
     --player-height: 135px;
 }
