@@ -12,6 +12,22 @@
       onOpenDescription,
     } = deps;
 
+    let preparedNextTrack = null;
+    let preparingNextTrackPromise = null;
+    let preparedForTrackKey = '';
+
+    function getCurrentTrackPreparationKey() {
+      const videoPart = String(state.currentVideoId || '').trim();
+      const pathPart = state.currentTrack ? String(state.currentTrack.path || state.currentTrack.file || '').trim() : '';
+      return `${videoPart}|${pathPart}`;
+    }
+
+    function clearPreparedNextTrack() {
+      preparedNextTrack = null;
+      preparingNextTrackPromise = null;
+      preparedForTrackKey = '';
+    }
+
     function sendPlayerMessage(type, payload) {
       // Envoie une commande au lecteur embarqué dans l'iframe lecteur.html.
       if (!playerFrame || !playerFrame.contentWindow) {
@@ -74,8 +90,128 @@
             void saveLikedMusic(state.currentTrack);
             syncFavoriteState();
           }
+
+          void prepareNextTrackForSeamlessPlayback();
         }
       }
+    }
+
+    function resolveNextQueueEntry() {
+      if (!isValidVideoId(state.currentVideoId) || !Array.isArray(state.queue) || state.queue.length === 0) {
+        return null;
+      }
+
+      let currentQueueIndex = state.queue.findIndex((entry) => entry && entry.videoId === state.currentVideoId);
+      if (currentQueueIndex < 0) {
+        currentQueueIndex = state.queueIndex;
+      }
+
+      if (currentQueueIndex < 0 || currentQueueIndex >= state.queue.length - 1) {
+        return null;
+      }
+
+      for (let index = currentQueueIndex + 1; index < state.queue.length; index += 1) {
+        const entry = state.queue[index];
+        if (!entry || !isValidVideoId(entry.videoId)) {
+          continue;
+        }
+
+        return { entry, index };
+      }
+
+      return null;
+    }
+
+    async function prepareNextTrackForSeamlessPlayback() {
+      if (!isValidVideoId(state.currentVideoId)) {
+        return;
+      }
+
+      const currentKey = getCurrentTrackPreparationKey();
+      if (!currentKey) {
+        return;
+      }
+
+      if (preparedForTrackKey === currentKey || preparingNextTrackPromise) {
+        return;
+      }
+
+      preparingNextTrackPromise = (async () => {
+        try {
+          if (!state.queue.length || state.queueIndex < 0) {
+            await loadPlaylistQueue(state.currentVideoId);
+          }
+
+          const nextQueue = resolveNextQueueEntry();
+          if (!nextQueue) {
+            preparedForTrackKey = currentKey;
+            return;
+          }
+
+          const next = nextQueue.entry;
+          const response = await fetch(`php/interface.php?musicId=${encodeURIComponent(next.videoId)}`);
+          const payload = await response.json();
+
+          if (!payload.success) {
+            return;
+          }
+
+          const downloadPayload = payload.download || {};
+          const downloadedFile = downloadPayload.file || (Array.isArray(downloadPayload) ? downloadPayload.find((entry) => typeof entry === 'string' && entry.trim()) : '');
+          const downloadedPath = String(downloadPayload.path || '').trim();
+
+          if (!downloadedFile) {
+            return;
+          }
+
+          const preparedTrackDraft = {
+            title: String(next.title || 'titre').trim(),
+            artist: Array.isArray(next.artists) ? next.artists.join(', ') : '',
+            albumId: String((next.album && next.album.id) || '').trim(),
+            views: parseViewCount(next.views || 0),
+            path: downloadedPath || `data/temp/${downloadedFile}`,
+            file: downloadedFile,
+            folder: 'temp',
+            videoId: String(next.videoId || '').trim(),
+          };
+
+          if (downloadedPath) {
+            const pathParts = downloadedPath.split('/');
+            const folder = pathParts.length > 1 ? pathParts[pathParts.length - 2] : 'Bibliotheque';
+            preparedTrackDraft.folder = folder;
+          }
+
+          await waitForMediaReady(preparedTrackDraft.path);
+          await loadLibrary(preparedTrackDraft.path);
+
+          const preparedTrack = state.library.find((entry) => entry.path === preparedTrackDraft.path || entry.file === preparedTrackDraft.file) || preparedTrackDraft;
+          preparedTrack.title = preparedTrackDraft.title || preparedTrack.title;
+          preparedTrack.artist = preparedTrackDraft.artist || preparedTrack.artist || '';
+          preparedTrack.albumId = preparedTrackDraft.albumId || preparedTrack.albumId || '';
+          if (preparedTrackDraft.views > 0) {
+            preparedTrack.views = preparedTrackDraft.views;
+          }
+          preparedTrack.videoId = preparedTrackDraft.videoId || preparedTrack.videoId || '';
+
+          if (getCurrentTrackPreparationKey() !== currentKey) {
+            return;
+          }
+
+          preparedNextTrack = {
+            videoId: preparedTrack.videoId,
+            queueIndex: nextQueue.index,
+            track: preparedTrack,
+            forKey: currentKey,
+          };
+          preparedForTrackKey = currentKey;
+        } catch (error) {
+          console.debug('Next track preloading failed:', error);
+        } finally {
+          preparingNextTrackPromise = null;
+        }
+      })();
+
+      await preparingNextTrackPromise;
     }
 
     async function waitForMediaReady(path, retries = 8, delayMs = 250) {
@@ -102,6 +238,8 @@
       if (!track) {
         return;
       }
+
+      clearPreparedNextTrack();
 
       const resolvedIndex = index >= 0 ? index : state.library.findIndex((candidate) => candidate.path === track.path);
       state.currentTrack = track;
@@ -302,6 +440,21 @@
       // Avant de passer à la suivante, supprimer le fichier temp si la musique était aimée
       if (state.currentTrack && state.likedSaved && state.currentTrack.folder === 'temp' && state.currentTrack.path) {
         await deleteTempFile(state.currentTrack.path);
+      }
+
+      const nextQueue = resolveNextQueueEntry();
+      if (
+        preparedNextTrack
+        && nextQueue
+        && preparedNextTrack.forKey === getCurrentTrackPreparationKey()
+        && preparedNextTrack.videoId === String(nextQueue.entry.videoId || '').trim()
+      ) {
+        state.queueIndex = nextQueue.index;
+        state.currentVideoId = preparedNextTrack.videoId;
+        const preparedTrack = preparedNextTrack.track;
+        clearPreparedNextTrack();
+        playTrack(preparedTrack, state.library.findIndex((entry) => entry.path === preparedTrack.path));
+        return;
       }
 
       await musiqueSuivanteController.playNext();
