@@ -4,14 +4,18 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Lecteur</title>
-		<link rel="stylesheet" href="styles.css" />
+		<!--<link rel="stylesheet" href="styles.css" />-->
+		<link rel="stylesheet" href="css/colors.css" />
 		<style>
 			html,
 			body {
 				margin: 0;
 				padding: 0;
-				background: transparent;
+        		background:#1e293b;
 				overflow: hidden;
+				font-family: Inter, Arial, sans-serif;
+				color: #e2e8f0;
+				color-scheme: dark;
 			}
 
 			.player-card {
@@ -23,6 +27,40 @@
 				border-radius: 16px !important;
 				box-sizing: border-box;
 				position: relative !important;
+				padding: 20px;
+				position: fixed;
+				left: 50%;
+				transform: translateX(-50%);
+				bottom: 0;
+				width: 100%;
+				border-radius: 16px 16px 0 0;
+				z-index: 1200;
+				background: #0f172a;
+			}
+
+			.player-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 16px;
+			}
+
+			.player-controls {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				flex-wrap: wrap;
+			}
+
+			.player-controls button {
+				border: 0;
+				background: #0ea5e9;
+				color: white;
+				border-radius: 50%;
+				width: 44px;
+				height: 44px;
+				font-size: 1rem;
+				cursor: pointer;
 			}
 
 			.favorite-button {
@@ -58,9 +96,28 @@
 				display: none;
 			}
 
+			.status {
+				margin-top: 10px;
+				color: #7dd3fc;
+				min-height: 1.3em;
+			}
+
 			@keyframes spin {
 				to {
 					transform: rotate(360deg);
+				}
+			}
+
+			@media (max-width: 470px) {
+				.player-controls button {
+					border: 0;
+					background: #0ea5e9;
+					color: white;
+					border-radius: 50%;
+					width: 30px;
+					height: 30px;
+					font-size: 1rem;
+					cursor: pointer;
 				}
 			}
 		</style>
