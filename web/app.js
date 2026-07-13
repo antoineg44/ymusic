@@ -29,6 +29,7 @@ const albumsFrame = document.getElementById('albumsFrame');
 const playlistsFrame = document.getElementById('playlistsFrame');
 const myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
 const queueFrame = document.getElementById('queueFrame');
+const settingsFrame = document.getElementById('settingsFrame');
 const manageUsersLink = document.getElementById('manageUsersLink');
 const statusBox = document.getElementById('status');
 const heroSection = document.querySelector('.hero');
@@ -304,6 +305,11 @@ function ensureTabIframeLoaded(tab) {
 
   if (tab === 'mes-playlists') {
     ensureIframeLoaded(myPlaylistsFrame);
+    return;
+  }
+
+  if (tab === 'parametres') {
+    ensureIframeLoaded(settingsFrame);
   }
 }
 

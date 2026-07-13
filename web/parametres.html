@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Parametres</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="css/colors.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+
+      .settings-embed {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+      }
+
+      .settings-description {
+        margin: 8px 0 0;
+      }
+
+      .settings-toggle {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.4);
+      }
+
+      .settings-toggle label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+      }
+
+      .settings-toggle small {
+        display: block;
+        margin-top: 8px;
+        color: #94a3b8;
+      }
+
+      .settings-number {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.4);
+      }
+
+      .settings-number label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-weight: 600;
+      }
+
+      .settings-number input {
+        width: 80px;
+        border: 1px solid #475569;
+        border-radius: 8px;
+        background: #111827;
+        color: #f8fafc;
+        padding: 6px 8px;
+      }
+
+      .settings-number small {
+        display: block;
+        margin-top: 8px;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="panel settings-embed">
+      <p class="settings-description">Gerez les comptes et les droits d'acces depuis l'interface d'administration.</p>
+      <a class="settings-link" href="users.html">Gerer les utilisateurs</a>
+
+      <div class="settings-toggle">
+        <label for="trimQuietPartsToggle">
+          <input id="trimQuietPartsToggle" type="checkbox" />
+          Tronquer la fin et le debut des musiques
+        </label>
+        <small>Ignore automatiquement les passages trop faibles au debut et a la fin des morceaux.</small>
+      </div>
+
+      <div class="settings-number">
+        <label for="crossfadeSecondsInput">
+          Nombre de secondes de fondue
+          <input id="crossfadeSecondsInput" type="number" min="0" max="12" step="1" />
+        </label>
+        <small>Applique une fondue lors des enchainements automatiques (0 = desactive).</small>
+      </div>
+    </section>
+
+    <script>
+      const TRIM_SETTING_KEY = 'ymusic.trimLowIntroOutro';
+      const CROSSFADE_SECONDS_KEY = 'ymusic.crossfadeSeconds';
+      const DEFAULT_CROSSFADE_SECONDS = 0;
+      const MIN_CROSSFADE_SECONDS = 0;
+      const MAX_CROSSFADE_SECONDS = 12;
+
+      const trimQuietPartsToggle = document.getElementById('trimQuietPartsToggle');
+      const crossfadeSecondsInput = document.getElementById('crossfadeSecondsInput');
+
+      function readTrimSetting() {
+        try {
+          return window.localStorage.getItem(TRIM_SETTING_KEY) === '1';
+        } catch (error) {
+          console.debug('Trim setting read failed:', error);
+          return false;
+        }
+      }
+
+      function writeTrimSetting(enabled) {
+        try {
+          if (enabled) {
+            window.localStorage.setItem(TRIM_SETTING_KEY, '1');
+          } else {
+            window.localStorage.setItem(TRIM_SETTING_KEY, '0');
+          }
+        } catch (error) {
+          console.debug('Trim setting write failed:', error);
+        }
+      }
+
+      function normalizeCrossfadeSeconds(value) {
+        const numericValue = Number.parseInt(String(value || ''), 10);
+        if (!Number.isFinite(numericValue)) {
+          return DEFAULT_CROSSFADE_SECONDS;
+        }
+
+        return Math.min(MAX_CROSSFADE_SECONDS, Math.max(MIN_CROSSFADE_SECONDS, numericValue));
+      }
+
+      function readCrossfadeSeconds() {
+        try {
+          const rawValue = window.localStorage.getItem(CROSSFADE_SECONDS_KEY);
+          return normalizeCrossfadeSeconds(rawValue === null ? DEFAULT_CROSSFADE_SECONDS : rawValue);
+        } catch (error) {
+          console.debug('Crossfade setting read failed:', error);
+          return DEFAULT_CROSSFADE_SECONDS;
+        }
+      }
+
+      function writeCrossfadeSeconds(value) {
+        const normalizedValue = normalizeCrossfadeSeconds(value);
+
+        try {
+          window.localStorage.setItem(CROSSFADE_SECONDS_KEY, String(normalizedValue));
+        } catch (error) {
+          console.debug('Crossfade setting write failed:', error);
+        }
+
+        return normalizedValue;
+      }
+
+      trimQuietPartsToggle.checked = readTrimSetting();
+      crossfadeSecondsInput.value = String(readCrossfadeSeconds());
+
+      trimQuietPartsToggle.addEventListener('change', () => {
+        writeTrimSetting(Boolean(trimQuietPartsToggle.checked));
+      });
+
+      crossfadeSecondsInput.addEventListener('change', () => {
+        const normalizedValue = writeCrossfadeSeconds(crossfadeSecondsInput.value);
+        crossfadeSecondsInput.value = String(normalizedValue);
+      });
+    </script>
+  </body>
+</html>

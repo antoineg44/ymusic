@@ -15,6 +15,34 @@
     let preparedNextTrack = null;
     let preparingNextTrackPromise = null;
     let preparedForTrackKey = '';
+    let nextTransitionInProgress = false;
+    const CROSSFADE_SECONDS_KEY = 'ymusic.crossfadeSeconds';
+
+    function readCrossfadeSecondsSetting() {
+      try {
+        const rawValue = window.localStorage.getItem(CROSSFADE_SECONDS_KEY);
+        const numericValue = Number.parseInt(rawValue === null ? '0' : rawValue, 10);
+        if (!Number.isFinite(numericValue)) {
+          return 0;
+        }
+
+        return Math.min(12, Math.max(0, numericValue));
+      } catch (error) {
+        console.debug('Crossfade setting read failed:', error);
+        return 0;
+      }
+    }
+
+    async function sleep(milliseconds) {
+      const safeDelay = Math.max(0, Number(milliseconds || 0));
+      if (safeDelay <= 0) {
+        return;
+      }
+
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, safeDelay);
+      });
+    }
 
     function getCurrentTrackPreparationKey() {
       const videoPart = String(state.currentVideoId || '').trim();
@@ -234,10 +262,13 @@
       throw new Error('Downloaded media is not reachable yet.');
     }
 
-    function playTrack(track, index) {
+    function playTrack(track, index, options) {
       if (!track) {
         return;
       }
+
+      const settings = options || {};
+      const fadeInSeconds = Math.max(0, Number(settings.fadeInSeconds || 0));
 
       clearPreparedNextTrack();
 
@@ -257,6 +288,7 @@
         title: track.title,
         meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
         isFavorite: Boolean(state.likedSaved),
+        fadeInSeconds,
       });
       syncFavoriteState();
       syncNextTrackPreview();
@@ -287,7 +319,7 @@
 
     async function downloadAndPlay(videoId, title, options) {
       const settings = options || {};
-      const { skipQueueLoad = false, artist = '', albumId = '', views = 0 } = settings;
+      const { skipQueueLoad = false, artist = '', albumId = '', views = 0, fadeInSeconds = 0 } = settings;
 
       if (!isValidVideoId(videoId)) {
         setStatus('Identifiant video invalide pour le telechargement.');
@@ -298,6 +330,10 @@
       sendPlayerMessage('SHOW_LOADING', {});
 
       try {
+        if (!skipQueueLoad) {
+          await loadPlaylistQueue(videoId);
+        }
+
         const response = await fetch(`php/interface.php?musicId=${encodeURIComponent(videoId)}`);
         const payload = await response.json();
 
@@ -373,12 +409,9 @@
         }
 
         downloadedTrack.videoId = videoId;
-        playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path));
-
-        if (!skipQueueLoad) {
-          void loadPlaylistQueue(videoId);
-        }
-
+        playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path), {
+          fadeInSeconds,
+        });
         setStatus(`Lecture de “${title}” depuis le téléchargement.`);
       } catch (error) {
         console.error(error);
@@ -437,28 +470,51 @@
       }
     }
 
-    async function playNext() {
-      // Avant de passer à la suivante, supprimer le fichier temp si la musique était aimée
-      if (state.currentTrack && state.likedSaved && state.currentTrack.folder === 'temp' && state.currentTrack.path) {
-        await deleteTempFile(state.currentTrack.path);
-      }
+    async function playNext(options) {
+      const settings = options || {};
+      const { autoChained = false } = settings;
 
-      const nextQueue = resolveNextQueueEntry();
-      if (
-        preparedNextTrack
-        && nextQueue
-        && preparedNextTrack.forKey === getCurrentTrackPreparationKey()
-        && preparedNextTrack.videoId === String(nextQueue.entry.videoId || '').trim()
-      ) {
-        state.queueIndex = nextQueue.index;
-        state.currentVideoId = preparedNextTrack.videoId;
-        const preparedTrack = preparedNextTrack.track;
-        clearPreparedNextTrack();
-        playTrack(preparedTrack, state.library.findIndex((entry) => entry.path === preparedTrack.path));
+      if (nextTransitionInProgress) {
         return;
       }
+      nextTransitionInProgress = true;
 
-      await musiqueSuivanteController.playNext();
+      const fadeSeconds = autoChained ? readCrossfadeSecondsSetting() : 0;
+
+      // Avant de passer à la suivante, supprimer le fichier temp si la musique était aimée
+      try {
+        if (state.currentTrack && state.likedSaved && state.currentTrack.folder === 'temp' && state.currentTrack.path) {
+          await deleteTempFile(state.currentTrack.path);
+        }
+
+        if (fadeSeconds > 0) {
+          sendPlayerMessage('FADE_OUT', { durationSeconds: fadeSeconds });
+          await sleep(Math.max(120, Math.floor(fadeSeconds * 1000)));
+        }
+
+        const nextQueue = resolveNextQueueEntry();
+        if (
+          preparedNextTrack
+          && nextQueue
+          && preparedNextTrack.forKey === getCurrentTrackPreparationKey()
+          && preparedNextTrack.videoId === String(nextQueue.entry.videoId || '').trim()
+        ) {
+          state.queueIndex = nextQueue.index;
+          state.currentVideoId = preparedNextTrack.videoId;
+          const preparedTrack = preparedNextTrack.track;
+          clearPreparedNextTrack();
+          playTrack(preparedTrack, state.library.findIndex((entry) => entry.path === preparedTrack.path), {
+            fadeInSeconds: fadeSeconds,
+          });
+          return;
+        }
+
+        await musiqueSuivanteController.playNext({
+          fadeInSeconds: fadeSeconds,
+        });
+      } finally {
+        nextTransitionInProgress = false;
+      }
     }
 
     function togglePlayback() {
@@ -495,7 +551,12 @@
       }
 
       if (message.type === 'REQUEST_NEXT') {
-        void playNext();
+        void playNext({ autoChained: false });
+        return true;
+      }
+
+      if (message.type === 'REQUEST_NEXT_AUTO') {
+        void playNext({ autoChained: true });
         return true;
       }
 

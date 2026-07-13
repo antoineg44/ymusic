@@ -49,7 +49,10 @@
       }
     }
 
-    async function playNext() {
+    async function playNext(options) {
+      const settings = options || {};
+      const fadeInSeconds = Math.max(0, Number(settings.fadeInSeconds || 0));
+
       console.log('Musique suivante - playNext');
       // Lit la prochaine entrée de la queue, avec fallback sur la bibliothèque locale.
       if (isValidVideoId(state.currentVideoId)) {
@@ -77,6 +80,7 @@
               artist: Array.isArray(next.artists) ? next.artists.join(', ') : '',
               albumId: String((next.album && next.album.id) || ''),
               views: next.views || 0,
+              fadeInSeconds,
             });
             return;
           }
@@ -91,7 +95,9 @@
       }
 
       const nextIndex = (state.currentIndex + 1) % state.library.length;
-      playTrack(state.library[nextIndex], nextIndex);
+      playTrack(state.library[nextIndex], nextIndex, {
+        fadeInSeconds,
+      });
     }
 
     return {
