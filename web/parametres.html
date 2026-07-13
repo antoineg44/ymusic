@@ -174,6 +174,10 @@
         const normalizedValue = writeCrossfadeSeconds(crossfadeSecondsInput.value);
         crossfadeSecondsInput.value = String(normalizedValue);
       });
+
+      crossfadeSecondsInput.addEventListener('input', () => {
+        writeCrossfadeSeconds(crossfadeSecondsInput.value);
+      });
     </script>
   </body>
 </html>

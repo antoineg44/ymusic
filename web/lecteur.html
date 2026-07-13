@@ -62,6 +62,10 @@
 				flex: 0 0 auto;
 			}
 
+			#timeLabel.is-fade-active {
+				animation: fade-indicator-blink 0.45s linear infinite;
+			}
+
 			.player-controls button {
 				border: 0;
 				background: #0ea5e9;
@@ -145,6 +149,23 @@
 			@keyframes spin {
 				to {
 					transform: rotate(360deg);
+				}
+			}
+
+			@keyframes fade-indicator-blink {
+				0% {
+					opacity: 1;
+					color: #e2e8f0;
+				}
+
+				50% {
+					opacity: 0.35;
+					color: #38bdf8;
+				}
+
+				100% {
+					opacity: 1;
+					color: #e2e8f0;
 				}
 			}
 
@@ -236,6 +257,7 @@
 			let introLowCount = 0;
 			let outroLowCount = 0;
 			let lastIntroSkipAt = 0;
+			let introSkipped = false;
 			let outroSkipped = false;
 
 			function readTrimQuietPartsSetting() {
@@ -274,6 +296,7 @@
 				introLowCount = 0;
 				outroLowCount = 0;
 				lastIntroSkipAt = 0;
+				introSkipped = false;
 				outroSkipped = false;
 				autoChainRequested = false;
 			}
@@ -283,6 +306,7 @@
 					window.cancelAnimationFrame(fadeFrameId);
 					fadeFrameId = null;
 				}
+				timeLabel.classList.remove('is-fade-active');
 			}
 
 			function fadeAudioVolume(targetVolume, durationSeconds) {
@@ -293,8 +317,11 @@
 
 				if (safeDuration <= 0.01) {
 					audio.volume = clampedTarget;
+					timeLabel.classList.remove('is-fade-active');
 					return;
 				}
+
+				timeLabel.classList.add('is-fade-active');
 
 				const startVolume = Number.isFinite(audio.volume) ? audio.volume : 1;
 				const startTime = performance.now();
@@ -309,6 +336,7 @@
 						fadeFrameId = window.requestAnimationFrame(step);
 					} else {
 						fadeFrameId = null;
+						timeLabel.classList.remove('is-fade-active');
 					}
 				};
 
@@ -382,7 +410,7 @@
 					Math.max(OUTRO_SCAN_MIN_SECONDS, duration * OUTRO_SCAN_WINDOW_RATIO)
 				);
 
-				if (currentTime <= introScanLimit) {
+				if (!introSkipped && currentTime <= introScanLimit) {
 					if (level < QUIET_LEVEL_THRESHOLD) {
 						introLowCount += 1;
 					} else {
@@ -400,6 +428,7 @@
 							audio.currentTime = target;
 							lastIntroSkipAt = target;
 							introLowCount = 0;
+							introSkipped = true;
 							return;
 						}
 					}

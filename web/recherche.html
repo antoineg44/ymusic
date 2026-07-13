@@ -119,6 +119,7 @@
       const MIN_INPUT_WIDTH_WITH_LABEL = 220;
 
       const searchRow = document.querySelector('.search-row');
+      const searchEmbed = document.querySelector('.search-embed');
       const searchInput = document.getElementById('searchInput');
       const searchButton = document.getElementById('searchButton');
       const suggestionsBox = document.getElementById('suggestions');
@@ -154,9 +155,9 @@
 
       function notifyParentHeight() {
         window.requestAnimationFrame(() => {
+          const embedHeight = searchEmbed instanceof HTMLElement ? searchEmbed.scrollHeight : 0;
           const bodyHeight = document.body ? document.body.scrollHeight : 0;
-          const rootHeight = document.documentElement ? document.documentElement.scrollHeight : 0;
-          const height = Math.max(bodyHeight, rootHeight, 1);
+          const height = Math.max(embedHeight, bodyHeight, 1);
 
           if (height !== lastSentHeight) {
             lastSentHeight = height;

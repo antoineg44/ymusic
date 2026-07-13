@@ -472,14 +472,17 @@
 
     async function playNext(options) {
       const settings = options || {};
-      const { autoChained = false } = settings;
+      const { autoChained = false, fadeSecondsOverride = null } = settings;
 
       if (nextTransitionInProgress) {
         return;
       }
       nextTransitionInProgress = true;
 
-      const fadeSeconds = autoChained ? readCrossfadeSecondsSetting() : 0;
+      const configuredFade = autoChained ? readCrossfadeSecondsSetting() : 0;
+      const fadeSeconds = autoChained
+        ? Math.max(0, Number.isFinite(Number(fadeSecondsOverride)) ? Number(fadeSecondsOverride) : configuredFade)
+        : 0;
 
       // Avant de passer à la suivante, supprimer le fichier temp si la musique était aimée
       try {
@@ -556,7 +559,10 @@
       }
 
       if (message.type === 'REQUEST_NEXT_AUTO') {
-        void playNext({ autoChained: true });
+        void playNext({
+          autoChained: true,
+          fadeSecondsOverride: Number(message.fadeSeconds || 0),
+        });
         return true;
       }
 
