@@ -39,12 +39,6 @@
       const views = parseViewCount(result.views);
 
       if (match) {
-        if (result.videoId) {
-          await playerController.loadPlaylistQueue(result.videoId);
-        } else {
-          playerController.resetPlaylistQueue();
-        }
-
         const playableMatch = {
           ...match,
           artist: artists || match.artist || '',
@@ -53,6 +47,12 @@
           videoId: result.videoId || match.videoId || '',
         };
         playerController.playTrack(playableMatch, state.library.findIndex((track) => track.path === match.path));
+
+        if (result.videoId) {
+          void playerController.loadPlaylistQueue(result.videoId);
+        } else {
+          playerController.resetPlaylistQueue();
+        }
         return;
       }
 

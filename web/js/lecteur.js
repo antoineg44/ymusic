@@ -298,10 +298,6 @@
       sendPlayerMessage('SHOW_LOADING', {});
 
       try {
-        if (!skipQueueLoad) {
-          await loadPlaylistQueue(videoId);
-        }
-
         const response = await fetch(`php/interface.php?musicId=${encodeURIComponent(videoId)}`);
         const payload = await response.json();
 
@@ -378,6 +374,11 @@
 
         downloadedTrack.videoId = videoId;
         playTrack(downloadedTrack, state.library.findIndex((entry) => entry.path === downloadedTrack.path));
+
+        if (!skipQueueLoad) {
+          void loadPlaylistQueue(videoId);
+        }
+
         setStatus(`Lecture de “${title}” depuis le téléchargement.`);
       } catch (error) {
         console.error(error);
