@@ -212,9 +212,17 @@
 			const CROSSFADE_SECONDS_KEY = 'ymusic.crossfadeSeconds';
 			const DEFAULT_CROSSFADE_SECONDS = 0;
 			const QUIET_LEVEL_THRESHOLD = 0.018;
-			const INTRO_SCAN_LIMIT_SECONDS = 20;
-			const INTRO_SKIP_STEP_SECONDS = 2;
-			const OUTRO_SCAN_WINDOW_SECONDS = 18;
+			const INTRO_SCAN_LIMIT_RATIO = 0.10;
+			const INTRO_SCAN_MIN_SECONDS = 5;
+			const INTRO_SCAN_MAX_SECONDS = 16;
+			const INTRO_SKIP_RATIO = 0.16;
+			const INTRO_SKIP_MIN_SECONDS = 0.35;
+			const INTRO_SKIP_MAX_SECONDS = 1.2;
+			const OUTRO_SCAN_WINDOW_RATIO = 0.08;
+			const OUTRO_SCAN_MIN_SECONDS = 4;
+			const OUTRO_SCAN_MAX_SECONDS = 10;
+			const OUTRO_SKIP_RATIO = 0.68;
+			const OUTRO_SKIP_MAX_SECONDS = 5;
 			const OUTRO_SKIP_END_OFFSET_SECONDS = 0.12;
 
 			let wakeLock = null;
@@ -365,8 +373,16 @@
 				const currentTime = Number(audio.currentTime || 0);
 				const duration = Number(audio.duration || 0);
 				const remaining = Math.max(0, duration - currentTime);
+				const introScanLimit = Math.min(
+					INTRO_SCAN_MAX_SECONDS,
+					Math.max(INTRO_SCAN_MIN_SECONDS, duration * INTRO_SCAN_LIMIT_RATIO)
+				);
+				const outroScanWindow = Math.min(
+					OUTRO_SCAN_MAX_SECONDS,
+					Math.max(OUTRO_SCAN_MIN_SECONDS, duration * OUTRO_SCAN_WINDOW_RATIO)
+				);
 
-				if (currentTime <= INTRO_SCAN_LIMIT_SECONDS) {
+				if (currentTime <= introScanLimit) {
 					if (level < QUIET_LEVEL_THRESHOLD) {
 						introLowCount += 1;
 					} else {
@@ -374,7 +390,12 @@
 					}
 
 					if (introLowCount >= 3 && currentTime - lastIntroSkipAt >= 0.8) {
-						const target = Math.min(INTRO_SCAN_LIMIT_SECONDS, currentTime + INTRO_SKIP_STEP_SECONDS);
+						const remainingIntroWindow = Math.max(0, introScanLimit - currentTime);
+						const introStep = Math.min(
+							INTRO_SKIP_MAX_SECONDS,
+							Math.max(INTRO_SKIP_MIN_SECONDS, remainingIntroWindow * INTRO_SKIP_RATIO)
+						);
+						const target = Math.min(introScanLimit, currentTime + introStep);
 						if (target > currentTime + 0.2) {
 							audio.currentTime = target;
 							lastIntroSkipAt = target;
@@ -386,7 +407,7 @@
 					introLowCount = 0;
 				}
 
-				if (!outroSkipped && remaining <= OUTRO_SCAN_WINDOW_SECONDS && remaining > OUTRO_SKIP_END_OFFSET_SECONDS) {
+				if (!outroSkipped && remaining <= outroScanWindow && remaining > OUTRO_SKIP_END_OFFSET_SECONDS) {
 					if (level < QUIET_LEVEL_THRESHOLD) {
 						outroLowCount += 1;
 					} else {
@@ -394,8 +415,13 @@
 					}
 
 					if (outroLowCount >= 4) {
-						audio.currentTime = Math.max(duration - OUTRO_SKIP_END_OFFSET_SECONDS, currentTime);
-						outroSkipped = true;
+						const outroStep = Math.min(OUTRO_SKIP_MAX_SECONDS, Math.max(0.5, remaining * OUTRO_SKIP_RATIO));
+						const target = Math.min(duration - OUTRO_SKIP_END_OFFSET_SECONDS, currentTime + outroStep);
+
+						if (target > currentTime + 0.2) {
+							audio.currentTime = target;
+							outroSkipped = true;
+						}
 					}
 				}
 			}
