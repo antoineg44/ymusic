@@ -198,7 +198,7 @@ async function initializeApp() {
   }
 
   initializeSidebarMenu();
-  await loadLibrary();
+  //await loadLibrary();
 }
 
 function setActiveTab(tab) {
