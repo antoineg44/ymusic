@@ -213,6 +213,7 @@
 				<span id="timeLabel">00:00 / 00:00</span>
 			</div>
 			<audio id="audioPlayer"></audio>
+			<audio id="audioPlayerSecondary"></audio>
 		</section>
 
 		<script>
@@ -226,7 +227,8 @@
 			const nextPlaying = document.getElementById('nextPlaying');
 			const loadingSpinner = document.getElementById('loadingSpinner');
 			const favoriteButton = document.getElementById('favoriteButton');
-			const audio = document.getElementById('audioPlayer');
+			const primaryAudio = document.getElementById('audioPlayer');
+			const secondaryAudio = document.getElementById('audioPlayerSecondary');
 			const playerCard = document.querySelector('.player-card');
 
 			const TRIM_SETTING_KEY = 'ymusic.trimLowIntroOutro';
@@ -250,15 +252,32 @@
 			let trimQuietPartsEnabled = false;
 			let crossfadeSeconds = DEFAULT_CROSSFADE_SECONDS;
 			let autoChainRequested = false;
+			let activeAudio = primaryAudio;
 			let audioContext = null;
 			let analyserNode = null;
 			let analyserData = null;
-      		let fadeFrameId = null;
+			const audioSourceNodes = new WeakMap();
+			let analyserAttachedAudio = null;
+			const fadeFrameIds = new WeakMap();
+			let fadeIndicatorCount = 0;
+			let secondHalfFadeTimerId = null;
+			let crossfadeToken = 0;
 			let introLowCount = 0;
 			let outroLowCount = 0;
 			let lastIntroSkipAt = 0;
 			let introSkipped = false;
 			let outroSkipped = false;
+
+			function getInactiveAudio() {
+				return activeAudio === primaryAudio ? secondaryAudio : primaryAudio;
+			}
+
+			function clearSecondHalfFadeTimer() {
+				if (secondHalfFadeTimerId !== null) {
+					window.clearTimeout(secondHalfFadeTimerId);
+					secondHalfFadeTimerId = null;
+				}
+			}
 
 			function readTrimQuietPartsSetting() {
 				try {
@@ -301,53 +320,80 @@
 				autoChainRequested = false;
 			}
 
-			function cancelVolumeFade() {
-				if (fadeFrameId !== null) {
-					window.cancelAnimationFrame(fadeFrameId);
-					fadeFrameId = null;
+			function beginFadeIndicator() {
+				fadeIndicatorCount += 1;
+				if (fadeIndicatorCount > 0) {
+					timeLabel.classList.add('is-fade-active');
 				}
+			}
+
+			function endFadeIndicator() {
+				fadeIndicatorCount = Math.max(0, fadeIndicatorCount - 1);
+				if (fadeIndicatorCount === 0) {
+					timeLabel.classList.remove('is-fade-active');
+				}
+			}
+
+			function cancelVolumeFade(targetAudio) {
+				const media = targetAudio || activeAudio;
+				const frameId = fadeFrameIds.get(media);
+				if (frameId !== undefined && frameId !== null) {
+					window.cancelAnimationFrame(frameId);
+					fadeFrameIds.delete(media);
+					endFadeIndicator();
+				}
+			}
+
+			function cancelAllVolumeFades() {
+				cancelVolumeFade(primaryAudio);
+				cancelVolumeFade(secondaryAudio);
+				fadeIndicatorCount = 0;
 				timeLabel.classList.remove('is-fade-active');
 			}
 
-			function fadeAudioVolume(targetVolume, durationSeconds) {
-				cancelVolumeFade();
+			function fadeAudioVolume(targetAudio, targetVolume, durationSeconds, onComplete) {
+				const media = targetAudio || activeAudio;
+				cancelVolumeFade(media);
 
 				const clampedTarget = Math.min(1, Math.max(0, Number(targetVolume || 0)));
 				const safeDuration = Math.max(0, Number(durationSeconds || 0));
 
 				if (safeDuration <= 0.01) {
-					audio.volume = clampedTarget;
-					timeLabel.classList.remove('is-fade-active');
+					media.volume = clampedTarget;
+					if (typeof onComplete === 'function') {
+						onComplete();
+					}
 					return;
 				}
 
-				timeLabel.classList.add('is-fade-active');
+				beginFadeIndicator();
 
-				const startVolume = Number.isFinite(audio.volume) ? audio.volume : 1;
+				const startVolume = Number.isFinite(media.volume) ? media.volume : 1;
 				const startTime = performance.now();
 				const durationMs = safeDuration * 1000;
 
 				const step = (now) => {
 					const elapsed = now - startTime;
 					const progress = Math.min(1, elapsed / durationMs);
-					audio.volume = startVolume + ((clampedTarget - startVolume) * progress);
+					media.volume = startVolume + ((clampedTarget - startVolume) * progress);
 
 					if (progress < 1) {
-						fadeFrameId = window.requestAnimationFrame(step);
+						const nextFrameId = window.requestAnimationFrame(step);
+						fadeFrameIds.set(media, nextFrameId);
 					} else {
-						fadeFrameId = null;
-						timeLabel.classList.remove('is-fade-active');
+						fadeFrameIds.delete(media);
+						endFadeIndicator();
+						if (typeof onComplete === 'function') {
+							onComplete();
+						}
 					}
 				};
 
-				fadeFrameId = window.requestAnimationFrame(step);
+				const frameId = window.requestAnimationFrame(step);
+				fadeFrameIds.set(media, frameId);
 			}
 
 			function ensureAudioAnalyser() {
-				if (analyserNode && analyserData) {
-					return true;
-				}
-
 				const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 				if (!AudioContextClass) {
 					return false;
@@ -355,12 +401,31 @@
 
 				try {
 					audioContext = audioContext || new AudioContextClass();
-					const source = audioContext.createMediaElementSource(audio);
-					analyserNode = audioContext.createAnalyser();
-					analyserNode.fftSize = 2048;
-					source.connect(analyserNode);
-					analyserNode.connect(audioContext.destination);
-					analyserData = new Uint8Array(analyserNode.fftSize);
+					if (!analyserNode) {
+						analyserNode = audioContext.createAnalyser();
+						analyserNode.fftSize = 2048;
+						analyserNode.connect(audioContext.destination);
+						analyserData = new Uint8Array(analyserNode.fftSize);
+					}
+
+					if (analyserAttachedAudio !== activeAudio) {
+						if (analyserAttachedAudio) {
+							const previousSource = audioSourceNodes.get(analyserAttachedAudio);
+							if (previousSource) {
+								previousSource.disconnect(analyserNode);
+							}
+						}
+
+						let source = audioSourceNodes.get(activeAudio);
+						if (!source) {
+							source = audioContext.createMediaElementSource(activeAudio);
+							audioSourceNodes.set(activeAudio, source);
+						}
+
+						source.connect(analyserNode);
+						analyserAttachedAudio = activeAudio;
+					}
+
 					return true;
 				} catch (error) {
 					console.debug('Audio analyser init failed:', error);
@@ -385,7 +450,8 @@
 			}
 
 			function maybeTrimQuietSections() {
-				if (!trimQuietPartsEnabled || audio.paused || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+				const media = activeAudio;
+				if (!trimQuietPartsEnabled || media.paused || !Number.isFinite(media.duration) || media.duration <= 0) {
 					return;
 				}
 
@@ -398,8 +464,8 @@
 					return;
 				}
 
-				const currentTime = Number(audio.currentTime || 0);
-				const duration = Number(audio.duration || 0);
+				const currentTime = Number(media.currentTime || 0);
+				const duration = Number(media.duration || 0);
 				const remaining = Math.max(0, duration - currentTime);
 				const introScanLimit = Math.min(
 					INTRO_SCAN_MAX_SECONDS,
@@ -425,7 +491,7 @@
 						);
 						const target = Math.min(introScanLimit, currentTime + introStep);
 						if (target > currentTime + 0.2) {
-							audio.currentTime = target;
+							media.currentTime = target;
 							lastIntroSkipAt = target;
 							introLowCount = 0;
 							introSkipped = true;
@@ -448,7 +514,7 @@
 						const target = Math.min(duration - OUTRO_SKIP_END_OFFSET_SECONDS, currentTime + outroStep);
 
 						if (target > currentTime + 0.2) {
-							audio.currentTime = target;
+							media.currentTime = target;
 							outroSkipped = true;
 						}
 					}
@@ -575,40 +641,50 @@
 			}
 
 			function updateTimeDisplay() {
+				const media = activeAudio;
 				maybeTrimQuietSections();
 
-				if (!autoChainRequested && crossfadeSeconds > 0 && Number.isFinite(audio.duration) && audio.duration > 0) {
-					const remaining = Math.max(0, Number(audio.duration) - Number(audio.currentTime || 0));
+				if (!autoChainRequested && crossfadeSeconds > 0 && Number.isFinite(media.duration) && media.duration > 0) {
+					const remaining = Math.max(0, Number(media.duration) - Number(media.currentTime || 0));
 					if (remaining <= crossfadeSeconds) {
 						autoChainRequested = true;
 						postToParent('REQUEST_NEXT_AUTO', { fadeSeconds: crossfadeSeconds });
 					}
 				}
 
-				seekBar.max = audio.duration || 100;
-				seekBar.value = audio.currentTime || 0;
-				timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+				seekBar.max = media.duration || 100;
+				seekBar.value = media.currentTime || 0;
+				timeLabel.textContent = `${formatTime(media.currentTime)} / ${formatTime(media.duration)}`;
 
 				postToParent('TIME_UPDATE', {
-					currentTime: audio.currentTime || 0,
-					duration: audio.duration || 0,
-					playedSeconds: getPlayedSeconds(audio),
+					currentTime: media.currentTime || 0,
+					duration: media.duration || 0,
+					playedSeconds: getPlayedSeconds(media),
 				});
 			}
 
 			function toggleLocalPlayback() {
-				if (!audio.src) {
+				const media = activeAudio;
+				if (!media.src) {
 					postToParent('REQUEST_PLAY_FALLBACK');
 					return;
 				}
 
-				if (audio.paused) {
-					audio.play().catch(() => {
+				if (media.paused) {
+					media.play().catch(() => {
 						postToParent('PLAYER_ERROR', { error: 'Lecture bloquee par le navigateur.' });
 					});
+					const otherMedia = getInactiveAudio();
+					if (otherMedia.src && otherMedia.volume > 0.01 && otherMedia.paused) {
+						otherMedia.play().catch(() => {});
+					}
 					playButton.textContent = '⏸';
 				} else {
-					audio.pause();
+					media.pause();
+					const otherMedia = getInactiveAudio();
+					if (!otherMedia.paused) {
+						otherMedia.pause();
+					}
 					playButton.textContent = '▶';
 				}
 			}
@@ -624,30 +700,60 @@
 				postToParent('REQUEST_NEXT');
 			});
 			seekBar.addEventListener('input', () => {
-				if (!audio.duration) {
+				const media = activeAudio;
+				if (!media.duration) {
 					return;
 				}
 				const ratio = Number(seekBar.value) / Number(seekBar.max || 100);
-				audio.currentTime = (audio.duration || 0) * ratio;
+				media.currentTime = (media.duration || 0) * ratio;
 				updateTimeDisplay();
 			});
-			audio.addEventListener('timeupdate', updateTimeDisplay);
-			audio.addEventListener('loadedmetadata', updateTimeDisplay);
-			audio.addEventListener('ended', () => {
-				resetTrimDetectionState();
-				postToParent('REQUEST_NEXT_AUTO', { fadeSeconds: crossfadeSeconds });
-			});
-			audio.addEventListener('play', () => {
-				playButton.textContent = '⏸';
-				if (ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
-					void audioContext.resume();
-				}
-				void requestWakeLock();
-			});
-			audio.addEventListener('pause', () => {
-				playButton.textContent = '▶';
-				releaseWakeLock();
-			});
+
+			function attachAudioEvents(media) {
+				media.addEventListener('timeupdate', () => {
+					if (media !== activeAudio) {
+						return;
+					}
+					updateTimeDisplay();
+				});
+
+				media.addEventListener('loadedmetadata', () => {
+					if (media !== activeAudio) {
+						return;
+					}
+					updateTimeDisplay();
+				});
+
+				media.addEventListener('ended', () => {
+					if (media !== activeAudio) {
+						return;
+					}
+					resetTrimDetectionState();
+					postToParent('REQUEST_NEXT_AUTO', { fadeSeconds: crossfadeSeconds });
+				});
+
+				media.addEventListener('play', () => {
+					if (media !== activeAudio) {
+						return;
+					}
+					playButton.textContent = '⏸';
+					if (ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
+						void audioContext.resume();
+					}
+					void requestWakeLock();
+				});
+
+				media.addEventListener('pause', () => {
+					if (media !== activeAudio) {
+						return;
+					}
+					playButton.textContent = '▶';
+					releaseWakeLock();
+				});
+			}
+
+			attachAudioEvents(primaryAudio);
+			attachAudioEvents(secondaryAudio);
 
 			playerCard.addEventListener('click', (event) => {
 				const target = event.target;
@@ -682,19 +788,61 @@
 					applyTrimQuietPartsSetting();
 					applyCrossfadeSetting();
 					resetTrimDetectionState();
-					cancelVolumeFade();
+					clearSecondHalfFadeTimer();
+					crossfadeToken += 1;
+					cancelAllVolumeFades();
 					setStatusText(nowPlaying, String(message.title || 'Aucune lecture en cours'));
 					setStatusText(nowPlayingMeta, String(message.meta || 'Bibliotheque locale'));
 					setFavoriteState(Boolean(message.isFavorite));
-					audio.src = String(message.src || '');
 					const fadeInSeconds = Math.max(0, Number(message.fadeInSeconds || 0));
-					audio.volume = fadeInSeconds > 0 ? 0 : 1;
-					audio.load();
-					audio.play().catch(() => {
+					const incomingAudio = getInactiveAudio();
+					const outgoingAudio = activeAudio;
+					const canCrossfade = fadeInSeconds > 0 && Boolean(outgoingAudio.src) && !outgoingAudio.paused;
+					const halfFadeSeconds = Math.max(0.05, fadeInSeconds / 2);
+					const token = crossfadeToken;
+
+					incomingAudio.src = String(message.src || '');
+					incomingAudio.currentTime = 0;
+					incomingAudio.volume = canCrossfade ? 0 : 1;
+					incomingAudio.load();
+
+					activeAudio = incomingAudio;
+
+					incomingAudio.play().catch(() => {
 						postToParent('PLAYER_ERROR', { error: 'Lecture bloquee par le navigateur.' });
 					});
-					if (fadeInSeconds > 0) {
-						fadeAudioVolume(1, fadeInSeconds);
+
+					if (canCrossfade) {
+						outgoingAudio.volume = 1;
+						fadeAudioVolume(incomingAudio, 1, halfFadeSeconds);
+
+						secondHalfFadeTimerId = window.setTimeout(() => {
+							secondHalfFadeTimerId = null;
+							if (token !== crossfadeToken) {
+								return;
+							}
+
+							fadeAudioVolume(outgoingAudio, 0, halfFadeSeconds, () => {
+								if (token !== crossfadeToken) {
+									return;
+								}
+								outgoingAudio.pause();
+								outgoingAudio.currentTime = 0;
+								outgoingAudio.volume = 1;
+								outgoingAudio.removeAttribute('src');
+								outgoingAudio.load();
+							});
+						}, Math.floor(halfFadeSeconds * 1000));
+					} else {
+						outgoingAudio.pause();
+						outgoingAudio.currentTime = 0;
+						outgoingAudio.volume = 1;
+						outgoingAudio.removeAttribute('src');
+						outgoingAudio.load();
+					}
+
+					if (ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
+						void audioContext.resume();
 					}
 					void requestWakeLock();
 					return;
@@ -703,7 +851,7 @@
 				if (message.type === 'FADE_OUT') {
 					const durationSeconds = Math.max(0, Number(message.durationSeconds || 0));
 					if (durationSeconds > 0) {
-						fadeAudioVolume(0, durationSeconds);
+						fadeAudioVolume(activeAudio, 0, durationSeconds);
 					}
 					return;
 				}
@@ -746,7 +894,7 @@
 					// (aucune action nécessaire, le WakeLock continue)
 				} else {
 					// La page est visible à nouveau
-					if (!audio.paused) {
+						if (!activeAudio.paused) {
 						void requestWakeLock();
 					}
 				}

@@ -206,11 +206,14 @@ body {
   margin-bottom: 20px;
   display: flex;
   overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .panel {
   width: 100%;
   grid-column: 1 / -1;
+  min-height: 0;
 }
 
 .panel.is-hidden {
@@ -368,6 +371,17 @@ body {
   border: 0;
   border-radius: 12px;
   background: transparent;
+}
+
+#searchPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#searchPanel .search-frame {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .description-modal {

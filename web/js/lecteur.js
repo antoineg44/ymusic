@@ -33,17 +33,6 @@
       }
     }
 
-    async function sleep(milliseconds) {
-      const safeDelay = Math.max(0, Number(milliseconds || 0));
-      if (safeDelay <= 0) {
-        return;
-      }
-
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, safeDelay);
-      });
-    }
-
     function getCurrentTrackPreparationKey() {
       const videoPart = String(state.currentVideoId || '').trim();
       const pathPart = state.currentTrack ? String(state.currentTrack.path || state.currentTrack.file || '').trim() : '';
@@ -488,11 +477,6 @@
       try {
         if (state.currentTrack && state.likedSaved && state.currentTrack.folder === 'temp' && state.currentTrack.path) {
           await deleteTempFile(state.currentTrack.path);
-        }
-
-        if (fadeSeconds > 0) {
-          sendPlayerMessage('FADE_OUT', { durationSeconds: fadeSeconds });
-          await sleep(Math.max(120, Math.floor(fadeSeconds * 1000)));
         }
 
         const nextQueue = resolveNextQueueEntry();

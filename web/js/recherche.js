@@ -20,7 +20,20 @@
       if (message.type === 'SEARCH_RESIZE') {
         const requestedHeight = Number(message.height || 0);
         if (Number.isFinite(requestedHeight) && requestedHeight > 0 && searchFrame) {
-          const clampedHeight = Math.max(460, Math.ceil(requestedHeight));
+          const panel = searchFrame.closest('.panel');
+          let availableHeight = 0;
+
+          if (panel) {
+            const panelStyles = window.getComputedStyle(panel);
+            const panelPaddingTop = Number.parseFloat(panelStyles.paddingTop) || 0;
+            const panelPaddingBottom = Number.parseFloat(panelStyles.paddingBottom) || 0;
+            const panelGap = Number.parseFloat(panelStyles.rowGap || panelStyles.gap) || 0;
+            const heading = panel.querySelector('h2');
+            const headingHeight = heading ? heading.getBoundingClientRect().height : 0;
+            availableHeight = panel.clientHeight - panelPaddingTop - panelPaddingBottom - headingHeight - panelGap;
+          }
+
+          const clampedHeight = Math.max(460, Math.ceil(requestedHeight), Math.floor(Math.max(0, availableHeight)));
           searchFrame.style.height = `${clampedHeight}px`;
         }
         return;

@@ -116,6 +116,8 @@
     <script src="js/display.js"></script>
     <script>
       let suggestionTimer = null;
+      let suggestionRequestInFlight = false;
+      let queuedSuggestionQuery = null;
       const MIN_INPUT_WIDTH_WITH_LABEL = 220;
 
       const searchRow = document.querySelector('.search-row');
@@ -243,17 +245,47 @@
         }
       }
 
-      async function loadSuggestions(query) {
+      async function requestSuggestions(query) {
         try {
           showSuggestionsSpinner();
           const response = await fetch(`php/interface.php?suggestions=${encodeURIComponent(query)}`);
           const payload = await response.json();
-          renderSuggestions(payload.suggestions || []);
+          if (query === searchInput.value.trim()) {
+            renderSuggestions(payload.suggestions || []);
+          }
         } catch (error) {
           console.error(error);
         } finally {
           hideSuggestionsSpinner();
         }
+      }
+
+      async function processSuggestionQueue() {
+        if (suggestionRequestInFlight) {
+          return;
+        }
+
+        while (queuedSuggestionQuery !== null) {
+          const query = queuedSuggestionQuery;
+          queuedSuggestionQuery = null;
+
+          if (!query) {
+            renderSuggestions([]);
+            continue;
+          }
+
+          suggestionRequestInFlight = true;
+          try {
+            await requestSuggestions(query);
+          } finally {
+            suggestionRequestInFlight = false;
+          }
+        }
+      }
+
+      function enqueueSuggestions(query) {
+        queuedSuggestionQuery = query;
+        void processSuggestionQueue();
       }
 
       async function searchMusic() {
@@ -374,6 +406,8 @@
         const query = event.target.value.trim();
 
         if (!query) {
+          window.clearTimeout(suggestionTimer);
+          queuedSuggestionQuery = null;
           suggestionsBox.innerHTML = '';
           notifyParentHeight();
           return;
@@ -381,7 +415,7 @@
 
         window.clearTimeout(suggestionTimer);
         suggestionTimer = window.setTimeout(() => {
-          void loadSuggestions(query);
+          enqueueSuggestions(query);
         }, 250);
       });
 
