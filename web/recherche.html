@@ -420,9 +420,10 @@
       });
 
       postToParent('SEARCH_READY');
-      notifyParentHeight();
-      updateSearchButtonLayout();
-      window.addEventListener('load', notifyParentHeight);
+      window.addEventListener('load', () => {
+        notifyParentHeight();
+        updateSearchButtonLayout();
+      });
       window.addEventListener('resize', () => {
         notifyParentHeight();
         updateSearchButtonLayout();
