@@ -48,6 +48,7 @@ const playerController = window.createLecteurController({
   isValidVideoId,
   parseViewCount,
   saveLikedMusic,
+  loadLibrary,
   onOpenDescription: openDescriptionPopup,
 });
 
