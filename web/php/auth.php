@@ -6,12 +6,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/connexion.php';
 
+const AUTH_SESSION_LIFETIME = 2592000; // 30 jours
+
 if (session_status() === PHP_SESSION_NONE) {
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
 
     session_set_cookie_params([
-        'lifetime' => 0,
+        'lifetime' => AUTH_SESSION_LIFETIME,
         'path' => '/',
         'secure' => $isHttps,
         'httponly' => true,
@@ -150,6 +152,25 @@ function sanitize_user(array $row): array
     ];
 }
 
+function refresh_session_cookie(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE || session_id() === '') {
+        return;
+    }
+
+    $params = session_get_cookie_params();
+    $expiry = time() + AUTH_SESSION_LIFETIME;
+
+    setcookie(session_name(), session_id(), [
+        'expires' => $expiry,
+        'path' => (string) ($params['path'] ?? '/'),
+        'domain' => (string) ($params['domain'] ?? ''),
+        'secure' => (bool) ($params['secure'] ?? false),
+        'httponly' => (bool) ($params['httponly'] ?? true),
+        'samesite' => (string) ($params['samesite'] ?? 'Lax'),
+    ]);
+}
+
 function find_user_by_username(PDO $pdo, string $username): ?array
 {
     $stmt = $pdo->prepare(
@@ -227,6 +248,7 @@ function handle_register(): void
         'role' => $role,
     ];
     unset($_SESSION['session']);
+    refresh_session_cookie();
     session_write_close();
 
     respond_json(201, [
@@ -266,6 +288,7 @@ function handle_login(): void
     session_regenerate_id(true);
     $_SESSION['user'] = sanitize_user($user);
     unset($_SESSION['session']);
+    refresh_session_cookie();
     session_write_close();
 
     respond_json(200, ['success' => true, 'user' => $_SESSION['user']]);
@@ -287,6 +310,7 @@ function handle_logout(): void
 function handle_check(): void
 {
     if (!empty($_SESSION['user'])) {
+        refresh_session_cookie();
         respond_json(200, ['success' => true, 'user' => $_SESSION['user']]);
     }
 
