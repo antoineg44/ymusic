@@ -45,11 +45,27 @@
 				margin-bottom: 16px;
 			}
 
+			.player-head > div {
+				width: 100%;
+				min-width: 0;
+			}
+
 			.player-controls {
 				display: flex;
 				align-items: center;
 				gap: 10px;
-				flex-wrap: wrap;
+				flex-wrap: nowrap;
+				white-space: nowrap;
+				min-width: 0;
+			}
+
+			.player-controls #seekBar {
+				flex: 1 1 auto;
+				min-width: 0;
+			}
+
+			.player-controls #timeLabel {
+				flex: 0 0 auto;
 			}
 
 			.player-controls button {
@@ -102,6 +118,36 @@
 				min-height: 1.3em;
 			}
 
+			.marquee-line {
+				overflow: hidden;
+				white-space: nowrap;
+				display: block;
+				position: relative;
+				width: 100%;
+				min-width: 0;
+			}
+
+			.marquee-line .marquee-text {
+				display: inline-block;
+				white-space: nowrap;
+				transform: translateX(0);
+			}
+
+			.marquee-line.is-overflow .marquee-text {
+				padding-left: 100%;
+				animation: status-marquee var(--status-scroll-duration, 12s) linear infinite;
+			}
+
+			@keyframes status-marquee {
+				from {
+					transform: translateX(0);
+				}
+
+				to {
+					transform: translateX(calc(-1 * var(--status-scroll-distance, 100%)));
+				}
+			}
+
 			@keyframes spin {
 				to {
 					transform: rotate(360deg);
@@ -109,15 +155,26 @@
 			}
 
 			@media (max-width: 470px) {
+				.player-controls {
+					gap: 6px;
+				}
+
 				.player-controls button {
-					border: 0;
-					background: #0ea5e9;
-					color: white;
-					border-radius: 50%;
 					width: 30px;
 					height: 30px;
-					font-size: 1rem;
-					cursor: pointer;
+					font-size: 0.8rem;
+				}
+
+				.status {
+					font-size: 0.7rem;
+				}
+
+				.player-card {
+					padding: 12px;
+				}
+
+				#timeLabel {
+					font-size: 0.7rem;
 				}
 			}
 		</style>
@@ -127,10 +184,10 @@
 			<button id="favoriteButton" type="button" class="favorite-button" aria-label="Ajouter aux favoris">☆</button>
 			<div class="player-head">
 				<div>
-					<strong id="nowPlaying">Aucune lecture en cours</strong>
+					<strong id="nowPlaying" class="marquee-line"><span class="marquee-text">Aucune lecture en cours</span></strong>
 					<div class="spinner hidden" id="loadingSpinner" aria-label="Chargement en cours"></div>
-					<div id="nowPlayingMeta" class="status">Selectionnez un titre dans la bibliotheque</div>
-					<div id="nextPlaying" class="status">Prochaine musique: aucune</div>
+					<div id="nowPlayingMeta" class="status marquee-line"><span class="marquee-text">Selectionnez un titre dans la bibliotheque</span></div>
+					<div id="nextPlaying" class="status marquee-line"><span class="marquee-text">Prochaine musique: aucune</span></div>
 				</div>
 			</div>
 			<div class="player-controls">
@@ -158,6 +215,61 @@
 			const playerCard = document.querySelector('.player-card');
 
 			let wakeLock = null;
+
+			function getMarqueeTextElement(container) {
+				if (!container) {
+					return null;
+				}
+
+				let textElement = container.querySelector('.marquee-text');
+				if (!(textElement instanceof HTMLElement)) {
+					textElement = document.createElement('span');
+					textElement.className = 'marquee-text';
+					textElement.textContent = container.textContent || '';
+					container.textContent = '';
+					container.appendChild(textElement);
+				}
+
+				return textElement;
+			}
+
+			function updateStatusOverflow(container) {
+				const textElement = getMarqueeTextElement(container);
+				if (!container || !textElement) {
+					return;
+				}
+
+				container.classList.remove('is-overflow');
+				container.style.removeProperty('--status-scroll-distance');
+				container.style.removeProperty('--status-scroll-duration');
+
+				const containerWidth = container.clientWidth;
+				const textWidth = textElement.scrollWidth;
+
+				if (textWidth <= containerWidth) {
+					return;
+				}
+
+				const distance = textWidth + containerWidth;
+				const speed = 45;
+				const duration = Math.min(30, Math.max(8, distance / speed));
+
+				container.style.setProperty('--status-scroll-distance', `${distance}px`);
+				container.style.setProperty('--status-scroll-duration', `${duration}s`);
+				container.classList.add('is-overflow');
+			}
+
+			function setStatusText(container, text) {
+				const textElement = getMarqueeTextElement(container);
+				if (!textElement) {
+					return;
+				}
+
+				textElement.textContent = String(text || '');
+				window.requestAnimationFrame(() => {
+					updateStatusOverflow(container);
+				});
+			}
 
 			async function requestWakeLock() {
 				if (!navigator.wakeLock) {
@@ -314,8 +426,8 @@
 
 				if (message.type === 'LOAD_TRACK') {
 					hideLoadingSpinner();
-					nowPlaying.textContent = String(message.title || 'Aucune lecture en cours');
-					nowPlayingMeta.textContent = String(message.meta || 'Bibliotheque locale');
+					setStatusText(nowPlaying, String(message.title || 'Aucune lecture en cours'));
+					setStatusText(nowPlayingMeta, String(message.meta || 'Bibliotheque locale'));
 					setFavoriteState(Boolean(message.isFavorite));
 					audio.src = String(message.src || '');
 					audio.load();
@@ -343,9 +455,12 @@
 
 				if (message.type === 'SET_NEXT_TRACK') {
 					const nextTitle = String(message.nextTitle || '').trim();
-					nextPlaying.textContent = nextTitle
+					setStatusText(
+						nextPlaying,
+						nextTitle
 						? `Prochaine musique: ${nextTitle}`
-						: 'Prochaine musique: aucune';
+						: 'Prochaine musique: aucune'
+					);
 					return;
 				}
 
@@ -368,6 +483,14 @@
 			});
 
 			setFavoriteState(false);
+			setStatusText(nowPlaying, 'Aucune lecture en cours');
+			setStatusText(nowPlayingMeta, 'Selectionnez un titre dans la bibliotheque');
+			setStatusText(nextPlaying, 'Prochaine musique: aucune');
+			window.addEventListener('resize', () => {
+				updateStatusOverflow(nowPlaying);
+				updateStatusOverflow(nowPlayingMeta);
+				updateStatusOverflow(nextPlaying);
+			});
 			postToParent('PLAYER_READY');
 		</script>
 	</body>
