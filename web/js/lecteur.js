@@ -16,6 +16,7 @@
     let preparingNextTrackPromise = null;
     let preparedForTrackKey = '';
     let nextTransitionInProgress = false;
+    let pendingTempDeleteTimerId = null;
     const CROSSFADE_SECONDS_KEY = 'ymusic.crossfadeSeconds';
 
     function readCrossfadeSecondsSetting() {
@@ -43,6 +44,24 @@
       preparedNextTrack = null;
       preparingNextTrackPromise = null;
       preparedForTrackKey = '';
+    }
+
+    function scheduleTempFileDelete(filePath, delayMs) {
+      const safePath = String(filePath || '').trim();
+      if (!safePath) {
+        return;
+      }
+
+      if (pendingTempDeleteTimerId !== null) {
+        window.clearTimeout(pendingTempDeleteTimerId);
+        pendingTempDeleteTimerId = null;
+      }
+
+      const safeDelay = Math.max(0, Number(delayMs || 0));
+      pendingTempDeleteTimerId = window.setTimeout(() => {
+        pendingTempDeleteTimerId = null;
+        void deleteTempFile(safePath);
+      }, safeDelay);
     }
 
     function sendPlayerMessage(type, payload) {
@@ -281,6 +300,10 @@
       });
       syncFavoriteState();
       syncNextTrackPreview();
+
+      if (isValidVideoId(state.currentVideoId)) {
+        void prepareNextTrackForSeamlessPlayback();
+      }
       
       // Notifier le parent pour mettre à jour l'affichage de la queue
       if (window.parent && window.parent !== window) {
@@ -473,10 +496,19 @@
         ? Math.max(0, Number.isFinite(Number(fadeSecondsOverride)) ? Number(fadeSecondsOverride) : configuredFade)
         : 0;
 
-      // Avant de passer à la suivante, supprimer le fichier temp si la musique était aimée
+      const shouldDeleteCurrentTempAfterTransition = Boolean(
+        state.currentTrack
+        && state.likedSaved
+        && state.currentTrack.folder === 'temp'
+        && state.currentTrack.path
+      );
+      const currentTempPathToDelete = shouldDeleteCurrentTempAfterTransition
+        ? String(state.currentTrack.path || '').trim()
+        : '';
+
       try {
-        if (state.currentTrack && state.likedSaved && state.currentTrack.folder === 'temp' && state.currentTrack.path) {
-          await deleteTempFile(state.currentTrack.path);
+        if (autoChained && fadeSeconds > 0 && preparingNextTrackPromise) {
+          await preparingNextTrackPromise;
         }
 
         const nextQueue = resolveNextQueueEntry();
@@ -493,12 +525,20 @@
           playTrack(preparedTrack, state.library.findIndex((entry) => entry.path === preparedTrack.path), {
             fadeInSeconds: fadeSeconds,
           });
+
+          if (currentTempPathToDelete) {
+            scheduleTempFileDelete(currentTempPathToDelete, Math.max(200, Math.floor(fadeSeconds * 1000) + 300));
+          }
           return;
         }
 
         await musiqueSuivanteController.playNext({
           fadeInSeconds: fadeSeconds,
         });
+
+        if (currentTempPathToDelete) {
+          scheduleTempFileDelete(currentTempPathToDelete, Math.max(200, Math.floor(fadeSeconds * 1000) + 300));
+        }
       } finally {
         nextTransitionInProgress = false;
       }
