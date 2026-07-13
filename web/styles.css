@@ -114,7 +114,7 @@ body {
   flex-direction: column;
   height: calc(100vh - var(--player-height));
   overflow-y: auto;
-  padding: 15px
+  padding: 15px 15px 0;
 }
 
 
@@ -203,7 +203,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   overflow: hidden;
   flex: 1 1 auto;
   min-height: 0;
@@ -212,6 +212,9 @@ body {
 .panel {
   width: 100%;
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -366,7 +369,9 @@ body {
 
 .search-frame {
   width: 100%;
-  min-height: 460px;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
   border: 0;
   border-radius: 12px;
   background: transparent;

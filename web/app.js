@@ -48,7 +48,6 @@ const playerController = window.createLecteurController({
   isValidVideoId,
   parseViewCount,
   saveLikedMusic,
-  loadLibrary,
   onOpenDescription: openDescriptionPopup,
 });
 
@@ -198,7 +197,6 @@ async function initializeApp() {
   }
 
   initializeSidebarMenu();
-  //await loadLibrary();
 }
 
 function setActiveTab(tab) {
@@ -231,6 +229,10 @@ function setActiveTab(tab) {
 
   ensureTabIframeLoaded(tab);
 
+  if (isListTab) {
+    requestListRefresh();
+  }
+
   // Mettre à jour la queue si l'onglet queue est affiché
   if (isQueueTab && queueFrame && queueFrame.contentWindow) {
     // Trouver l'index de la musique actuellement en cours de lecture dans la queue
@@ -260,16 +262,26 @@ function setActiveTab(tab) {
 
 function ensureIframeLoaded(iframe) {
   if (!iframe || iframe.dataset.loaded === '1') {
-    return;
+    return false;
   }
 
   const src = String(iframe.dataset.src || '').trim();
   if (!src) {
-    return;
+    return false;
   }
 
   iframe.src = src;
   iframe.dataset.loaded = '1';
+  iframe.dataset.ready = '0';
+
+  if (iframe.dataset.readyBound !== '1') {
+    iframe.addEventListener('load', () => {
+      iframe.dataset.ready = '1';
+    });
+    iframe.dataset.readyBound = '1';
+  }
+
+  return true;
 }
 
 function ensureTabIframeLoaded(tab) {
@@ -315,6 +327,33 @@ function ensureTabIframeLoaded(tab) {
 
 function initializeSidebarMenu() {
   setActiveTab('accueil');
+}
+
+function requestListRefresh() {
+  if (!listFrame) {
+    return;
+  }
+
+  if (listFrame.dataset.loaded === '1' && listFrame.dataset.ready === '1' && listFrame.contentWindow) {
+    listFrame.contentWindow.postMessage({
+      target: 'liste',
+      type: 'REFRESH_LIST',
+    }, '*');
+    return;
+  }
+
+  const refreshOnLoad = () => {
+    if (!listFrame.contentWindow) {
+      return;
+    }
+
+    listFrame.contentWindow.postMessage({
+      target: 'liste',
+      type: 'REFRESH_LIST',
+    }, '*');
+  };
+
+  listFrame.addEventListener('load', refreshOnLoad, { once: true });
 }
 
 function setStatus(message) {

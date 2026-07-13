@@ -67,6 +67,28 @@
 				font-weight: 700;
 			}
 
+			.pagination {
+				display: flex;
+				justify-content: flex-end;
+				align-items: center;
+				gap: 10px;
+				margin-top: 12px;
+			}
+
+			.pagination button {
+				border: 1px solid rgba(148, 163, 184, 0.25);
+				background: rgba(15, 23, 42, 0.7);
+				color: #e2e8f0;
+				padding: 6px 10px;
+				border-radius: 8px;
+				cursor: pointer;
+			}
+
+			.pagination button:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+			}
+
 			.panel {
 				width: 100%;
 				grid-column: 1 / -1;
@@ -133,6 +155,12 @@
 					</table>
 				</div>
 
+				<div class="pagination" aria-label="Pagination des musiques">
+					<button type="button" id="pagePrev">Precedent</button>
+					<span id="pageInfo">Page 1 / 1</span>
+					<button type="button" id="pageNext">Suivant</button>
+				</div>
+
 				<audio id="previewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
 			</section>
 		</main>
@@ -140,10 +168,17 @@
 		<script>
 			const musiquesBody = document.getElementById('musiquesBody');
 			const musiquesStatus = document.getElementById('musiquesStatus');
+			const pagePrev = document.getElementById('pagePrev');
+			const pageNext = document.getElementById('pageNext');
+			const pageInfo = document.getElementById('pageInfo');
 			const sortableHeaders = Array.from(document.querySelectorAll('.musiques-table th.sortable'));
 
 			let currentSortBy = 'DateAjout';
 			let currentSortDir = 'desc';
+			let currentPage = 1;
+			let totalPages = 1;
+			let totalRows = 0;
+			const pageSize = 50;
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -160,6 +195,12 @@
 			function setStatus(message, isError = false) {
 				musiquesStatus.textContent = message;
 				musiquesStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function updatePaginationControls() {
+				pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+				pagePrev.disabled = currentPage <= 1;
+				pageNext.disabled = currentPage >= totalPages;
 			}
 
 			function updateSortIndicators() {
@@ -227,6 +268,8 @@
 						musiques: '1',
 						sortBy: currentSortBy,
 						sortDir: currentSortDir,
+						page: String(currentPage),
+						perPage: String(pageSize),
 					});
 
 					const response = await fetch(`php/interface.php?${params.toString()}`, {
@@ -247,11 +290,15 @@
 
 					currentSortBy = String(payload.sortBy || currentSortBy);
 					currentSortDir = String(payload.sortDir || currentSortDir).toLowerCase() === 'asc' ? 'asc' : 'desc';
+					currentPage = Math.max(1, Number(payload.page || currentPage));
+					totalPages = Math.max(1, Number(payload.totalPages || 1));
+					totalRows = Math.max(0, Number(payload.totalRows || 0));
 
 					const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
 					renderMusiques(musiques);
 					updateSortIndicators();
-					setStatus(`${musiques.length} musique(s) chargee(s) - tri ${currentSortBy} ${currentSortDir.toUpperCase()}.`);
+					updatePaginationControls();
+					setStatus(`${musiques.length} musique(s) chargee(s) sur ${totalRows} - page ${currentPage}/${totalPages} - tri ${currentSortBy} ${currentSortDir.toUpperCase()}.`);
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);
@@ -272,9 +319,28 @@
 						currentSortBy = sortBy;
 						currentSortDir = 'asc';
 					}
+					currentPage = 1;
 
 					void loadMusiques();
 				});
+			});
+
+			pagePrev.addEventListener('click', () => {
+				if (currentPage <= 1) {
+					return;
+				}
+
+				currentPage -= 1;
+				void loadMusiques();
+			});
+
+			pageNext.addEventListener('click', () => {
+				if (currentPage >= totalPages) {
+					return;
+				}
+
+				currentPage += 1;
+				void loadMusiques();
 			});
 
 			function initEvent() {

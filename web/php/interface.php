@@ -755,9 +755,21 @@ if (!empty($_GET['deleteFile'])) {
 
         $sortByInput = trim((string) ($_GET['sortBy'] ?? 'DateAjout'));
         $sortDirInput = strtolower(trim((string) ($_GET['sortDir'] ?? 'desc')));
+        $pageInput = (int) ($_GET['page'] ?? 1);
+        $perPageInput = (int) ($_GET['perPage'] ?? 50);
 
         $sortBy = $sortableColumns[$sortByInput] ?? 'DateAjout';
         $sortDir = $sortDirInput === 'asc' ? 'ASC' : 'DESC';
+        $page = max(1, $pageInput);
+        $perPage = max(1, min(200, $perPageInput));
+
+        $countStmt = $pdo->query('SELECT COUNT(*) AS Total FROM Musiques');
+        $totalRows = (int) ($countStmt->fetch(PDO::FETCH_ASSOC)['Total'] ?? 0);
+        $totalPages = $totalRows > 0 ? (int) ceil($totalRows / $perPage) : 1;
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
 
         $query = "SELECT
                 Id,
@@ -772,9 +784,13 @@ if (!empty($_GET['deleteFile'])) {
                 NombreVueInterne,
                 DateAjout
              FROM Musiques
-             ORDER BY {$sortBy} {$sortDir}, Titre ASC";
+             ORDER BY {$sortBy} {$sortDir}, Titre ASC
+             LIMIT :limit OFFSET :offset";
 
-        $stmt = $pdo->query($query);
+        $stmt = $pdo->prepare($query);
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
 
         $musiques = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -783,6 +799,10 @@ if (!empty($_GET['deleteFile'])) {
             'musiques' => $musiques,
             'sortBy' => $sortBy,
             'sortDir' => strtolower($sortDir),
+            'page' => $page,
+            'perPage' => $perPage,
+            'totalRows' => $totalRows,
+            'totalPages' => $totalPages,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
