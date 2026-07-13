@@ -119,6 +119,9 @@
       let suggestionRequestInFlight = false;
       let queuedSuggestionQuery = null;
       const MIN_INPUT_WIDTH_WITH_LABEL = 220;
+      const PRIORITY_RESULTS_COUNT = 3;
+      const DEFERRED_RESULTS_COUNT = 17;
+      const DEFERRED_RENDER_DELAY_MS = 450;
 
       const searchRow = document.querySelector('.search-row');
       const searchEmbed = document.querySelector('.search-embed');
@@ -130,6 +133,8 @@
       const searchSpinner = document.getElementById('searchSpinner');
       const searchResults = document.getElementById('searchResults');
       let lastSentHeight = 0;
+      let currentSearchToken = 0;
+      let deferredRenderTimerId = null;
 
       function postToParent(type, payload = {}) {
         window.parent.postMessage({ source: 'recherche', type, ...payload }, '*');
@@ -296,6 +301,14 @@
           return;
         }
 
+        currentSearchToken += 1;
+        const searchToken = currentSearchToken;
+
+        if (deferredRenderTimerId !== null) {
+          window.clearTimeout(deferredRenderTimerId);
+          deferredRenderTimerId = null;
+        }
+
         setStatus(`Recherche de "${query}"...`);
         suggestionsBox.innerHTML = '';
         showSearchSpinner();
@@ -311,7 +324,7 @@
           }
 
           const results = payload.results || [];
-          await renderSearchResults(results);
+          await renderSearchResults(results, searchToken);
         } catch (error) {
           console.error(error);
           setStatus('La recherche YouTube Music a echoue.');
@@ -342,17 +355,11 @@
         notifyParentHeight();
       }
 
-      async function renderSearchResults(results) {
-        if (!results.length) {
-          searchResults.innerHTML = '<li>Aucun resultat trouve.</li>';
-          notifyParentHeight();
-          return;
-        }
-
-        searchResults.innerHTML = '';
+      function createRenderedItems(resultsBatch, startIndex) {
         const renderedItems = [];
 
-        results.forEach((result, index) => {
+        resultsBatch.forEach((result, offset) => {
+          const index = startIndex + offset;
           const preparedResult = {
             ...result,
             title: result.title || 'Titre inconnu',
@@ -377,19 +384,77 @@
           renderedItems.push({ item, result: preparedResult });
         });
 
-        setStatus(`${results.length} resultat(s) trouve(s). Verification en base...`);
-
-        const checks = await Promise.all(
-          renderedItems.map(async ({ item, result }) => {
-            const inDatabase = await checkMusicInDatabase(result);
-            item.classList.add(inDatabase ? 'search-result-present' : 'search-result-missing');
-            return inDatabase;
-          })
-        );
-
-        const presentCount = checks.filter(Boolean).length;
-        setStatus(`${results.length} resultat(s) trouve(s) via YouTube Music. ${presentCount} present(s) en base.`);
         notifyParentHeight();
+        return renderedItems;
+      }
+
+      async function annotateRenderedItems(renderedItems, searchToken) {
+        const checks = [];
+
+        for (const rendered of renderedItems) {
+          if (searchToken !== currentSearchToken) {
+            return checks;
+          }
+
+          const inDatabase = await checkMusicInDatabase(rendered.result);
+          if (searchToken !== currentSearchToken) {
+            return checks;
+          }
+
+          rendered.item.classList.add(inDatabase ? 'search-result-present' : 'search-result-missing');
+          checks.push(inDatabase);
+        }
+
+        return checks;
+      }
+
+      async function renderSearchResults(results, searchToken) {
+        if (!results.length) {
+          searchResults.innerHTML = '<li>Aucun resultat trouve.</li>';
+          notifyParentHeight();
+          return;
+        }
+
+        searchResults.innerHTML = '';
+        const limitedResults = results.slice(0, PRIORITY_RESULTS_COUNT + DEFERRED_RESULTS_COUNT);
+        const immediateResults = limitedResults.slice(0, PRIORITY_RESULTS_COUNT);
+        const deferredResults = limitedResults.slice(PRIORITY_RESULTS_COUNT);
+
+        const immediateRendered = createRenderedItems(immediateResults, 0);
+        setStatus(`${limitedResults.length} resultat(s) trouve(s). Affichage prioritaire des ${immediateRendered.length} premiers...`);
+
+        const immediateChecks = await annotateRenderedItems(immediateRendered, searchToken);
+        if (searchToken !== currentSearchToken) {
+          return;
+        }
+
+        let totalPresentCount = immediateChecks.filter(Boolean).length;
+
+        if (!deferredResults.length) {
+          setStatus(`${limitedResults.length} resultat(s) affiche(s). ${totalPresentCount} present(s) en base.`);
+          notifyParentHeight();
+          return;
+        }
+
+        setStatus(`${immediateResults.length} resultat(s) affiche(s) en priorite. Chargement des ${deferredResults.length} suivants...`);
+
+        deferredRenderTimerId = window.setTimeout(() => {
+          void (async () => {
+            if (searchToken !== currentSearchToken) {
+              return;
+            }
+
+            const deferredRendered = createRenderedItems(deferredResults, immediateResults.length);
+            const deferredChecks = await annotateRenderedItems(deferredRendered, searchToken);
+            if (searchToken !== currentSearchToken) {
+              return;
+            }
+
+            totalPresentCount += deferredChecks.filter(Boolean).length;
+            setStatus(`${limitedResults.length} resultat(s) affiche(s). ${totalPresentCount} present(s) en base.`);
+            notifyParentHeight();
+          })();
+        }, DEFERRED_RENDER_DELAY_MS);
       }
 
       searchButton.addEventListener('click', () => {

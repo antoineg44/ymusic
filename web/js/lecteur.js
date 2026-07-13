@@ -9,6 +9,7 @@
       parseViewCount,
       saveLikedMusic,
       loadLibrary,
+      onTrackChanged,
       onOpenDescription,
     } = deps;
 
@@ -305,9 +306,9 @@
         void prepareNextTrackForSeamlessPlayback();
       }
       
-      // Notifier le parent pour mettre à jour l'affichage de la queue
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ source: 'lecteur', type: 'TRACK_CHANGED' }, '*');
+      // Notifier immédiatement l'application pour rafraîchir la queue.
+      if (typeof onTrackChanged === 'function') {
+        onTrackChanged();
       }
     }
 

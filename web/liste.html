@@ -156,9 +156,9 @@
 				</div>
 
 				<div class="pagination" aria-label="Pagination des musiques">
-					<button type="button" id="pagePrev">Precedent</button>
-					<span id="pageInfo">Page 1 / 1</span>
-					<button type="button" id="pageNext">Suivant</button>
+					<button type="button" id="pagePrev" title="Afficher les 50 resultats precedents">50 precedents</button>
+					<span id="pageInfo">Resultats 0 - 0 / 0</span>
+					<button type="button" id="pageNext" title="Afficher les 50 resultats suivants">50 suivants</button>
 				</div>
 
 				<audio id="previewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
@@ -198,7 +198,9 @@
 			}
 
 			function updatePaginationControls() {
-				pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+				const startIndex = totalRows > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+				const endIndex = totalRows > 0 ? Math.min(currentPage * pageSize, totalRows) : 0;
+				pageInfo.textContent = `Resultats ${startIndex} - ${endIndex} / ${totalRows}`;
 				pagePrev.disabled = currentPage <= 1;
 				pageNext.disabled = currentPage >= totalPages;
 			}
