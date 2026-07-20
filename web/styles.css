@@ -114,7 +114,6 @@ body {
   flex-direction: column;
   height: calc(100vh - var(--player-height));
   overflow-y: auto;
-  padding: 15px 15px 0;
 }
 
 
@@ -207,6 +206,7 @@ body {
   overflow: hidden;
   flex: 1 1 auto;
   min-height: 0;
+  padding: 15px 0 0 15px;
 }
 
 .panel {
