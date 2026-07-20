@@ -894,6 +894,27 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['currentUser'])) {
+
+    try {
+        if (!empty($_SESSION['user'])) {
+            echo json_encode([
+                'success' => true,
+                'username' => $_SESSION['user']['username'] ?? null,
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Non authentifie'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } else {
 
     echo json_encode([

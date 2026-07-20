@@ -62,6 +62,11 @@
 				display: none;
 			}
 
+			.artists-head.is-hidden,
+			.artists-table-wrap.is-hidden {
+				display: none;
+			}
+
 			.song-play-button {
 				border: 0;
 				border-radius: 999px;
@@ -98,8 +103,13 @@
 				</div>
 
 				<div id="artistSongsPanel" class="artist-songs-panel is-hidden">
-					<h2 id="songsTitle">Musiques</h2>
-					<p id="songsStatus" class="status"></p>
+					<div class="artists-head">
+						<div>
+							<h2 id="songsTitle">Musiques</h2>
+							<p id="songsStatus" class="status"></p>
+						</div>
+						<button id="backToArtistsBtn" class="artists-back" type="button">Retour aux artistes</button>
+					</div>
 					<div class="artists-table-wrap">
 						<table class="artists-table" aria-label="Musiques de l'artiste">
 							<thead>
@@ -123,13 +133,26 @@
 			const artistsBody = document.getElementById('artistsBody');
 			const artistsStatus = document.getElementById('artistsStatus');
 			const artistSongsPanel = document.getElementById('artistSongsPanel');
+			const artistsTableWrap = document.querySelector('.artists-table-wrap');
+			const artistsHead = document.querySelector('.artists-head');
 			const songsTitle = document.getElementById('songsTitle');
 			const songsStatus = document.getElementById('songsStatus');
 			const songsBody = document.getElementById('songsBody');
+			const backToArtistsBtn = document.getElementById('backToArtistsBtn');
 			let activeArtistName = '';
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'artistes', type, ...payload }, '*');
+			}
+
+			function hideArtists() {
+				artistsHead.classList.add('is-hidden');
+				artistsTableWrap.classList.add('is-hidden');
+			}
+
+			function showArtists() {
+				artistsHead.classList.remove('is-hidden');
+				artistsTableWrap.classList.remove('is-hidden');
 			}
 
 			function escapeHtml(value) {
@@ -170,6 +193,7 @@
 
 				activeArtistName = artist;
 
+				hideArtists();
 				artistSongsPanel.classList.remove('is-hidden');
 				songsTitle.textContent = `Musiques de ${artist}`;
 				songsBody.innerHTML = '';
@@ -290,6 +314,13 @@
 			}
 
 			void loadArtists();
+
+			backToArtistsBtn.addEventListener('click', () => {
+				showArtists();
+				artistSongsPanel.classList.add('is-hidden');
+				songsBody.innerHTML = '';
+				activeArtistName = '';
+			});
 		</script>
 	</body>
 </html>

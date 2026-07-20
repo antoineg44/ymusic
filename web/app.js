@@ -20,6 +20,7 @@ const artistsPanel = document.getElementById('artistsPanel');
 const albumsPanel = document.getElementById('albumsPanel');
 const playlistsPanel = document.getElementById('playlistsPanel');
 const myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
+const communityPlaylistsPanel = document.getElementById('communityPlaylistsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
 const queuePanel = document.getElementById('queuePanel');
 const listFrame = document.getElementById('listFrame');
@@ -28,6 +29,7 @@ const artistsFrame = document.getElementById('artistsFrame');
 const albumsFrame = document.getElementById('albumsFrame');
 const playlistsFrame = document.getElementById('playlistsFrame');
 const myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
+const communityPlaylistsFrame = document.getElementById('communityPlaylistsFrame');
 const queueFrame = document.getElementById('queueFrame');
 const settingsFrame = document.getElementById('settingsFrame');
 const manageUsersLink = document.getElementById('manageUsersLink');
@@ -194,6 +196,7 @@ function setActiveTab(tab) {
   const isAlbumsTab = tab === 'albums';
   const isPlaylistsTab = tab === 'playlists';
   const isMyPlaylistsTab = tab === 'mes-playlists';
+  const isCommunityPlaylistsTab = tab === 'playlists-communaute';
   const isQueueTab = tab === 'queue';
   const isSettingsTab = tab === 'parametres';
 
@@ -209,6 +212,7 @@ function setActiveTab(tab) {
   albumsPanel.classList.toggle('is-hidden', !isAlbumsTab);
   playlistsPanel.classList.toggle('is-hidden', !isPlaylistsTab);
   myPlaylistsPanel.classList.toggle('is-hidden', !isMyPlaylistsTab);
+  communityPlaylistsPanel.classList.toggle('is-hidden', !isCommunityPlaylistsTab);
   queuePanel.classList.toggle('is-hidden', !isQueueTab);
   settingsPanel.classList.toggle('is-hidden', !isSettingsTab);
 
@@ -286,6 +290,11 @@ function ensureTabIframeLoaded(tab) {
 
   if (tab === 'mes-playlists') {
     ensureIframeLoaded(myPlaylistsFrame);
+    return;
+  }
+
+  if (tab === 'playlists-communaute') {
+    ensureIframeLoaded(communityPlaylistsFrame);
     return;
   }
 
