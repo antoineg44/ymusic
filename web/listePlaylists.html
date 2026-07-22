@@ -42,42 +42,46 @@
 				padding: 12px;
 			}
 
-			.playlists-list {
-				list-style: none;
-				padding: 0;
-				margin: 0;
-				display: flex;
-				flex-direction: column;
-				gap: 10px;
-			}
 
-			.playlist-btn {
+			.playlists-table {
 				width: 100%;
-				background: transparent;
-				border: 1px solid rgba(148, 163, 184, 0.25);
-				border-radius: 10px;
-				padding: 10px;
-				color: #e2e8f0;
+				border-collapse: collapse;
+			}
+
+			.playlists-table th,
+			.playlists-table td {
 				text-align: left;
-				cursor: pointer;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 10px;
+				vertical-align: top;
 			}
 
-			.playlist-btn:hover,
-			.playlist-btn.is-active {
-				border-color: #38bdf8;
-				background: rgba(56, 189, 248, 0.12);
-			}
-
-			.playlist-title {
-				display: block;
-				font-weight: 700;
-			}
-
-			.playlist-meta {
-				display: block;
-				font-size: 0.84rem;
-				margin-top: 4px;
+			.playlists-table th {
 				color: #94a3b8;
+				font-weight: 600;
+			}
+
+			.playlist-row.is-active {
+				background: rgba(56, 189, 248, 0.1);
+			}
+
+			.playlist-user-link {
+				color: #7dd3fc;
+				text-decoration: none;
+			}
+
+			.playlist-user-link:hover {
+				text-decoration: underline;
+			}
+
+			.playlist-open-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
 			}
 
 			.musiques-table {
@@ -126,7 +130,22 @@
 			<section class="content-grid">
 				<article class="card" aria-label="Liste des playlists">
 					<h2>Playlists</h2>
-					<ul id="playlistsList" class="playlists-list"></ul>
+					<div class="musiques-table-wrap">
+						<table class="playlists-table" aria-label="Playlists de la communauté">
+							<thead>
+								<tr>
+									<th>ID</th>
+									<th>Nom</th>
+									<th>Description</th>
+									<th>Date derniere modification</th>
+									<th>Vues</th>
+									<th>Utilisateur</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody id="playlistsBody"></tbody>
+						</table>
+					</div>
 				</article>
 
 				<article class="card" aria-label="Musiques de la playlist">
@@ -152,7 +171,7 @@
 
 		<script>
 			const playlistsStatus = document.getElementById('playlistsStatus');
-			const playlistsList = document.getElementById('playlistsList');
+			const playlistsBody = document.getElementById('playlistsBody');
 			const songsBody = document.getElementById('songsBody');
 			const songsTitle = document.getElementById('songsTitle');
 
@@ -177,41 +196,61 @@
 
 			function formatMeta(playlist) {
 				const total = Number(playlist.TotalMusiques || 0);
-				const by = String(playlist.UtilisateurCreateur || '').trim();
-				if (by) {
-					return `${total} musique(s) · ${by}`;
-				}
 				return `${total} musique(s)`;
 			}
 
+			function formatDate(value) {
+				if (!value) {
+					return '-';
+				}
+
+				return String(value).replace('T', ' ');
+			}
+
+			function renderUserLink(playlist) {
+				const userId = Number(playlist.Utilisateur || 0);
+				const userName = String(playlist.UtilisateurNom || '').trim();
+
+				if (!userId) {
+					return escapeHtml(userName || '-');
+				}
+
+				const label = userName ? `${escapeHtml(userName)} (${userId})` : String(userId);
+				return `<a class="playlist-user-link" href="users.html#user-${userId}">${label}</a>`;
+			}
+
 			function renderPlaylists(playlists) {
-				playlistsList.innerHTML = '';
+				playlistsBody.innerHTML = '';
 
 				if (!playlists.length) {
-					playlistsList.innerHTML = '<li>Aucune playlist en base.</li>';
+					playlistsBody.innerHTML = '<tr><td colspan="7">Aucune playlist en base.</td></tr>';
 					return;
 				}
 
 				playlists.forEach((playlist) => {
-					const id = String(playlist.PlaylistId || '').trim();
-					const li = document.createElement('li');
-					li.innerHTML = `
-						<button type="button" class="playlist-btn ${activePlaylistId === id ? 'is-active' : ''}" data-id="${escapeHtml(id)}">
-							<span class="playlist-title">${escapeHtml(playlist.NomPlaylist || 'Playlist')}</span>
-							<span class="playlist-meta">${escapeHtml(formatMeta(playlist))}</span>
-						</button>
+					const id = Number(playlist.PlaylistId || 0);
+					const tr = document.createElement('tr');
+					tr.className = `playlist-row ${activePlaylistId === id ? 'is-active' : ''}`;
+					tr.dataset.id = String(id);
+					tr.innerHTML = `
+						<td>${id || '-'}</td>
+						<td>${escapeHtml(playlist.NomPlaylist || 'Playlist')}</td>
+						<td>${escapeHtml(playlist.Description || '')}</td>
+						<td>${escapeHtml(formatDate(playlist.DateDerniereModification))}</td>
+						<td>${Number(playlist.NombreVue || 0)}</td>
+						<td>${renderUserLink(playlist)}</td>
+						<td><button type="button" class="playlist-open-btn">Ouvrir</button></td>
 					`;
 
-					const button = li.querySelector('button');
-					button.addEventListener('click', () => {
+					tr.querySelector('.playlist-open-btn').addEventListener('click', () => {
 						activePlaylistId = id;
-						void loadPlaylistSongs(id, playlist.NomPlaylist || id);
-						const allButtons = playlistsList.querySelectorAll('.playlist-btn');
-						allButtons.forEach((el) => el.classList.remove('is-active'));
-						button.classList.add('is-active');
+						void loadPlaylistSongs(String(id), playlist.NomPlaylist || String(id));
+						const allRows = playlistsBody.querySelectorAll('.playlist-row');
+						allRows.forEach((el) => el.classList.remove('is-active'));
+						tr.classList.add('is-active');
 					});
 
-					playlistsList.appendChild(li);
+					playlistsBody.appendChild(tr);
 				});
 			}
 
@@ -293,9 +332,9 @@
 
 					if (playlists.length > 0) {
 						const first = playlists[0];
-						activePlaylistId = String(first.PlaylistId || '').trim();
+						activePlaylistId = Number(first.PlaylistId || 0);
 						if (activePlaylistId) {
-							void loadPlaylistSongs(activePlaylistId, first.NomPlaylist || activePlaylistId);
+							void loadPlaylistSongs(String(activePlaylistId), first.NomPlaylist || String(activePlaylistId));
 						}
 					}
 				} catch (error) {

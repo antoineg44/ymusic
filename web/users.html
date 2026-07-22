@@ -123,6 +123,7 @@
 
         users.forEach((user) => {
           const row = document.createElement('tr');
+          row.id = `user-${user.id}`;
           row.innerHTML = `
             <td>${user.id}</td>
             <td>${escapeHtml(user.username)}</td>

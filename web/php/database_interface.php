@@ -355,6 +355,31 @@ function sync_music_table(PDO $pdo): array
 function ensure_playlists_tables(PDO $pdo): void
 {
 	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS Playlist (
+			idPlaylist INT UNSIGNED NOT NULL AUTO_INCREMENT,
+			NomPlaylist VARCHAR(255) NOT NULL,
+			Description VARCHAR(1000) NOT NULL DEFAULT '',
+			DateDerniereModification DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			NombreVue BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			Utilisateur INT UNSIGNED NOT NULL,
+			PRIMARY KEY (idPlaylist),
+			KEY idx_playlist_utilisateur (Utilisateur),
+			KEY idx_playlist_date_modification (DateDerniereModification)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+
+	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS MyPlaylistMusiques (
+			IdPlaylist INT UNSIGNED NOT NULL,
+			IdMusique VARCHAR(191) NOT NULL,
+			PositionLecture INT UNSIGNED NOT NULL,
+			PRIMARY KEY (IdPlaylist, IdMusique),
+			KEY idx_my_playlist_musiques_position (IdPlaylist, PositionLecture),
+			KEY idx_my_playlist_musiques_music (IdMusique)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+
+	$pdo->exec(
 		"CREATE TABLE IF NOT EXISTS PlaylistsYoutube (
 			IdPlaylist VARCHAR(191) NOT NULL,
 			NomPlaylist VARCHAR(255) NOT NULL,

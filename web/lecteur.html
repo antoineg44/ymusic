@@ -90,6 +90,40 @@
 				padding: 4px;
 			}
 
+			.add-to-playlist-button {
+				position: absolute;
+				top: 14px;
+				right: 58px;
+				border: 0;
+				background: rgba(15, 23, 42, 0.88);
+				color: #cbd5e1;
+				font-size: 1.1rem;
+				cursor: pointer;
+				line-height: 1;
+				padding: 6px 10px;
+				border-radius: 999px;
+				border: 1px solid rgba(148, 163, 184, 0.28);
+			}
+
+			.playlist-menu-frame {
+				position: absolute;
+				top: 56px;
+				right: 14px;
+				min-width: 280px;
+				max-width: min(92vw, 360px);
+				border-radius: 14px;
+				width: 320px;
+				height: 300px;
+				border: 0;
+				z-index: 1300;
+				display: none;
+				background: transparent;
+			}
+
+			.playlist-menu-frame.is-open {
+				display: block;
+			}
+
 			.favorite-button.is-active {
 				color: #facc15;
 			}
@@ -196,7 +230,9 @@
 	</head>
 	<body>
 		<section class="player-card">
+			<button id="addToPlaylistButton" type="button" class="add-to-playlist-button" aria-label="Ajouter à une playlist">+</button>
 			<button id="favoriteButton" type="button" class="favorite-button" aria-label="Ajouter aux favoris">☆</button>
+				<iframe id="playlistMenuFrame" class="playlist-menu-frame" src="playlistMenu.html" title="Ajouter à une playlist" loading="eager"></iframe>
 			<div class="player-head">
 				<div>
 					<strong id="nowPlaying" class="marquee-line"><span class="marquee-text">Aucune lecture en cours</span></strong>
@@ -227,6 +263,8 @@
 			const nextPlaying = document.getElementById('nextPlaying');
 			const loadingSpinner = document.getElementById('loadingSpinner');
 			const favoriteButton = document.getElementById('favoriteButton');
+			const addToPlaylistButton = document.getElementById('addToPlaylistButton');
+			const playlistMenuFrame = document.getElementById('playlistMenuFrame');
 			const primaryAudio = document.getElementById('audioPlayer');
 			const secondaryAudio = document.getElementById('audioPlayerSecondary');
 			const playerCard = document.querySelector('.player-card');
@@ -253,6 +291,8 @@
 			let crossfadeSeconds = DEFAULT_CROSSFADE_SECONDS;
 			let autoChainRequested = false;
 			let activeAudio = primaryAudio;
+			let currentMusicId = '';
+			let playlistMenuReady = false;
 			let audioContext = null;
 			let analyserNode = null;
 			let analyserData = null;
@@ -609,6 +649,26 @@
 				favoriteButton.setAttribute('aria-label', isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris');
 			}
 
+			function sendPlaylistMenuMessage(type, payload = {}) {
+				if (!playlistMenuFrame || !playlistMenuFrame.contentWindow) {
+					return;
+				}
+
+				playlistMenuFrame.contentWindow.postMessage({ target: 'playlistMenu', type, ...payload }, '*');
+			}
+
+			function closePlaylistMenu() {
+				playlistMenuFrame.classList.remove('is-open');
+				sendPlaylistMenuMessage('CLOSE_MENU');
+			}
+
+			function openPlaylistMenu() {
+				playlistMenuFrame.classList.add('is-open');
+				if (playlistMenuReady) {
+					sendPlaylistMenuMessage('OPEN_MENU', { musicId: currentMusicId });
+				}
+			}
+
 			function showLoadingSpinner() {
 				loadingSpinner.classList.remove('hidden');
 			}
@@ -690,6 +750,15 @@
 			}
 
 			playButton.addEventListener('click', toggleLocalPlayback);
+			addToPlaylistButton.addEventListener('click', async (event) => {
+				event.stopPropagation();
+				if (playlistMenuFrame.classList.contains('is-open')) {
+					closePlaylistMenu();
+					return;
+				}
+
+				openPlaylistMenu();
+			});
 			favoriteButton.addEventListener('click', () => {
 				postToParent('TOGGLE_FAVORITE');
 			});
@@ -764,11 +833,44 @@
 					return;
 				}
 
+				if (playlistMenuFrame.classList.contains('is-open')) {
+					closePlaylistMenu();
+					return;
+				}
+
 				postToParent('OPEN_DESCRIPTION');
+			});
+
+			document.addEventListener('click', (event) => {
+				const target = event.target;
+				if (!(target instanceof Element)) {
+					return;
+				}
+
+				if (target.closest('.add-to-playlist-button') || target.closest('.playlist-menu-frame')) {
+					return;
+				}
+
+				closePlaylistMenu();
 			});
 
 			window.addEventListener('message', (event) => {
 				const message = event.data;
+				if (message && message.source === 'playlistMenu') {
+					if (message.type === 'PLAYLIST_MENU_READY') {
+						playlistMenuReady = true;
+						if (playlistMenuFrame.classList.contains('is-open')) {
+							sendPlaylistMenuMessage('OPEN_MENU', { musicId: currentMusicId });
+						}
+						return;
+					}
+
+					if (message.type === 'CLOSE_MENU') {
+						closePlaylistMenu();
+						return;
+					}
+				}
+
 				if (!message || message.target !== 'lecteur') {
 					return;
 				}
@@ -794,6 +896,8 @@
 					setStatusText(nowPlaying, String(message.title || 'Aucune lecture en cours'));
 					setStatusText(nowPlayingMeta, String(message.meta || 'Bibliotheque locale'));
 					setFavoriteState(Boolean(message.isFavorite));
+					currentMusicId = String(message.musicId || '').trim();
+					closePlaylistMenu();
 					const fadeInSeconds = Math.max(0, Number(message.fadeInSeconds || 0));
 					const incomingAudio = getInactiveAudio();
 					const outgoingAudio = activeAudio;

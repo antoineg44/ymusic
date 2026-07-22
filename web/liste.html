@@ -192,6 +192,20 @@
 					.replace(/\"/g, '&quot;');
 			}
 
+			function renderUtilisateurCell(row) {
+				const userId = String(row.UtilisateurId ?? '').trim();
+				const userName = String(row.Utilisateur ?? '').trim();
+
+				if (!userId) {
+					return escapeHtml(userName);
+				}
+
+				const href = `users.html#user-${encodeURIComponent(userId)}`;
+				const label = escapeHtml(userId);
+				const title = userName ? ` title="${escapeHtml(userName)}"` : '';
+				return `<a href="${href}"${title}>${label}</a>`;
+			}
+
 			function setStatus(message, isError = false) {
 				musiquesStatus.textContent = message;
 				musiquesStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
@@ -231,7 +245,7 @@
 						<td>${escapeHtml(row.Id)}</td>
 						<td>${escapeHtml(row.Titre)}</td>
 						<td>${escapeHtml(row.Artiste)}</td>
-						<td>${escapeHtml(row.Utilisateur)}</td>
+						<td>${renderUtilisateurCell(row)}</td>
 						<td>${escapeHtml(row.Album)}</td>
 						<td>${escapeHtml(row.Duree)}</td>
 						<td>${escapeHtml(row.AnneeParution)}</td>

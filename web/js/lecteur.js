@@ -109,6 +109,26 @@
       });
     }
 
+    function resolveCurrentMusicId(track) {
+      const currentTrack = track || state.currentTrack || {};
+      const explicitMusicId = String(currentTrack.musicId || currentTrack.Id || '').trim();
+      if (explicitMusicId) {
+        return explicitMusicId;
+      }
+
+      const videoId = String(currentTrack.videoId || '').trim();
+      if (isValidVideoId(videoId)) {
+        return videoId;
+      }
+
+      const currentVideoId = String(state.currentVideoId || '').trim();
+      if (isValidVideoId(currentVideoId)) {
+        return currentVideoId;
+      }
+
+      return '';
+    }
+
     function syncFavoriteState() {
       sendPlayerMessage('SET_FAVORITE_STATE', {
         isFavorite: Boolean(state.likedSaved),
@@ -206,6 +226,7 @@
             artist: Array.isArray(next.artists) ? next.artists.join(', ') : '',
             albumId: String((next.album && next.album.id) || '').trim(),
             views: parseViewCount(next.views || 0),
+            musicId: String(next.videoId || '').trim(),
             path: downloadedPath || `data/temp/${downloadedFile}`,
             file: downloadedFile,
             folder: 'temp',
@@ -297,6 +318,7 @@
         title: track.title,
         meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
         isFavorite: Boolean(state.likedSaved),
+        musicId: resolveCurrentMusicId(track),
         fadeInSeconds,
       });
       syncFavoriteState();
@@ -371,6 +393,7 @@
           artist: String(artist || '').trim(),
           albumId: String(albumId || '').trim(),
           views: parseViewCount(views),
+          musicId: String(videoId || '').trim(),
           path: downloadedPath || `data/temp/${downloadedFile}`,
           file: downloadedFile,
           folder: 'temp',

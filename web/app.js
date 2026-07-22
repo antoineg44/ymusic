@@ -723,6 +723,8 @@ async function handleArtistPlaySong(song) {
   if (libraryMatch) {
     const playableMatch = {
       ...libraryMatch,
+      musicId: musicId,
+      Id: musicId,
       title: String(song.Titre || libraryMatch.title || ''),
       artist: String(song.Artiste || libraryMatch.artist || ''),
       albumId: String(song.Album || libraryMatch.albumId || ''),
@@ -757,6 +759,8 @@ async function handleListPlaySong(song) {
   if (libraryMatch) {
     const playableMatch = {
       ...libraryMatch,
+      musicId: musicId,
+      Id: musicId,
       title: String(song.Titre || libraryMatch.title || ''),
       artist: String(song.Artiste || libraryMatch.artist || ''),
       albumId: String(song.Album || libraryMatch.albumId || ''),
