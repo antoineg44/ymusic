@@ -52,9 +52,12 @@ function verifyGitWriteAccess($path) {
     $pathsToCheck = [
         $path,
         "$path/.git",
+        "$path/.git/objects",
+        "$path/.git/objects/pack",
         "$path/.git/logs",
         "$path/.git/logs/HEAD",
         "$path/.git/HEAD",
+        "$path/.git/index",
         "$path/.git/refs",
         "$path/.git/refs/heads"
     ];
@@ -101,7 +104,7 @@ if (!is_dir($path) || !is_dir("$path/.git")) {
 
 $writeAccessError = verifyGitWriteAccess($path);
 if ($writeAccessError !== null) {
-    echo "Avertissement : $writeAccessError\n";
+    die("Erreur : $writeAccessError\n");
 }
 
 // Aller dans le dossier
