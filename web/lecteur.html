@@ -121,13 +121,25 @@
 				width: 320px;
 				height: 300px;
 				border: 0;
-				z-index: 1300;
+				z-index: 9999;
 				display: none;
 				background: transparent;
 			}
 
 			.playlist-menu-frame.is-open {
 				display: block;
+			}
+
+			body.playlist-menu-open::before {
+				content: '';
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				background: rgba(0, 0, 0, 0.5);
+				z-index: 9998;
+				pointer-events: none;
 			}
 
 			.favorite-button.is-active {
@@ -665,11 +677,13 @@
 
 			function closePlaylistMenu() {
 				playlistMenuFrame.classList.remove('is-open');
+				document.body.classList.remove('playlist-menu-open');
 				sendPlaylistMenuMessage('CLOSE_MENU');
 			}
 
 			function openPlaylistMenu() {
 				playlistMenuFrame.classList.add('is-open');
+				document.body.classList.add('playlist-menu-open');
 				if (playlistMenuReady) {
 					sendPlaylistMenuMessage('OPEN_MENU', { musicId: currentMusicId });
 				}
