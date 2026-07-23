@@ -186,13 +186,6 @@
         min-height: 1.3em;
       }
 
-      .queue-loading {
-        margin-top: 10px;
-        color: #93c5fd;
-        font-style: italic;
-        min-height: 1.2em;
-      }
-
       .queue-empty {
         text-align: center;
         color: #94a3b8;
@@ -207,7 +200,6 @@
           <h1 class="queue-title">Musiques en attente</h1>
         </div>
         <div id="queueStatus" class="status"></div>
-        <div id="queueLoading" class="queue-loading" style="display: none;">Chargement de la queue...</div>
         <ul id="queueList"></ul>
         <div id="queueEmpty" class="queue-empty" style="display: none;">
           Aucune musique en attente
@@ -220,17 +212,8 @@
       const queueList = document.getElementById('queueList');
       const queueStatus = document.getElementById('queueStatus');
       const queueEmpty = document.getElementById('queueEmpty');
-      const queueLoading = document.getElementById('queueLoading');
       let queueRenderToken = 0;
       let queueRenderAbortController = null;
-
-      function setQueueLoading(visible) {
-        if (!queueLoading) {
-          return;
-        }
-
-        queueLoading.style.display = visible ? 'block' : 'none';
-      }
 
       function beginQueueRender() {
         queueRenderToken += 1;
@@ -312,8 +295,6 @@
           return;
         }
 
-        setQueueLoading(true);
-
         if (!queue || !Array.isArray(queue) || queue.length === 0) {
           if (!isQueueRenderActive(renderRun.token)) {
             return;
@@ -321,7 +302,6 @@
 
           queueList.innerHTML = '';
           queueEmpty.style.display = 'block';
-          setQueueLoading(false);
           return;
         }
 
@@ -331,7 +311,6 @@
 
         queueEmpty.style.display = 'none';
         queueList.innerHTML = '';
-        const fragment = document.createDocumentFragment();
 
         // Afficher seulement à partir de la musique actuelle
         const startIndex = Math.max(0, currentIndex >= 0 ? currentIndex : 0);
@@ -376,16 +355,12 @@
           displayTrack.buttons = { buttons: { play: {type: 'QUEUE_PLAY_TRACK'}, delete: {type: 'QUEUE_REMOVE_TRACK'} }, source: 'queue' };
 
           const item = renderElement(displayTrack, index);
+          if (!isQueueRenderActive(renderRun.token)) {
+            return;
+          }
 
-          fragment.appendChild(item);
+          queueList.appendChild(item);
         }
-
-        if (!isQueueRenderActive(renderRun.token)) {
-          return;
-        }
-
-        queueList.appendChild(fragment);
-        setQueueLoading(false);
 
         if (isQueueRenderActive(renderRun.token)) {
           queueRenderAbortController = null;
