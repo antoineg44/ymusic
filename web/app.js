@@ -112,8 +112,11 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.source === 'artistes') {
-    if (message.type === 'ARTIST_PLAY_SONG' && message.song) {
-      void handleArtistPlaySong(message.song);
+    if (message.type === 'ARTIST_PLAY_SONG') {
+      const song = message.song || message.result || (message.payload && message.payload.song);
+      if (song) {
+        void handleArtistPlaySong(song);
+      }
     }
     return;
   }

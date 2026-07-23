@@ -10,13 +10,39 @@ const SINGLE_CLICK_DELAY_MS = 220;
 let pendingDisplayPlayTimer = null;
 
 function buildDescriptionSongPayload(el) {
+  const playConfig = el && el.buttons && el.buttons.buttons && el.buttons.buttons.play
+    ? el.buttons.buttons.play
+    : null;
+  const playResult = playConfig && playConfig.result ? playConfig.result : null;
+  const playPayloadSong = playConfig && playConfig.payload && playConfig.payload.song
+    ? playConfig.payload.song
+    : null;
   const artists = Array.isArray(el && el.artists) ? el.artists : [];
   const firstArtist = artists.length > 0 ? String(artists[0] || '').trim() : '';
 
   return {
-    Id: String((el && (el.Id || el.videoId || (el.result && el.result.Id) || (el.result && el.result.videoId))) || '').trim(),
-    Titre: String((el && (el.Titre || el.title || (el.result && el.result.Titre) || (el.result && el.result.title))) || '').trim(),
-    Artiste: String((el && (el.Artiste || el.artist || (el.result && el.result.Artiste) || (el.result && el.result.artist) || firstArtist)) || '').trim(),
+    Id: String((el && (
+      el.Id
+      || el.videoId
+      || (el.result && (el.result.Id || el.result.videoId))
+      || (playResult && (playResult.Id || playResult.videoId))
+      || (playPayloadSong && (playPayloadSong.Id || playPayloadSong.videoId))
+    )) || '').trim(),
+    Titre: String((el && (
+      el.Titre
+      || el.title
+      || (el.result && (el.result.Titre || el.result.title))
+      || (playResult && (playResult.Titre || playResult.title))
+      || (playPayloadSong && (playPayloadSong.Titre || playPayloadSong.title))
+    )) || '').trim(),
+    Artiste: String((el && (
+      el.Artiste
+      || el.artist
+      || (el.result && (el.result.Artiste || el.result.artist))
+      || (playResult && (playResult.Artiste || playResult.artist))
+      || (playPayloadSong && (playPayloadSong.Artiste || playPayloadSong.artist))
+      || firstArtist
+    )) || '').trim(),
   };
 }
 
