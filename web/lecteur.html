@@ -130,16 +130,19 @@
 				display: block;
 			}
 
-			body.playlist-menu-open::before {
-				content: '';
+			.playlist-menu-overlay {
 				position: fixed;
 				top: 0;
 				left: 0;
 				right: 0;
 				bottom: 0;
-				background: rgba(0, 0, 0, 0.5);
+				background: rgba(0, 0, 0, 0.6);
 				z-index: 9998;
-				pointer-events: none;
+				display: none;
+			}
+
+			.playlist-menu-overlay.is-open {
+				display: block;
 			}
 
 			.favorite-button.is-active {
@@ -247,6 +250,7 @@
 		</style>
 	</head>
 	<body>
+		<div id="playlistMenuOverlay" class="playlist-menu-overlay"></div>
 		<section class="player-card">
 			<button id="addToPlaylistButton" type="button" class="add-to-playlist-button" aria-label="Ajouter à une playlist">+</button>
 			<button id="favoriteButton" type="button" class="favorite-button" aria-label="Ajouter aux favoris">☆</button>
@@ -283,6 +287,7 @@
 			const favoriteButton = document.getElementById('favoriteButton');
 			const addToPlaylistButton = document.getElementById('addToPlaylistButton');
 			const playlistMenuFrame = document.getElementById('playlistMenuFrame');
+			const playlistMenuOverlay = document.getElementById('playlistMenuOverlay');
 			const primaryAudio = document.getElementById('audioPlayer');
 			const secondaryAudio = document.getElementById('audioPlayerSecondary');
 			const playerCard = document.querySelector('.player-card');
@@ -677,13 +682,13 @@
 
 			function closePlaylistMenu() {
 				playlistMenuFrame.classList.remove('is-open');
-				document.body.classList.remove('playlist-menu-open');
+				playlistMenuOverlay.classList.remove('is-open');
 				sendPlaylistMenuMessage('CLOSE_MENU');
 			}
 
 			function openPlaylistMenu() {
 				playlistMenuFrame.classList.add('is-open');
-				document.body.classList.add('playlist-menu-open');
+				playlistMenuOverlay.classList.add('is-open');
 				if (playlistMenuReady) {
 					sendPlaylistMenuMessage('OPEN_MENU', { musicId: currentMusicId });
 				}
@@ -868,6 +873,11 @@
 				}
 
 				if (target.closest('.add-to-playlist-button') || target.closest('.playlist-menu-frame')) {
+					return;
+				}
+
+				if (target === playlistMenuOverlay) {
+					closePlaylistMenu();
 					return;
 				}
 
