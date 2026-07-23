@@ -179,6 +179,8 @@
 			let totalPages = 1;
 			let totalRows = 0;
 			const pageSize = 50;
+			const SINGLE_CLICK_DELAY_MS = 220;
+			let pendingPlayClickTimer = null;
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -261,13 +263,26 @@
 						if (target instanceof HTMLElement && target.closest('button')) {
 							return;
 						}
-						void playMusic(row);
+
+						if (pendingPlayClickTimer !== null) {
+							clearTimeout(pendingPlayClickTimer);
+						}
+
+						pendingPlayClickTimer = window.setTimeout(() => {
+							pendingPlayClickTimer = null;
+							void playMusic(row);
+						}, SINGLE_CLICK_DELAY_MS);
 					});
 
 					tr.addEventListener('dblclick', (event) => {
 						const target = event.target;
 						if (target instanceof HTMLElement && target.closest('button')) {
 							return;
+						}
+
+						if (pendingPlayClickTimer !== null) {
+							clearTimeout(pendingPlayClickTimer);
+							pendingPlayClickTimer = null;
 						}
 
 						postToParent('LIST_OPEN_DESCRIPTION', {
