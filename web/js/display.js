@@ -74,7 +74,7 @@ function getDisplayHTMLButtons(item, el, infos, index) {
 
   item.innerHTML += `<div class="actions">`;
   if (infos.buttons.play) {
-    item.innerHTML += `<button class="${infoClassName}" type="button" data-action="info">ⓘ</button>`;
+    item.innerHTML += `<button class="${infoClassName}" type="button" data-action="info">i</button>`;
   }
   if(infos.buttons.delete) {
     item.innerHTML += `<button class="${deleteClassName}" type="button" data-action="delete">✕</button>`;
