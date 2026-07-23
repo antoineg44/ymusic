@@ -169,6 +169,16 @@
 				font-weight: 700;
 			}
 
+			.edit-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #f59e0b;
+				color: #451a03;
+				font-weight: 700;
+			}
+
 			.playlist-tracks {
 				list-style: none;
 				margin: 0;
@@ -254,6 +264,7 @@
 					<div class="songs-head">
 						<button id="backToPlaylistsButton" class="back-btn" type="button">← Retour</button>
 						<button id="playAllButton" class="play-all-btn" type="button">Lire tout</button>
+						<button id="editPlaylistButton" class="edit-btn" type="button">Edition</button>
 						<button id="duplicatePlaylistButton" class="duplicate-btn" type="button">Dupliquer</button>
 						<h2 id="songsTitle">Musiques</h2>
 					</div>
@@ -272,6 +283,7 @@
 			const songsCard = document.getElementById('songsCard');
 			const backToPlaylistsButton = document.getElementById('backToPlaylistsButton');
 			const playAllButton = document.getElementById('playAllButton');
+			const editPlaylistButton = document.getElementById('editPlaylistButton');
 			const duplicatePlaylistButton = document.getElementById('duplicatePlaylistButton');
 			const createPlaylistButton = document.getElementById('createPlaylistButton');
 
@@ -710,6 +722,18 @@
 				}
 			}
 
+			function openPlaylistEdition() {
+				if (!activePlaylistId) {
+					setStatus('Aucune playlist ouverte a editer.', true);
+					return;
+				}
+
+				postToParent('OPEN_PLAYLIST_EDITION', {
+					playlistId: String(activePlaylistId),
+					playlistName: openedPlaylistName,
+				});
+			}
+
 			function initEvent() {
 				window.addEventListener('message', (event) => {
 					const message = event.data;
@@ -729,6 +753,9 @@
 				});
 				playAllButton.addEventListener('click', () => {
 					playAllOpenedPlaylist();
+				});
+				editPlaylistButton.addEventListener('click', () => {
+					openPlaylistEdition();
 				});
 				duplicatePlaylistButton.addEventListener('click', () => {
 					void duplicateOpenedPlaylist();

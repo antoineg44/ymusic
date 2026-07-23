@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Edition Playlist</title>
+		<link rel="stylesheet" href="css/colors.css" />
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: transparent;
+				color-scheme: dark;
+				font-family: Inter, Arial, sans-serif;
+				color: #e2e8f0;
+			}
+
+			.shell {
+				padding: 8px;
+			}
+
+			.form-grid {
+				display: grid;
+				grid-template-columns: 1fr;
+				gap: 10px;
+			}
+
+			.form-grid label {
+				font-size: 0.92rem;
+				color: #cbd5e1;
+			}
+
+			.form-grid input,
+			.form-grid textarea {
+				width: 100%;
+				box-sizing: border-box;
+				border: 1px solid #475569;
+				border-radius: 10px;
+				background: #0f172a;
+				color: #f8fafc;
+				padding: 10px 12px;
+			}
+
+			.form-grid textarea {
+				min-height: 84px;
+				resize: vertical;
+			}
+
+			.actions {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+
+			.btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 8px 12px;
+				cursor: pointer;
+				font-weight: 700;
+			}
+
+			.btn.primary {
+				background: #38bdf8;
+				color: #082f49;
+			}
+
+			.btn.secondary {
+				background: #334155;
+				color: #e2e8f0;
+			}
+
+			.song-list {
+				list-style: none;
+				margin: 14px 0 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+
+			.song-list li {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 8px;
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.2);
+				border-radius: 10px;
+				padding: 8px 10px;
+			}
+
+			.song-meta {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+				flex: 1;
+			}
+
+			.song-meta strong,
+			.song-meta small {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.song-meta small {
+				color: #94a3b8;
+			}
+
+			.remove-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #ef4444;
+				color: #fee2e2;
+				font-weight: 700;
+			}
+
+			.status {
+				margin-top: 10px;
+				min-height: 1.2em;
+				color: #7dd3fc;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="shell">
+			<section class="form-grid">
+				<label for="playlistNameInput">Nom de la playlist</label>
+				<input id="playlistNameInput" type="text" placeholder="Nom" />
+
+				<label for="playlistDescriptionInput">Description</label>
+				<textarea id="playlistDescriptionInput" placeholder="Description"></textarea>
+
+				<div class="actions">
+					<button id="saveButton" class="btn primary" type="button">Enregistrer</button>
+					<button id="closeButton" class="btn secondary" type="button">Fermer</button>
+				</div>
+			</section>
+
+			<ul id="songsList" class="song-list" aria-label="Musiques de la playlist"></ul>
+			<p id="status" class="status"></p>
+		</main>
+
+		<script>
+			const params = new URLSearchParams(window.location.search || '');
+			const playlistId = Number(params.get('id') || 0);
+
+			const playlistNameInput = document.getElementById('playlistNameInput');
+			const playlistDescriptionInput = document.getElementById('playlistDescriptionInput');
+			const songsList = document.getElementById('songsList');
+			const statusBox = document.getElementById('status');
+			const saveButton = document.getElementById('saveButton');
+			const closeButton = document.getElementById('closeButton');
+
+			function setStatus(message, isError = false) {
+				statusBox.textContent = message;
+				statusBox.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function escapeHtml(value) {
+				return String(value ?? '')
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function closePopup() {
+				window.parent.postMessage({ source: 'playlistEdition', type: 'CLOSE_PLAYLIST_EDITION' }, '*');
+			}
+
+			async function loadEditionData() {
+				if (!playlistId) {
+					setStatus('Identifiant de playlist manquant.', true);
+					return;
+				}
+
+				try {
+					setStatus('Chargement de la playlist...');
+					const response = await fetch(`php/interface.php?playlistEdition=1&id=${encodeURIComponent(String(playlistId))}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de charger la playlist.');
+					}
+
+					const playlist = payload.playlist || {};
+					const songs = Array.isArray(payload.songs) ? payload.songs : [];
+
+					playlistNameInput.value = String(playlist.NomPlaylist || '');
+					playlistDescriptionInput.value = String(playlist.Description || '');
+					renderSongs(songs);
+					setStatus(`Playlist chargee (${songs.length} musique(s)).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			function renderSongs(songs) {
+				songsList.innerHTML = '';
+				if (!songs.length) {
+					songsList.innerHTML = '<li>Aucune musique dans cette playlist.</li>';
+					return;
+				}
+
+				songs.forEach((song) => {
+					const musicId = String((song && song.Id) || '').trim();
+					const item = document.createElement('li');
+					item.innerHTML = `
+						<div class="song-meta">
+							<strong>${escapeHtml(song.Titre || 'Musique inconnue')}</strong>
+							<small>${escapeHtml(song.Artiste || 'Artiste inconnu')}</small>
+						</div>
+						<button class="remove-btn" type="button">Retirer</button>
+					`;
+
+					item.querySelector('.remove-btn').addEventListener('click', () => {
+						void removeSong(musicId);
+					});
+
+					songsList.appendChild(item);
+				});
+			}
+
+			async function removeSong(musicId) {
+				if (!playlistId || !musicId) {
+					return;
+				}
+
+				try {
+					const body = new URLSearchParams({
+						removePlaylistMusic: '1',
+						IdPlaylist: String(playlistId),
+						IdMusique: String(musicId),
+					});
+
+					const response = await fetch('php/interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						cache: 'no-store',
+						body,
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de retirer la musique.');
+					}
+
+					await loadEditionData();
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur lors de la suppression.', true);
+				}
+			}
+
+			async function savePlaylist() {
+				const name = String(playlistNameInput.value || '').trim();
+				const description = String(playlistDescriptionInput.value || '').trim();
+
+				if (!playlistId) {
+					setStatus('Identifiant de playlist manquant.', true);
+					return;
+				}
+
+				if (!name) {
+					setStatus('Le nom de la playlist est obligatoire.', true);
+					return;
+				}
+
+				try {
+					setStatus('Enregistrement...');
+					const body = new URLSearchParams({
+						updatePlaylist: '1',
+						playlistId: String(playlistId),
+						NomPlaylist: name,
+						Description: description,
+					});
+
+					const response = await fetch('php/interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						cache: 'no-store',
+						body,
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de mettre a jour la playlist.');
+					}
+
+					window.parent.postMessage({ source: 'playlistEdition', type: 'PLAYLIST_EDITION_SAVED' }, '*');
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de sauvegarde.', true);
+				}
+			}
+
+			closeButton.addEventListener('click', () => {
+				closePopup();
+			});
+
+			saveButton.addEventListener('click', () => {
+				void savePlaylist();
+			});
+
+			void loadEditionData();
+		</script>
+	</body>
+</html>

@@ -115,6 +115,11 @@ window.addEventListener('message', (event) => {
       if (song) {
         void handleListPlaySong(song);
       }
+    } else if (message.type === 'OPEN_PLAYLIST_EDITION') {
+      openPlaylistEditionPopup(message.playlistId, message.playlistName);
+    } else if (message.type === 'REFRESH_ALL_PLAYLISTS') {
+      requestMyPlaylistsRefresh();
+      requestCommunityPlaylistsRefresh();
     }
     return;
   }
@@ -173,6 +178,17 @@ window.addEventListener('message', (event) => {
   if (message.source === 'playlistMenu') {
     if (message.type === 'CLOSE_PLAYLIST_MENU') {
       closePlaylistMenuPopup();
+    }
+    return;
+  }
+
+  if (message.source === 'playlistEdition') {
+    if (message.type === 'CLOSE_PLAYLIST_EDITION') {
+      closeDescriptionPopup();
+    } else if (message.type === 'PLAYLIST_EDITION_SAVED') {
+      closeDescriptionPopup();
+      requestMyPlaylistsRefresh();
+      requestCommunityPlaylistsRefresh();
     }
     return;
   }
@@ -673,6 +689,56 @@ function openEditionsPopup(musicId) {
   descriptionFrame.src = `editions.html?id=${encodeURIComponent(id)}&popup=1`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
+}
+
+function openPlaylistEditionPopup(playlistId, playlistName) {
+  if (!descriptionModal || !descriptionFrame) {
+    return;
+  }
+
+  const id = String(playlistId || '').trim();
+  if (!id) {
+    setStatus('Impossible d\'ouvrir edition playlist: identifiant introuvable.');
+    return;
+  }
+
+  const params = new URLSearchParams({ id, popup: '1' });
+  const name = String(playlistName || '').trim();
+  if (name) {
+    params.set('name', name);
+  }
+
+  descriptionFrame.src = `playlistEdition.html?${params.toString()}`;
+  descriptionModal.classList.remove('is-hidden');
+  descriptionModal.setAttribute('aria-hidden', 'false');
+}
+
+function requestMyPlaylistsRefresh() {
+  if (!myPlaylistsFrame || !myPlaylistsFrame.contentWindow) {
+    return;
+  }
+
+  myPlaylistsFrame.contentWindow.postMessage(
+    {
+      target: 'userPlaylists',
+      type: 'REFRESH_USER_PLAYLISTS',
+    },
+    '*'
+  );
+}
+
+function requestCommunityPlaylistsRefresh() {
+  if (!communityPlaylistsFrame || !communityPlaylistsFrame.contentWindow) {
+    return;
+  }
+
+  communityPlaylistsFrame.contentWindow.postMessage(
+    {
+      target: 'listePlaylists',
+      type: 'REFRESH_LISTE_PLAYLISTS',
+    },
+    '*'
+  );
 }
 
 function openPlaylistMenuPopup(musicId) {

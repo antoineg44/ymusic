@@ -468,6 +468,228 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['playlistEdition']) || !empty($_POST['playlistEdition'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['id'] ?? $payload['playlistId'] ?? 0);
+        if ($playlistId <= 0) {
+            throw new RuntimeException('Id de playlist requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+        ensure_playlists_tables($pdo);
+
+        $currentUserId = resolve_current_user_id();
+
+        $playlistStmt = $pdo->prepare(
+            'SELECT
+                p.idPlaylist AS PlaylistId,
+                p.NomPlaylist,
+                p.Description,
+                p.DateDerniereModification,
+                p.NombreVue,
+                p.Utilisateur,
+                u.NomUtilisateur AS UtilisateurNom
+             FROM Playlist p
+             LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
+             WHERE p.idPlaylist = :playlistId
+             LIMIT 1'
+        );
+        $playlistStmt->execute([':playlistId' => $playlistId]);
+        $playlist = $playlistStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($playlist === false) {
+            throw new RuntimeException('Playlist introuvable');
+        }
+
+        if ((int) $playlist['Utilisateur'] !== $currentUserId) {
+            throw new RuntimeException('Edition non autorisee pour cette playlist');
+        }
+
+        $songsStmt = $pdo->prepare(
+            'SELECT
+                m.Id,
+                m.Titre,
+                m.Artiste,
+                m.Album,
+                m.Duree,
+                m.NombreVue,
+                m.NombreVueInterne,
+                pm.PositionLecture
+             FROM MyPlaylistMusiques pm
+             INNER JOIN Musiques m ON m.Id = pm.IdMusique
+             WHERE pm.IdPlaylist = :playlistId
+             ORDER BY pm.PositionLecture ASC, m.Titre ASC'
+        );
+        $songsStmt->execute([':playlistId' => $playlistId]);
+
+        echo json_encode([
+            'success' => true,
+            'playlist' => $playlist,
+            'songs' => $songsStmt->fetchAll(PDO::FETCH_ASSOC),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['updatePlaylist']) || !empty($_POST['updatePlaylist'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['id'] ?? $payload['playlistId'] ?? 0);
+        $name = trim((string) ($payload['NomPlaylist'] ?? $payload['name'] ?? ''));
+        $description = trim((string) ($payload['Description'] ?? $payload['description'] ?? ''));
+
+        if ($playlistId <= 0) {
+            throw new RuntimeException('Id de playlist requis');
+        }
+        if ($name === '') {
+            throw new RuntimeException('Nom de playlist requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $currentUserId = resolve_current_user_id();
+        $ownerStmt = $pdo->prepare(
+            'SELECT idPlaylist
+             FROM Playlist
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId
+             LIMIT 1'
+        );
+        $ownerStmt->execute([
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+            throw new RuntimeException('Playlist introuvable ou non autorisee');
+        }
+
+        $updateStmt = $pdo->prepare(
+            'UPDATE Playlist
+             SET NomPlaylist = :name,
+                 Description = :description,
+                 DateDerniereModification = NOW()
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId'
+        );
+        $updateStmt->execute([
+            ':name' => $name,
+            ':description' => $description,
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
+            'NomPlaylist' => $name,
+            'Description' => $description,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['removePlaylistMusic']) || !empty($_POST['removePlaylistMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['IdPlaylist'] ?? $payload['playlistId'] ?? 0);
+        $musicId = trim((string) ($payload['IdMusique'] ?? $payload['musicId'] ?? ''));
+
+        if ($playlistId <= 0) {
+            throw new RuntimeException('IdPlaylist requis');
+        }
+        if ($musicId === '') {
+            throw new RuntimeException('IdMusique requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $currentUserId = resolve_current_user_id();
+        $ownerStmt = $pdo->prepare(
+            'SELECT idPlaylist
+             FROM Playlist
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId
+             LIMIT 1'
+        );
+        $ownerStmt->execute([
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+            throw new RuntimeException('Playlist introuvable ou non autorisee');
+        }
+
+        $deleteStmt = $pdo->prepare(
+            'DELETE FROM MyPlaylistMusiques
+             WHERE IdPlaylist = :playlistId
+               AND IdMusique = :musicId'
+        );
+        $deleteStmt->execute([
+            ':playlistId' => $playlistId,
+            ':musicId' => $musicId,
+        ]);
+
+        // Recalcul de position simple pour garder un ordre compact.
+        $positionsStmt = $pdo->prepare(
+            'SELECT IdMusique, PositionLecture
+             FROM MyPlaylistMusiques
+             WHERE IdPlaylist = :playlistId
+             ORDER BY PositionLecture ASC, IdMusique ASC'
+        );
+        $positionsStmt->execute([':playlistId' => $playlistId]);
+        $rows = $positionsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $updatePositionStmt = $pdo->prepare(
+            'UPDATE MyPlaylistMusiques
+             SET PositionLecture = :position
+             WHERE IdPlaylist = :playlistId
+               AND IdMusique = :musicId'
+        );
+
+        $position = 1;
+        foreach ($rows as $row) {
+            $updatePositionStmt->execute([
+                ':position' => $position,
+                ':playlistId' => $playlistId,
+                ':musicId' => (string) $row['IdMusique'],
+            ]);
+            $position += 1;
+        }
+
+        $touchStmt = $pdo->prepare(
+            'UPDATE Playlist
+             SET DateDerniereModification = NOW()
+             WHERE idPlaylist = :playlistId'
+        );
+        $touchStmt->execute([':playlistId' => $playlistId]);
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
+            'musicId' => $musicId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['addPlaylistMusic']) || !empty($_POST['addPlaylistMusic'])) {
 
     try {

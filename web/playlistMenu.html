@@ -81,7 +81,9 @@
 			const playlistMenuStatus = document.getElementById('playlistMenuStatus');
 			const playlistMenuList = document.getElementById('playlistMenuList');
 
-			let currentMusicId = '';
+			// Récupérer le musicId depuis l'URL query parameter
+			const params = new URLSearchParams(window.location.search);
+			let currentMusicId = String(params.get('musicId') || '').trim();
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'playlistMenu', type, ...payload }, '*');
@@ -212,7 +214,10 @@
 				}
 			});
 
-			postToParent('PLAYLIST_MENU_READY');
+			// Charger les playlists si musicId est déjà disponible (via query param)
+			if (currentMusicId) {
+				void loadMyPlaylists();
+			}
 		</script>
 	</body>
 </html>
