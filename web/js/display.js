@@ -64,17 +64,17 @@ function postPlayMessage(infos, index) {
   window.parent.postMessage(message, '*');
 }
 
-function getDisplayHTMLButtons(item, infos, index) {
-  const playClassName = infos.buttons.play && infos.buttons.play.className
+function getDisplayHTMLButtons(item, el, infos, index) {
+  const infoClassName = infos.buttons.play && infos.buttons.play.className
     ? String(infos.buttons.play.className)
-    : 'play-btn';
+    : 'info-btn';
   const deleteClassName = infos.buttons.delete && infos.buttons.delete.className
     ? String(infos.buttons.delete.className)
     : 'delete-btn';
 
   item.innerHTML += `<div class="actions">`;
   if (infos.buttons.play) {
-    item.innerHTML += `<button class="${playClassName}" type="button" data-action="play">▶</button>`;
+    item.innerHTML += `<button class="${infoClassName}" type="button" data-action="info">ℹ️</button>`;
   }
   if(infos.buttons.delete) {
     item.innerHTML += `<button class="${deleteClassName}" type="button" data-action="delete">✕</button>`;
@@ -85,8 +85,15 @@ function getDisplayHTMLButtons(item, infos, index) {
   buttons.forEach((button) => {
     button.addEventListener('click', () => {
       const action = button.dataset.action;
-      if (action === 'play') {
-        postPlayMessage(infos, index);
+      if (action === 'info') {
+        const song = buildDescriptionSongPayload(el);
+        if (song.Id) {
+          window.parent.postMessage({
+            source: infos && infos.source ? infos.source : 'display',
+            type: 'DISPLAY_OPEN_DESCRIPTION',
+            song,
+          }, '*');
+        }
       } else if (action === 'delete') {
         const message = {
           source: infos.source,
@@ -154,7 +161,7 @@ function renderElement(el, index) {
   else if(el.isInDatabase == false)
     item.classList.add('queue-item-missing');
 
-  getDisplayHTMLButtons(item, el.buttons, index);
+  getDisplayHTMLButtons(item, el, el.buttons, index);
 
   item.addEventListener('click', (event) => {
     const target = event.target;
