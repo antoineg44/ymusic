@@ -174,6 +174,50 @@ function find_downloaded_file_for_music_id(string $id): ?array
         ];
     }
 
+    function get_music_playlists(PDO $pdo, string $musicId): array
+    {
+        if ($musicId === '') {
+            return [];
+        }
+
+        ensure_playlists_tables($pdo);
+
+        $stmt = $pdo->prepare(
+            'SELECT
+                p.idPlaylist AS PlaylistId,
+                p.NomPlaylist,
+                p.Description,
+                p.Utilisateur,
+                COALESCE(u.NomUtilisateur, "") AS UtilisateurNom,
+                pm.PositionLecture
+             FROM MyPlaylistMusiques pm
+             INNER JOIN Playlist p ON p.idPlaylist = pm.IdPlaylist
+             LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
+             WHERE pm.IdMusique = :musicId
+             ORDER BY p.NomPlaylist ASC'
+        );
+        $stmt->execute([':musicId' => $musicId]);
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_map(
+            static function (array $row): array {
+                return [
+                    'PlaylistId' => (int) ($row['PlaylistId'] ?? 0),
+                    'NomPlaylist' => (string) ($row['NomPlaylist'] ?? ''),
+                    'Description' => (string) ($row['Description'] ?? ''),
+                    'Utilisateur' => (int) ($row['Utilisateur'] ?? 0),
+                    'UtilisateurNom' => (string) ($row['UtilisateurNom'] ?? ''),
+                    'PositionLecture' => (int) ($row['PositionLecture'] ?? 0),
+                ];
+            },
+            $rows
+        );
+    }
+
 if (empty($_SESSION['user'])) {
     // Toutes les routes de cette API necessitent une session utilisateur active.
     http_response_code(401);
@@ -1290,14 +1334,18 @@ if (!empty($_GET['deleteFile'])) {
                     'NombreVueInterne' => null,
                     'DateAjout' => null,
                 ],
+                'playlists' => [],
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
+
+        $musicPlaylists = get_music_playlists($pdo, (string) ($music['Id'] ?? ''));
 
         echo json_encode([
             'success' => true,
             'found' => true,
             'music' => $music,
+            'playlists' => $musicPlaylists,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([

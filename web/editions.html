@@ -82,6 +82,62 @@
 			.empty-row {
 				color: #cbd5e1;
 			}
+
+			.linked-playlists {
+				margin-top: 14px;
+				padding-top: 10px;
+				border-top: 1px solid rgba(148, 163, 184, 0.2);
+			}
+
+			.linked-playlists h3 {
+				margin: 0 0 8px;
+				font-size: 1rem;
+				color: #bae6fd;
+			}
+
+			.linked-playlists-list {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: grid;
+				gap: 8px;
+			}
+
+			.linked-playlists-item {
+				display: grid;
+				grid-template-columns: 1fr auto;
+				gap: 10px;
+				align-items: center;
+				background: rgba(15, 23, 42, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.2);
+				border-radius: 10px;
+				padding: 8px 10px;
+			}
+
+			.linked-playlists-meta {
+				font-size: 0.86rem;
+				color: #94a3b8;
+				margin-top: 2px;
+			}
+
+			.remove-link-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				background: #ef4444;
+				color: #fee2e2;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.remove-link-btn[disabled] {
+				opacity: 0.6;
+				cursor: default;
+			}
+
+			.no-playlist-link {
+				color: #cbd5e1;
+			}
 		</style>
 	</head>
 	<body>
@@ -103,6 +159,7 @@
 			const editionsStatus = document.getElementById('editionsStatus');
 			const searchParams = new URLSearchParams(window.location.search);
 			const requestedId = String(searchParams.get('id') || '').trim();
+			let currentUserId = 0;
 
 			function escapeHtml(value) {
 				return String(value ?? '')
@@ -154,13 +211,140 @@
 							</tbody>
 						</table>
 						<div style="margin-top: 10px;"><button class="save-btn" type="button" data-action="save">Enregistrer</button></div>
+						<section class="linked-playlists" aria-label="Playlists contenant cette musique">
+							<h3>Playlists contenant cette musique</h3>
+							<ul class="linked-playlists-list" data-role="linked-playlists-list">
+								<li class="no-playlist-link">Chargement des playlists...</li>
+							</ul>
+						</section>
 					`;
 					editionsBody.appendChild(card);
+					void loadLinkedPlaylistsForCard(card, row);
 				});
+			}
+
+			function renderLinkedPlaylists(container, musicId, playlists) {
+				const list = container.querySelector('[data-role="linked-playlists-list"]');
+				if (!list) {
+					return;
+				}
+
+				list.innerHTML = '';
+
+				if (!Array.isArray(playlists) || playlists.length === 0) {
+					list.innerHTML = '<li class="no-playlist-link">Cette musique n\'est dans aucune playlist.</li>';
+					return;
+				}
+
+				playlists.forEach((playlist) => {
+					const playlistId = Number(playlist && playlist.PlaylistId ? playlist.PlaylistId : 0);
+					const playlistName = String((playlist && playlist.NomPlaylist) || 'Playlist sans nom').trim();
+					const ownerId = Number(playlist && playlist.Utilisateur ? playlist.Utilisateur : 0);
+					const ownerName = String((playlist && playlist.UtilisateurNom) || '').trim();
+					const position = Number(playlist && playlist.PositionLecture ? playlist.PositionLecture : 0);
+					const canRemove = playlistId > 0 && ownerId > 0 && ownerId === currentUserId;
+
+					const metaParts = [];
+					if (ownerName) {
+						metaParts.push(`Par ${ownerName}`);
+					}
+					if (position > 0) {
+						metaParts.push(`Position ${position}`);
+					}
+
+					const item = document.createElement('li');
+					item.className = 'linked-playlists-item';
+					item.innerHTML = `
+						<div>
+							<div>${escapeHtml(playlistName)}</div>
+							<div class="linked-playlists-meta">${escapeHtml(metaParts.join(' • ') || 'Playlist')}</div>
+						</div>
+						<button
+							class="remove-link-btn"
+							type="button"
+							data-action="remove-link"
+							data-playlist-id="${escapeHtml(String(playlistId))}"
+							data-music-id="${escapeHtml(String(musicId || ''))}"
+							${canRemove ? '' : 'disabled'}
+							>
+							Retirer
+						</button>
+					`;
+
+					list.appendChild(item);
+				});
+			}
+
+			async function loadCurrentUser() {
+				try {
+					const response = await fetch('php/interface.php?currentUser=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						return;
+					}
+
+					currentUserId = Number(payload.id || 0);
+				} catch (error) {
+					console.error(error);
+				}
+			}
+
+			async function loadLinkedPlaylistsForCard(container, row) {
+				const musicId = String((row && row.Id) || '').trim();
+				if (!musicId) {
+					renderLinkedPlaylists(container, '', []);
+					return;
+				}
+
+				const title = String((row && row.Titre) || '').trim();
+				const artist = String((row && row.Artiste) || '').trim();
+				const params = new URLSearchParams({
+					musicDetails: '1',
+					id: musicId,
+				});
+				if (title) {
+					params.set('title', title);
+				}
+				if (artist) {
+					params.set('artist', artist);
+				}
+
+				try {
+					const response = await fetch(`php/interface.php?${params.toString()}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de charger les playlists liees');
+					}
+
+					renderLinkedPlaylists(container, musicId, payload.playlists);
+				} catch (error) {
+					console.error(error);
+					renderLinkedPlaylists(container, musicId, []);
+				}
 			}
 
 			async function loadRows() {
 				try {
+					await loadCurrentUser();
+
 					const response = await fetch('php/interface.php?musiques=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
@@ -196,6 +380,73 @@
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			async function removePlaylistLink(button) {
+				const playlistId = Number(button.dataset.playlistId || 0);
+				const musicId = String(button.dataset.musicId || '').trim();
+
+				if (playlistId <= 0 || !musicId) {
+					setStatus('Parametres de suppression invalides.', true);
+					return;
+				}
+
+				const confirmed = window.confirm('Retirer cette musique de cette playlist ?');
+				if (!confirmed) {
+					return;
+				}
+
+				const container = button.closest('.music-editor-card');
+				if (!container) {
+					return;
+				}
+
+				const initialLabel = button.textContent;
+				button.disabled = true;
+				button.textContent = '...';
+
+				try {
+					const body = new URLSearchParams({
+						removePlaylistMusic: '1',
+						IdPlaylist: String(playlistId),
+						IdMusique: musicId,
+					});
+
+					const response = await fetch('php/interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						cache: 'no-store',
+						body,
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de retirer le lien playlist-musique');
+					}
+
+					setStatus('Lien playlist-musique supprime.');
+					const row = {
+						Id: musicId,
+						Titre: String(container.querySelector('input[data-field="Titre"]')?.value || '').trim(),
+						Artiste: String(container.querySelector('input[data-field="Artiste"]')?.value || '').trim(),
+					};
+					await loadLinkedPlaylistsForCard(container, row);
+
+					window.parent.postMessage({
+						source: 'editions',
+						type: 'REFRESH_ALL_PLAYLISTS',
+					}, '*');
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur lors de la suppression du lien.', true);
+					button.disabled = false;
+					button.textContent = initialLabel || 'Retirer';
 				}
 			}
 
@@ -260,6 +511,11 @@
 				if (!(target instanceof HTMLElement)) {
 					return;
 				}
+				if (target.dataset.action === 'remove-link') {
+					void removePlaylistLink(target);
+					return;
+				}
+
 				if (target.dataset.action !== 'save') {
 					return;
 				}

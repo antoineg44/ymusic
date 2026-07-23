@@ -176,6 +176,14 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.source === 'editions') {
+    if (message.type === 'REFRESH_ALL_PLAYLISTS') {
+      requestMyPlaylistsRefresh();
+      requestCommunityPlaylistsRefresh();
+    }
+    return;
+  }
+
   if (message.source === 'playlistMenu') {
     if (message.type === 'CLOSE_PLAYLIST_MENU') {
       closePlaylistMenuPopup();

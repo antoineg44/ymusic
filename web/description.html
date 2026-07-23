@@ -58,6 +58,36 @@
         gap: 8px;
       }
 
+      .description-subtitle {
+        margin: 16px 0 8px;
+      }
+
+      .playlist-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .playlist-item {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 10px;
+        padding: 10px;
+      }
+
+      .playlist-name {
+        color: #f8fafc;
+        font-weight: 700;
+      }
+
+      .playlist-meta {
+        color: #cbd5e1;
+        font-size: 0.9rem;
+        margin-top: 4px;
+      }
+
       .description-item {
         display: grid;
         grid-template-columns: 220px 1fr;
@@ -98,12 +128,15 @@
         </div>
         <p id="descriptionStatus" class="status">Chargement...</p>
         <ul id="descriptionList" class="description-list"></ul>
+        <h2 class="description-subtitle">Playlists contenant cette musique</h2>
+        <ul id="musicPlaylists" class="playlist-list"></ul>
       </section>
     </main>
 
     <script>
       const descriptionStatus = document.getElementById('descriptionStatus');
       const descriptionList = document.getElementById('descriptionList');
+      const musicPlaylists = document.getElementById('musicPlaylists');
       const editButton = document.getElementById('editButton');
       const downloadButton = document.getElementById('downloadButton');
       let currentMusic = null;
@@ -155,6 +188,44 @@
           `;
 
           descriptionList.appendChild(item);
+        });
+      }
+
+      function renderMusicPlaylists(playlists) {
+        musicPlaylists.innerHTML = '';
+
+        if (!Array.isArray(playlists) || playlists.length === 0) {
+          const item = document.createElement('li');
+          item.className = 'playlist-item';
+          item.innerHTML = `
+            <div class="playlist-name">Aucune playlist</div>
+            <div class="playlist-meta">Cette musique n'est dans aucune playlist pour le moment.</div>
+          `;
+          musicPlaylists.appendChild(item);
+          return;
+        }
+
+        playlists.forEach((playlist) => {
+          const playlistName = String(playlist && playlist.NomPlaylist ? playlist.NomPlaylist : 'Playlist sans nom');
+          const owner = String(playlist && playlist.UtilisateurNom ? playlist.UtilisateurNom : '').trim();
+          const position = Number(playlist && playlist.PositionLecture ? playlist.PositionLecture : 0);
+
+          const metaParts = [];
+          if (owner) {
+            metaParts.push(`Par ${owner}`);
+          }
+          if (position > 0) {
+            metaParts.push(`Position ${position}`);
+          }
+
+          const item = document.createElement('li');
+          item.className = 'playlist-item';
+          item.innerHTML = `
+            <div class="playlist-name">${escapeHtml(playlistName)}</div>
+            <div class="playlist-meta">${escapeHtml(metaParts.join(' • ') || 'Playlist personnelle')}</div>
+          `;
+
+          musicPlaylists.appendChild(item);
         });
       }
 
@@ -231,6 +302,7 @@
           currentMusic = payload.music;
 
           renderMusicDetails(payload.music);
+          renderMusicPlaylists(payload.playlists);
 
           if (payload.found === false) {
             setStatus('Musique non trouvee en base pour le moment. Les informations affichees sont partielles.', true);
