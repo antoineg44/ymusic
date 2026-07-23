@@ -129,7 +129,7 @@
 
           setMessage(action === 'login' ? 'Connexion reussie.' : 'Compte cree, connexion reussie.', false);
           window.setTimeout(() => {
-            window.location.replace('index.html');
+            window.top.location.replace('index.html');
           }, 250);
         } catch (error) {
           console.error(error);
