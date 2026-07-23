@@ -50,6 +50,16 @@
         font-weight: 700;
       }
 
+      .youtube-button {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 14px;
+        cursor: pointer;
+        background: #ef4444;
+        color: #fee2e2;
+        font-weight: 700;
+      }
+
       .description-list {
         list-style: none;
         margin: 0;
@@ -122,6 +132,7 @@
         <div class="description-head">
           <h1>Description de la musique</h1>
           <div class="head-actions">
+            <button id="youtubeButton" class="youtube-button" type="button">Ouvrir avec YouTube</button>
             <button id="downloadButton" class="download-button" type="button">Télécharger</button>
             <button id="editButton" class="edit-button" type="button">Editer</button>
           </div>
@@ -138,6 +149,7 @@
       const descriptionList = document.getElementById('descriptionList');
       const musicPlaylists = document.getElementById('musicPlaylists');
       const editButton = document.getElementById('editButton');
+      const youtubeButton = document.getElementById('youtubeButton');
       const downloadButton = document.getElementById('downloadButton');
       let currentMusic = null;
 
@@ -376,6 +388,26 @@
           console.error(error);
           setStatus(error.message || 'Erreur de telechargement.', true);
         }
+      });
+
+      youtubeButton.addEventListener('click', () => {
+        const params = new URLSearchParams(window.location.search);
+        const idFromParams = String(params.get('id') || '').trim();
+        const id = String((currentMusic && currentMusic.Id) || idFromParams).trim();
+
+        if (!id) {
+          setStatus('Impossible d\'ouvrir YouTube (Id manquant).', true);
+          return;
+        }
+
+        const youtubeUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
+        const openedWindow = window.open(youtubeUrl, '_blank', 'noopener,noreferrer');
+        if (!openedWindow) {
+          setStatus('Le navigateur a bloque l\'ouverture du nouvel onglet.', true);
+          return;
+        }
+
+        setStatus('Ouverture de YouTube dans un nouvel onglet.');
       });
 
       void loadDescription();
