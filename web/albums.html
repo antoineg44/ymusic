@@ -58,7 +58,6 @@
 								<th>Album</th>
 								<th>Nombre de musiques</th>
 								<th>Vues totales</th>
-								<th>Vues internes</th>
 							</tr>
 						</thead>
 						<tbody id="albumsBody"></tbody>
@@ -105,7 +104,7 @@
 
 					albumsBody.innerHTML = '';
 					if (!albums.length) {
-						albumsBody.innerHTML = '<tr><td colspan="4">Aucun album en base</td></tr>';
+						albumsBody.innerHTML = '<tr><td colspan="3">Aucun album en base</td></tr>';
 						setStatus('Aucun album trouve.');
 						return;
 					}
@@ -116,7 +115,6 @@
 							<td>${escapeHtml(album.Album || '')}</td>
 							<td>${Number(album.TotalMusiques || 0)}</td>
 							<td>${Number(album.TotalVues || 0)}</td>
-							<td>${Number(album.TotalVuesInternes || 0)}</td>
 						`;
 						albumsBody.appendChild(row);
 					});

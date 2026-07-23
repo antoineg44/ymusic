@@ -1182,8 +1182,7 @@ if (!empty($_GET['deleteFile'])) {
         $stmt = $pdo->query(
             "SELECT
                 Artiste,
-                COUNT(*) AS TotalMusiques,
-                COALESCE(SUM(NombreVueInterne), 0) AS TotalVuesInternes
+                COUNT(*) AS TotalMusiques
              FROM Musiques
              WHERE TRIM(Artiste) <> ''
              GROUP BY Artiste
@@ -1382,8 +1381,7 @@ if (!empty($_GET['deleteFile'])) {
             "SELECT
                 Album,
                 COUNT(*) AS TotalMusiques,
-                COALESCE(SUM(NombreVue), 0) AS TotalVues,
-                COALESCE(SUM(NombreVueInterne), 0) AS TotalVuesInternes
+                COALESCE(SUM(NombreVue), 0) AS TotalVues
              FROM Musiques
              WHERE TRIM(Album) <> ''
              GROUP BY Album

@@ -46,18 +46,12 @@
 				padding: 10px;
 			}
 
-			.artist-name-button {
-				border: 0;
-				background: transparent;
-				color: #7dd3fc;
-				font-weight: 700;
+			.artist-row {
 				cursor: pointer;
-				padding: 0;
-				text-align: left;
 			}
 
-			.artist-name-button:hover {
-				text-decoration: underline;
+			.artist-row:hover {
+				background: rgba(56, 189, 248, 0.08);
 			}
 
 			.artist-songs-panel {
@@ -119,7 +113,6 @@
 							<tr>
 								<th>Artiste</th>
 								<th>Nombre de musiques</th>
-								<th>Vues internes</th>
 							</tr>
 						</thead>
 						<tbody id="artistsBody"></tbody>
@@ -295,22 +288,21 @@
 
 					artistsBody.innerHTML = '';
 					if (!artists.length) {
-						artistsBody.innerHTML = '<tr><td colspan="3">Aucun artiste en base</td></tr>';
+						artistsBody.innerHTML = '<tr><td colspan="2">Aucun artiste en base</td></tr>';
 						setStatus('Aucun artiste trouve.');
 						return;
 					}
 
 					artists.forEach((artist) => {
 						const row = document.createElement('tr');
+						row.className = 'artist-row';
 						const artistName = String(artist.Artiste || '').trim();
 						row.innerHTML = `
-							<td><button type="button" class="artist-name-button">${escapeHtml(artist.Artiste || '')}</button></td>
+							<td>${escapeHtml(artist.Artiste || '')}</td>
 							<td>${Number(artist.TotalMusiques || 0)}</td>
-							<td>${Number(artist.TotalVuesInternes || 0)}</td>
 						`;
 
-						const button = row.querySelector('.artist-name-button');
-						button.addEventListener('click', () => {
+						row.addEventListener('click', () => {
 							void loadArtistSongs(artistName);
 						});
 						artistsBody.appendChild(row);
