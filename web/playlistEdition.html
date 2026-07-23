@@ -71,6 +71,11 @@
 				color: #e2e8f0;
 			}
 
+			.btn.danger {
+				background: #ef4444;
+				color: #fee2e2;
+			}
+
 			.song-list {
 				list-style: none;
 				margin: 14px 0 0;
@@ -89,6 +94,16 @@
 				border: 1px solid rgba(148, 163, 184, 0.2);
 				border-radius: 10px;
 				padding: 8px 10px;
+			}
+
+			.song-list li.is-dragging {
+				opacity: 0.45;
+				border-color: #38bdf8;
+			}
+
+			.song-list li.drag-over {
+				outline: 2px dashed #38bdf8;
+				outline-offset: 2px;
 			}
 
 			.song-meta {
@@ -124,6 +139,12 @@
 				min-height: 1.2em;
 				color: #7dd3fc;
 			}
+
+			.reorder-hint {
+				margin: 8px 0 0;
+				color: #94a3b8;
+				font-size: 0.9rem;
+			}
 		</style>
 	</head>
 	<body>
@@ -137,11 +158,13 @@
 
 				<div class="actions">
 					<button id="saveButton" class="btn primary" type="button">Enregistrer</button>
+					<button id="deleteButton" class="btn danger" type="button">Supprimer</button>
 					<button id="closeButton" class="btn secondary" type="button">Fermer</button>
 				</div>
 			</section>
 
 			<ul id="songsList" class="song-list" aria-label="Musiques de la playlist"></ul>
+			<p class="reorder-hint">Glissez une musique sur une autre pour changer l'ordre.</p>
 			<p id="status" class="status"></p>
 		</main>
 
@@ -154,7 +177,10 @@
 			const songsList = document.getElementById('songsList');
 			const statusBox = document.getElementById('status');
 			const saveButton = document.getElementById('saveButton');
+			const deleteButton = document.getElementById('deleteButton');
 			const closeButton = document.getElementById('closeButton');
+			let songsState = [];
+			let draggingMusicId = '';
 
 			function setStatus(message, isError = false) {
 				statusBox.textContent = message;
@@ -198,10 +224,11 @@
 
 					const playlist = payload.playlist || {};
 					const songs = Array.isArray(payload.songs) ? payload.songs : [];
+					songsState = songs.map((song) => ({ ...song }));
 
 					playlistNameInput.value = String(playlist.NomPlaylist || '');
 					playlistDescriptionInput.value = String(playlist.Description || '');
-					renderSongs(songs);
+					renderSongs(songsState);
 					setStatus(`Playlist chargee (${songs.length} musique(s)).`);
 				} catch (error) {
 					console.error(error);
@@ -219,6 +246,8 @@
 				songs.forEach((song) => {
 					const musicId = String((song && song.Id) || '').trim();
 					const item = document.createElement('li');
+					item.draggable = true;
+					item.dataset.musicId = musicId;
 					item.innerHTML = `
 						<div class="song-meta">
 							<strong>${escapeHtml(song.Titre || 'Musique inconnue')}</strong>
@@ -227,12 +256,116 @@
 						<button class="remove-btn" type="button">Retirer</button>
 					`;
 
+					item.addEventListener('dragstart', (event) => {
+						draggingMusicId = musicId;
+						item.classList.add('is-dragging');
+						event.dataTransfer.effectAllowed = 'move';
+						event.dataTransfer.setData('text/plain', musicId);
+					});
+
+					item.addEventListener('dragend', () => {
+						draggingMusicId = '';
+						item.classList.remove('is-dragging');
+						const allItems = songsList.querySelectorAll('li');
+						allItems.forEach((el) => el.classList.remove('drag-over'));
+					});
+
+					item.addEventListener('dragover', (event) => {
+						event.preventDefault();
+						event.dataTransfer.dropEffect = 'move';
+					});
+
+					item.addEventListener('dragenter', (event) => {
+						event.preventDefault();
+						if (draggingMusicId && draggingMusicId !== musicId) {
+							item.classList.add('drag-over');
+						}
+					});
+
+					item.addEventListener('dragleave', () => {
+						item.classList.remove('drag-over');
+					});
+
+					item.addEventListener('drop', (event) => {
+						event.preventDefault();
+						item.classList.remove('drag-over');
+						void handleSongDrop(musicId);
+					});
+
 					item.querySelector('.remove-btn').addEventListener('click', () => {
 						void removeSong(musicId);
 					});
 
 					songsList.appendChild(item);
 				});
+			}
+
+			async function persistSongsOrder() {
+				if (!playlistId || songsState.length <= 1) {
+					return;
+				}
+
+				const orderedMusicIds = songsState
+					.map((song) => String((song && song.Id) || '').trim())
+					.filter(Boolean);
+
+				const body = new URLSearchParams({
+					reorderPlaylistSongs: '1',
+					IdPlaylist: String(playlistId),
+					orderedMusicIds: JSON.stringify(orderedMusicIds),
+				});
+
+				const response = await fetch('php/interface.php', {
+					method: 'POST',
+					credentials: 'same-origin',
+					cache: 'no-store',
+					body,
+				});
+
+				if (response.status === 401) {
+					window.location.replace('login.html');
+					return;
+				}
+
+				const payload = await response.json();
+				if (!response.ok || !payload.success) {
+					throw new Error(payload.error || 'Impossible d\'enregistrer le nouvel ordre.');
+				}
+			}
+
+			async function handleSongDrop(targetMusicId) {
+				const sourceMusicId = String(draggingMusicId || '').trim();
+				const targetId = String(targetMusicId || '').trim();
+
+				if (!sourceMusicId || !targetId || sourceMusicId === targetId) {
+					return;
+				}
+
+				const sourceIndex = songsState.findIndex((song) => String((song && song.Id) || '').trim() === sourceMusicId);
+				const targetIndex = songsState.findIndex((song) => String((song && song.Id) || '').trim() === targetId);
+
+				if (sourceIndex < 0 || targetIndex < 0) {
+					return;
+				}
+
+				const nextSongs = songsState.slice();
+				const [movedSong] = nextSongs.splice(sourceIndex, 1);
+				nextSongs.splice(targetIndex, 0, movedSong);
+
+				const previousSongs = songsState;
+				songsState = nextSongs;
+				renderSongs(songsState);
+
+				try {
+					setStatus('Enregistrement du nouvel ordre...');
+					await persistSongsOrder();
+					setStatus('Nouvel ordre enregistre.');
+				} catch (error) {
+					console.error(error);
+					songsState = previousSongs;
+					renderSongs(songsState);
+					setStatus(error.message || 'Erreur lors du reordonnancement.', true);
+				}
 			}
 
 			async function removeSong(musicId) {
@@ -265,6 +398,7 @@
 					}
 
 					await loadEditionData();
+					window.parent.postMessage({ source: 'playlistEdition', type: 'PLAYLIST_EDITION_SAVED' }, '*');
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur lors de la suppression.', true);
@@ -318,12 +452,60 @@
 				}
 			}
 
+			async function deletePlaylist() {
+				if (!playlistId) {
+					setStatus('Identifiant de playlist manquant.', true);
+					return;
+				}
+
+				const confirmed = window.confirm(
+					'Confirmer la suppression de cette playlist ? Les liens vers les musiques seront aussi supprimes.'
+				);
+				if (!confirmed) {
+					return;
+				}
+
+				try {
+					setStatus('Suppression de la playlist...');
+					const body = new URLSearchParams({
+						deletePlaylist: '1',
+						playlistId: String(playlistId),
+					});
+
+					const response = await fetch('php/interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						cache: 'no-store',
+						body,
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de supprimer la playlist.');
+					}
+
+					window.parent.postMessage({ source: 'playlistEdition', type: 'PLAYLIST_EDITION_SAVED' }, '*');
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de suppression.', true);
+				}
+			}
+
 			closeButton.addEventListener('click', () => {
 				closePopup();
 			});
 
 			saveButton.addEventListener('click', () => {
 				void savePlaylist();
+			});
+
+			deleteButton.addEventListener('click', () => {
+				void deletePlaylist();
 			});
 
 			void loadEditionData();

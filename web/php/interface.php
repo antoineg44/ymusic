@@ -690,6 +690,189 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['reorderPlaylistSongs']) || !empty($_POST['reorderPlaylistSongs'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['IdPlaylist'] ?? $payload['playlistId'] ?? 0);
+        $orderedMusicIdsRaw = (string) ($payload['orderedMusicIds'] ?? '[]');
+        $orderedMusicIds = json_decode($orderedMusicIdsRaw, true);
+
+        if ($playlistId <= 0) {
+            throw new RuntimeException('IdPlaylist requis');
+        }
+
+        if (!is_array($orderedMusicIds) || count($orderedMusicIds) === 0) {
+            throw new RuntimeException('orderedMusicIds invalide');
+        }
+
+        $orderedMusicIds = array_values(array_filter(array_map(static function ($value) {
+            return trim((string) $value);
+        }, $orderedMusicIds), static function ($value) {
+            return $value !== '';
+        }));
+
+        if (count($orderedMusicIds) === 0) {
+            throw new RuntimeException('Aucun identifiant musique valide');
+        }
+
+        if (count(array_unique($orderedMusicIds)) !== count($orderedMusicIds)) {
+            throw new RuntimeException('orderedMusicIds contient des doublons');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $currentUserId = resolve_current_user_id();
+        $ownerStmt = $pdo->prepare(
+            'SELECT idPlaylist
+             FROM Playlist
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId
+             LIMIT 1'
+        );
+        $ownerStmt->execute([
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+            throw new RuntimeException('Playlist introuvable ou non autorisee');
+        }
+
+        $existingStmt = $pdo->prepare(
+            'SELECT IdMusique
+             FROM MyPlaylistMusiques
+             WHERE IdPlaylist = :playlistId'
+        );
+        $existingStmt->execute([':playlistId' => $playlistId]);
+        $existingIds = array_map(static function ($value) {
+            return trim((string) $value);
+        }, $existingStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        sort($existingIds);
+        $sortedPayloadIds = $orderedMusicIds;
+        sort($sortedPayloadIds);
+
+        if ($existingIds !== $sortedPayloadIds) {
+            throw new RuntimeException('La liste des musiques a reordonner ne correspond pas a la playlist');
+        }
+
+        $pdo->beginTransaction();
+
+        $updateStmt = $pdo->prepare(
+            'UPDATE MyPlaylistMusiques
+             SET PositionLecture = :position
+             WHERE IdPlaylist = :playlistId
+               AND IdMusique = :musicId'
+        );
+
+        $position = 1;
+        foreach ($orderedMusicIds as $musicId) {
+            $updateStmt->execute([
+                ':position' => $position,
+                ':playlistId' => $playlistId,
+                ':musicId' => $musicId,
+            ]);
+            $position += 1;
+        }
+
+        $touchStmt = $pdo->prepare(
+            'UPDATE Playlist
+             SET DateDerniereModification = NOW()
+             WHERE idPlaylist = :playlistId'
+        );
+        $touchStmt->execute([':playlistId' => $playlistId]);
+
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
+            'count' => count($orderedMusicIds),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['deletePlaylist']) || !empty($_POST['deletePlaylist'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['playlistId'] ?? $payload['id'] ?? 0);
+
+        if ($playlistId <= 0) {
+            throw new RuntimeException('IdPlaylist requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $currentUserId = resolve_current_user_id();
+        $ownerStmt = $pdo->prepare(
+            'SELECT idPlaylist
+             FROM Playlist
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId
+             LIMIT 1'
+        );
+        $ownerStmt->execute([
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+            throw new RuntimeException('Playlist introuvable ou non autorisee');
+        }
+
+        $pdo->beginTransaction();
+
+        $deleteLinksStmt = $pdo->prepare(
+            'DELETE FROM MyPlaylistMusiques
+             WHERE IdPlaylist = :playlistId'
+        );
+        $deleteLinksStmt->execute([':playlistId' => $playlistId]);
+        $deletedLinks = (int) $deleteLinksStmt->rowCount();
+
+        $deletePlaylistStmt = $pdo->prepare(
+            'DELETE FROM Playlist
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId'
+        );
+        $deletePlaylistStmt->execute([
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        if ($deletePlaylistStmt->rowCount() <= 0) {
+            throw new RuntimeException('Suppression de la playlist impossible');
+        }
+
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
+            'deletedLinks' => $deletedLinks,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['addPlaylistMusic']) || !empty($_POST['addPlaylistMusic'])) {
 
     try {
