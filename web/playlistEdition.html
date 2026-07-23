@@ -76,6 +76,16 @@
 				color: #fee2e2;
 			}
 
+			.btn.share {
+				background: #334155;
+				color: #cbd5e1;
+			}
+
+			.btn.share.is-active {
+				background: #22c55e;
+				color: #052e16;
+			}
+
 			.song-list {
 				list-style: none;
 				margin: 14px 0 0;
@@ -208,6 +218,7 @@
 
 				<div class="actions">
 					<button id="saveButton" class="btn primary" type="button">Enregistrer</button>
+					<button id="shareButton" class="btn share" type="button">Partage: OFF</button>
 					<button id="deleteButton" class="btn danger" type="button">Supprimer</button>
 					<button id="closeButton" class="btn secondary" type="button">Fermer</button>
 				</div>
@@ -233,11 +244,13 @@
 			const songsList = document.getElementById('songsList');
 			const statusBox = document.getElementById('status');
 			const saveButton = document.getElementById('saveButton');
+			const shareButton = document.getElementById('shareButton');
 			const deleteButton = document.getElementById('deleteButton');
 			const closeButton = document.getElementById('closeButton');
 			let songsState = [];
 			let draggingMusicId = '';
 			let hasOrderChanges = false;
+			let playlistShareState = false;
 
 			function setStatus(message, isError = false) {
 				statusBox.textContent = message;
@@ -254,6 +267,11 @@
 
 			function closePopup() {
 				window.parent.postMessage({ source: 'playlistEdition', type: 'CLOSE_PLAYLIST_EDITION' }, '*');
+			}
+
+			function updateShareButton() {
+				shareButton.textContent = playlistShareState ? 'Partage: ON' : 'Partage: OFF';
+				shareButton.classList.toggle('is-active', playlistShareState);
 			}
 
 			async function loadEditionData() {
@@ -286,11 +304,54 @@
 
 					playlistNameInput.value = String(playlist.NomPlaylist || '');
 					playlistDescriptionInput.value = String(playlist.Description || '');
+					playlistShareState = Number(playlist.Partage || 0) === 1;
+					updateShareButton();
 					renderSongs(songsState);
 					setStatus(`Playlist chargee (${songs.length} musique(s)).`);
 				} catch (error) {
 					console.error(error);
+					playlistShareState = false;
+					updateShareButton();
 					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			async function togglePlaylistShare() {
+				if (!playlistId) {
+					setStatus('Identifiant de playlist manquant.', true);
+					return;
+				}
+
+				try {
+					const body = new URLSearchParams({
+						togglePlaylistShare: '1',
+						playlistId: String(playlistId),
+					});
+
+					const response = await fetch('php/interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						cache: 'no-store',
+						body,
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de mettre a jour le partage.');
+					}
+
+					playlistShareState = Number(payload.Partage || 0) === 1;
+					updateShareButton();
+					setStatus(payload.message || 'Partage mis a jour.');
+					window.parent.postMessage({ source: 'playlistEdition', type: 'PLAYLIST_EDITION_SAVED' }, '*');
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur lors de la mise a jour du partage.', true);
 				}
 			}
 
@@ -556,6 +617,10 @@
 
 			saveButton.addEventListener('click', () => {
 				void savePlaylist();
+			});
+
+			shareButton.addEventListener('click', () => {
+				void togglePlaylistShare();
 			});
 
 			deleteButton.addEventListener('click', () => {

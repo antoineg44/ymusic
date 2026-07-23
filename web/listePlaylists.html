@@ -597,9 +597,10 @@
 					}
 
 					const playlists = Array.isArray(payload.playlists) ? payload.playlists : [];
-					renderPlaylists(playlists);
+					const sharedPlaylists = playlists.filter((playlist) => Number((playlist && playlist.Partage) || 0) === 1);
+					renderPlaylists(sharedPlaylists);
 					showPlaylistsView();
-					setStatus(`${playlists.length} playlist(s) chargee(s).`);
+					setStatus(`${sharedPlaylists.length} playlist(s) partagee(s) chargee(s).`);
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);

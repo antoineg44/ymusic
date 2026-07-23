@@ -391,6 +391,7 @@ if (!empty($_GET['deleteFile'])) {
                 p.idPlaylist AS PlaylistId,
                 p.NomPlaylist,
                 p.Description,
+                p.Partage,
                 p.DateDerniereModification,
                 p.NombreVue,
                 p.Utilisateur,
@@ -399,7 +400,7 @@ if (!empty($_GET['deleteFile'])) {
              FROM Playlist p
              LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
                  LEFT JOIN MyPlaylistMusiques pm ON pm.IdPlaylist = p.idPlaylist
-             GROUP BY p.idPlaylist, p.NomPlaylist, p.Description, p.DateDerniereModification, p.NombreVue, p.Utilisateur, u.NomUtilisateur
+             GROUP BY p.idPlaylist, p.NomPlaylist, p.Description, p.Partage, p.DateDerniereModification, p.NombreVue, p.Utilisateur, u.NomUtilisateur
              ORDER BY p.DateDerniereModification DESC, p.NomPlaylist ASC"
         );
 
@@ -428,6 +429,7 @@ if (!empty($_GET['deleteFile'])) {
                 p.idPlaylist AS PlaylistId,
                 p.NomPlaylist,
                 p.Description,
+                p.Partage,
                 p.DateDerniereModification,
                 p.NombreVue,
                 p.Utilisateur,
@@ -437,7 +439,7 @@ if (!empty($_GET['deleteFile'])) {
              LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
              LEFT JOIN MyPlaylistMusiques pm ON pm.IdPlaylist = p.idPlaylist
              WHERE p.Utilisateur = :userId
-             GROUP BY p.idPlaylist, p.NomPlaylist, p.Description, p.DateDerniereModification, p.NombreVue, p.Utilisateur, u.NomUtilisateur
+             GROUP BY p.idPlaylist, p.NomPlaylist, p.Description, p.Partage, p.DateDerniereModification, p.NombreVue, p.Utilisateur, u.NomUtilisateur
              ORDER BY p.DateDerniereModification DESC, p.NomPlaylist ASC"
         );
         $stmt->execute([':userId' => $currentUserId]);
@@ -550,6 +552,7 @@ if (!empty($_GET['deleteFile'])) {
                 p.idPlaylist AS PlaylistId,
                 p.NomPlaylist,
                 p.Description,
+                p.Partage,
                 p.DateDerniereModification,
                 p.NombreVue,
                 p.Utilisateur,
@@ -654,6 +657,76 @@ if (!empty($_GET['deleteFile'])) {
             'playlistId' => $playlistId,
             'NomPlaylist' => $name,
             'Description' => $description,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['togglePlaylistShare']) || !empty($_POST['togglePlaylistShare'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['id'] ?? $payload['playlistId'] ?? 0);
+
+        if ($playlistId <= 0) {
+            throw new RuntimeException('Id de playlist requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $currentUserId = resolve_current_user_id();
+        $playlistStmt = $pdo->prepare(
+            'SELECT idPlaylist, Partage
+             FROM Playlist
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId
+             LIMIT 1'
+        );
+        $playlistStmt->execute([
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        $playlist = $playlistStmt->fetch(PDO::FETCH_ASSOC);
+        if ($playlist === false) {
+            throw new RuntimeException('Playlist introuvable ou non autorisee');
+        }
+
+        $targetPartage = null;
+        if (isset($payload['Partage'])) {
+            $rawPartage = filter_var($payload['Partage'], FILTER_VALIDATE_INT);
+            if ($rawPartage === false || ($rawPartage !== 0 && $rawPartage !== 1)) {
+                throw new RuntimeException('Valeur Partage invalide');
+            }
+            $targetPartage = (int) $rawPartage;
+        }
+
+        if ($targetPartage === null) {
+            $targetPartage = ((int) ($playlist['Partage'] ?? 0)) === 1 ? 0 : 1;
+        }
+
+        $updateStmt = $pdo->prepare(
+            'UPDATE Playlist
+             SET Partage = :partage,
+                 DateDerniereModification = NOW()
+             WHERE idPlaylist = :playlistId
+               AND Utilisateur = :userId'
+        );
+        $updateStmt->execute([
+            ':partage' => $targetPartage,
+            ':playlistId' => $playlistId,
+            ':userId' => $currentUserId,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
+            'Partage' => $targetPartage,
+            'message' => $targetPartage === 1 ? 'Partage active' : 'Partage desactive',
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([

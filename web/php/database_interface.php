@@ -359,6 +359,7 @@ function ensure_playlists_tables(PDO $pdo): void
 			idPlaylist INT UNSIGNED NOT NULL AUTO_INCREMENT,
 			NomPlaylist VARCHAR(255) NOT NULL,
 			Description VARCHAR(1000) NOT NULL DEFAULT '',
+			Partage TINYINT(1) NOT NULL DEFAULT 0,
 			DateDerniereModification DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			NombreVue BIGINT UNSIGNED NOT NULL DEFAULT 0,
 			Utilisateur INT UNSIGNED NOT NULL,
@@ -367,6 +368,12 @@ function ensure_playlists_tables(PDO $pdo): void
 			KEY idx_playlist_date_modification (DateDerniereModification)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
 	);
+
+	$partageColumnStmt = $pdo->query("SHOW COLUMNS FROM Playlist LIKE 'Partage'");
+	$partageColumnExists = $partageColumnStmt !== false && $partageColumnStmt->fetch(PDO::FETCH_ASSOC) !== false;
+	if (!$partageColumnExists) {
+		$pdo->exec("ALTER TABLE Playlist ADD COLUMN Partage TINYINT(1) NOT NULL DEFAULT 0 AFTER Description");
+	}
 
 	$pdo->exec(
 		"CREATE TABLE IF NOT EXISTS MyPlaylistMusiques (
