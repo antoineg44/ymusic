@@ -403,13 +403,6 @@ if (!empty($_GET['deleteFile'])) {
         ensure_music_table($pdo);
         ensure_playlists_tables($pdo);
 
-        $touch = $pdo->prepare(
-            'UPDATE Playlist
-             SET NombreVue = NombreVue + 1
-             WHERE idPlaylist = :playlistId'
-        );
-        $touch->execute([':playlistId' => (int) $playlistId]);
-
         $stmt = $pdo->prepare(
             'SELECT
                 m.Id,
@@ -436,6 +429,37 @@ if (!empty($_GET['deleteFile'])) {
             'success' => true,
             'playlistId' => $playlistId,
             'songs' => $songs,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['incrementPlaylistView']) || !empty($_POST['incrementPlaylistView'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $playlistId = (int) ($payload['id'] ?? $payload['playlistId'] ?? 0);
+
+        if ($playlistId <= 0) {
+            throw new RuntimeException('Id de playlist requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
+
+        $touch = $pdo->prepare(
+            'UPDATE Playlist
+             SET NombreVue = NombreVue + 1
+             WHERE idPlaylist = :playlistId'
+        );
+        $touch->execute([':playlistId' => $playlistId]);
+
+        echo json_encode([
+            'success' => true,
+            'playlistId' => $playlistId,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([

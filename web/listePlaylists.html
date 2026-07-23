@@ -485,14 +485,14 @@
 
 				try {
 					setStatus('Duplication de la playlist en cours...');
+					const songIds = openedPlaylistSongs
+						.map((song) => String((song && song.Id) || '').trim())
+						.filter(Boolean);
+
 					const newPlaylistId = await createPlaylistInDatabase(newName, openedPlaylistDescription);
 					if (!newPlaylistId) {
 						return;
 					}
-
-					const songIds = openedPlaylistSongs
-						.map((song) => String((song && song.Id) || '').trim())
-						.filter(Boolean);
 
 					let copiedCount = 0;
 					for (const songId of songIds) {
@@ -527,7 +527,31 @@
 					.filter(Boolean);
 			}
 
-			function playAllOpenedPlaylist() {
+			async function incrementPlaylistView(playlistId) {
+				const body = new URLSearchParams({
+					incrementPlaylistView: '1',
+					playlistId: String(playlistId),
+				});
+
+				const response = await fetch('php/interface.php', {
+					method: 'POST',
+					credentials: 'same-origin',
+					cache: 'no-store',
+					body,
+				});
+
+				if (response.status === 401) {
+					window.location.replace('login.html');
+					return;
+				}
+
+				const payload = await response.json();
+				if (!response.ok || !payload.success) {
+					throw new Error(payload.error || 'Impossible d\'incrementer les vues de la playlist.');
+				}
+			}
+
+			async function playAllOpenedPlaylist() {
 				if (!activePlaylistId || !openedPlaylistName) {
 					setStatus('Aucune playlist ouverte a lire.', true);
 					return;
@@ -539,16 +563,23 @@
 					return;
 				}
 
-				window.parent.postMessage(
-					{
-						source: 'playlists',
-						type: 'PLAYLIST_LOAD_ALL',
-						tracks,
-					},
-					'*'
-				);
+				try {
+					await incrementPlaylistView(activePlaylistId);
 
-				setStatus(`File de lecture remplacee par "${openedPlaylistName}" (${tracks.length} musique(s)).`);
+					window.parent.postMessage(
+						{
+							source: 'playlists',
+							type: 'PLAYLIST_LOAD_ALL',
+							tracks,
+						},
+						'*'
+					);
+
+					setStatus(`File de lecture remplacee par "${openedPlaylistName}" (${tracks.length} musique(s)).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Impossible de lire la playlist.', true);
+				}
 			}
 
 			async function loadPlaylists() {
