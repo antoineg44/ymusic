@@ -128,6 +128,27 @@
 				color: #7dd3fc;
 			}
 
+			.hidden {
+				display: none;
+			}
+
+			.songs-head {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				margin-bottom: 10px;
+			}
+
+			.back-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: rgba(56, 189, 248, 0.2);
+				color: #7dd3fc;
+				font-weight: 700;
+			}
+
 			@media (max-width: 980px) {
 				.content-grid {
 					grid-template-columns: 1fr;
@@ -147,7 +168,7 @@
 			</section>
 
 			<section class="content-grid">
-				<article class="card" aria-label="Liste des playlists">
+				<article id="playlistsCard" class="card" aria-label="Liste des playlists">
 					<h2>Mes Playlists</h2>
 					<div class="musiques-table-wrap">
 						<table class="playlists-table" aria-label="Mes playlists">
@@ -167,8 +188,11 @@
 					</div>
 				</article>
 
-				<article class="card" aria-label="Musiques de la playlist">
-					<h2 id="songsTitle">Musiques</h2>
+				<article id="songsCard" class="card hidden" aria-label="Musiques de la playlist">
+					<div class="songs-head">
+						<button id="backToPlaylistsButton" class="back-btn" type="button">← Retour</button>
+						<h2 id="songsTitle">Musiques</h2>
+					</div>
 					<div class="musiques-table-wrap">
 						<table class="musiques-table" aria-label="Musiques de playlist">
 							<thead>
@@ -193,6 +217,9 @@
 			const playlistsBody = document.getElementById('playlistsBody');
 			const songsBody = document.getElementById('songsBody');
 			const songsTitle = document.getElementById('songsTitle');
+			const playlistsCard = document.getElementById('playlistsCard');
+			const songsCard = document.getElementById('songsCard');
+			const backToPlaylistsButton = document.getElementById('backToPlaylistsButton');
 			const createPlaylistButton = document.getElementById('createPlaylistButton');
 
 			let activePlaylistId = '';
@@ -213,6 +240,18 @@
 			function setStatus(message, isError = false) {
 				playlistsStatus.textContent = message;
 				playlistsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function showPlaylistsView() {
+				playlistsCard.classList.remove('hidden');
+				songsCard.classList.add('hidden');
+				songsTitle.textContent = 'Musiques';
+				songsBody.innerHTML = '';
+			}
+
+			function showSongsView() {
+				playlistsCard.classList.add('hidden');
+				songsCard.classList.remove('hidden');
 			}
 
 			function formatMeta(playlist) {
@@ -265,6 +304,7 @@
 
 					tr.querySelector('.playlist-open-btn').addEventListener('click', () => {
 						activePlaylistId = id;
+						showSongsView();
 						void loadPlaylistSongs(String(id), playlist.NomPlaylist || String(id));
 						const allRows = playlistsBody.querySelectorAll('.playlist-row');
 						allRows.forEach((el) => el.classList.remove('is-active'));
@@ -384,15 +424,8 @@
 					});
 
 					renderPlaylists(userPlaylists);
+					showPlaylistsView();
 					setStatus(`${userPlaylists.length} playlist(s) personnelle(s) chargée(s).`);
-
-					if (userPlaylists.length > 0) {
-						const first = userPlaylists[0];
-						activePlaylistId = Number(first.PlaylistId || 0);
-						if (activePlaylistId) {
-							void loadPlaylistSongs(String(activePlaylistId), first.NomPlaylist || String(activePlaylistId));
-						}
-					}
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);
@@ -484,6 +517,10 @@
 				createPlaylistButton.addEventListener('click', () => {
 					void createPlaylist();
 				});
+				backToPlaylistsButton.addEventListener('click', () => {
+					showPlaylistsView();
+				});
+				showPlaylistsView();
 				void loadPlaylists();
 				initEvent();
 			}
