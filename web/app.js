@@ -147,6 +147,9 @@ window.addEventListener('message', (event) => {
         type: 'SEARCH_PLAY_RESULT',
         result: message.result,
       });
+    } else if (message.type === 'REFRESH_ALL_PLAYLISTS') {
+      requestMyPlaylistsRefresh();
+      requestCommunityPlaylistsRefresh();
     } else if (message.type === 'PLAYLIST_LOAD_ALL' && Array.isArray(message.tracks) && message.tracks.length > 0) {
       // Charger toute la playlist dans la queue
       state.queue = message.tracks;

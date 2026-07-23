@@ -123,6 +123,61 @@
         color: #082f49;
         font-weight: 700;
       }
+
+      .duplicate-btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 10px;
+        cursor: pointer;
+        background: #22c55e;
+        color: #052e16;
+        font-weight: 700;
+      }
+
+      .busy-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 6, 23, 0.72);
+      }
+
+      .busy-overlay.visible {
+        display: flex;
+      }
+
+      .busy-card {
+        min-width: 280px;
+        max-width: min(90vw, 560px);
+        background: #0f172a;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+      }
+
+      .busy-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(148, 163, 184, 0.35);
+        border-top-color: #38bdf8;
+        border-radius: 50%;
+        margin: 0 auto 12px;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .busy-text {
+        color: #e2e8f0;
+        font-weight: 700;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body>
@@ -142,11 +197,19 @@
           <button id="backButton" class="back-button" type="button">← Retour</button>
           <div class="playlist-title" id="playlistTitle"></div>
           <button id="playAllButton" class="play-all-btn" type="button">▶ Lire tout</button>
+          <button id="duplicatePlaylistButton" class="duplicate-btn" type="button">Dupliquer</button>
         </div>
         <div id="playlistStatus" class="status"></div>
         <ul id="playlistTracks" class="playlist-tracks"></ul>
       </div>
     </section>
+
+    <div id="busyOverlay" class="busy-overlay" aria-hidden="true">
+      <div class="busy-card" role="status" aria-live="polite">
+        <div class="busy-spinner" aria-hidden="true"></div>
+        <div id="busyText" class="busy-text">Traitement en cours...</div>
+      </div>
+    </div>
 
     <script>
       let suggestionTimer = null;
@@ -165,6 +228,11 @@
       const playlistTracks = document.getElementById('playlistTracks');
       const backButton = document.getElementById('backButton');
       const playAllButton = document.getElementById('playAllButton');
+      const duplicatePlaylistButton = document.getElementById('duplicatePlaylistButton');
+      const busyOverlay = document.getElementById('busyOverlay');
+      const busyText = document.getElementById('busyText');
+      const interactiveElements = Array.from(document.querySelectorAll('button, input'));
+      let isBusy = false;
 
       function postToParent(type, payload = {}) {
         window.parent.postMessage({ source: 'playlists', type, ...payload }, '*');
@@ -186,6 +254,35 @@
         playlistStatus.textContent = message;
       }
 
+      function setBusyState(busy, message) {
+        isBusy = Boolean(busy);
+
+        if (busyText) {
+          busyText.textContent = String(message || 'Traitement en cours...');
+        }
+
+        if (busyOverlay) {
+          busyOverlay.classList.toggle('visible', isBusy);
+          busyOverlay.setAttribute('aria-hidden', isBusy ? 'false' : 'true');
+        }
+
+        interactiveElements.forEach((element) => {
+          if (!(element instanceof HTMLButtonElement || element instanceof HTMLInputElement)) {
+            return;
+          }
+
+          if (isBusy) {
+            element.dataset.wasDisabled = element.disabled ? '1' : '0';
+            element.disabled = true;
+            return;
+          }
+
+          const wasDisabled = element.dataset.wasDisabled === '1';
+          element.disabled = wasDisabled;
+          delete element.dataset.wasDisabled;
+        });
+      }
+
       function showSearchView() {
         searchSection.classList.remove('hidden');
         playlistSection.classList.add('hidden');
@@ -199,6 +296,10 @@
       }
 
       async function loadSuggestions(query) {
+        if (isBusy) {
+          return;
+        }
+
         try {
           const response = await fetch(`php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
           const payload = await response.json();
@@ -209,6 +310,10 @@
       }
 
       async function searchPlaylists() {
+        if (isBusy) {
+          return;
+        }
+
         const query = searchInput.value.trim();
 
         if (!query) {
@@ -410,6 +515,10 @@
       }
 
       async function playTrack(track) {
+        if (isBusy) {
+          return;
+        }
+
         const videoId = String(track.videoId || '').trim();
         if (!videoId) {
           setPlaylistStatus('Impossible de lire cette musique (Id manquant).');
@@ -432,6 +541,10 @@
       }
 
       async function playAllTracks() {
+        if (isBusy) {
+          return;
+        }
+
         if (!currentPlaylistTracks || currentPlaylistTracks.length === 0) {
           setPlaylistStatus('Aucune musique a lire dans cette playlist.');
           return;
@@ -451,17 +564,193 @@
         setPlaylistStatus(`Chargement de la playlist (${currentPlaylistTracks.length} musiques)...`);
       }
 
+      async function createDuplicatedPlaylist() {
+        const playlistName = String((currentPlaylist && currentPlaylist.title) || '').trim();
+        const sourcePlaylistId = String((currentPlaylist && currentPlaylist.playlistId) || '').trim();
+        const sourceAuthor = String((currentPlaylist && currentPlaylist.author) || '').trim();
+
+        if (!playlistName || !sourcePlaylistId) {
+          throw new Error('Aucune playlist YouTube ouverte a dupliquer.');
+        }
+
+        const descriptionParts = ['Dupliquee depuis YouTube'];
+        if (sourceAuthor) {
+          descriptionParts.push(`createur: ${sourceAuthor}`);
+        }
+        descriptionParts.push(`source: ${sourcePlaylistId}`);
+
+        const body = new URLSearchParams({
+          createPlaylist: '1',
+          NomPlaylist: playlistName,
+          Description: descriptionParts.join(' | '),
+        });
+
+        const response = await fetch('php/interface.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          body,
+        });
+
+        if (response.status === 401) {
+          window.location.replace('login.html');
+          return 0;
+        }
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'Impossible de creer la playlist locale.');
+        }
+
+        return Number(payload.playlist && payload.playlist.PlaylistId ? payload.playlist.PlaylistId : 0);
+      }
+
+      async function persistTrackForPlaylist(track) {
+        const videoId = String((track && track.videoId) || '').trim();
+        if (!videoId) {
+          throw new Error('Track sans videoId.');
+        }
+
+        const musicResponse = await fetch(`php/interface.php?musicId=${encodeURIComponent(videoId)}`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+
+        if (musicResponse.status === 401) {
+          window.location.replace('login.html');
+          throw new Error('Authentification requise.');
+        }
+
+        const musicPayload = await musicResponse.json();
+        if (!musicResponse.ok || !musicPayload.success) {
+          throw new Error(musicPayload.error || `Impossible de telecharger ${videoId}.`);
+        }
+
+        const title = String((track && track.title) || '').trim();
+        const artist = Array.isArray(track && track.artists) ? String((track.artists[0] || '')).trim() : '';
+
+        const addMusicBody = new URLSearchParams({
+          addMusic: '1',
+          Id: videoId,
+          Titre: title,
+          Artiste: artist,
+          Album: '',
+          Duree: '',
+          NombreVue: '',
+          DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        });
+
+        const addMusicResponse = await fetch('php/interface.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          body: addMusicBody,
+        });
+
+        if (addMusicResponse.status === 401) {
+          window.location.replace('login.html');
+          throw new Error('Authentification requise.');
+        }
+
+        const addMusicPayload = await addMusicResponse.json();
+        if (!addMusicResponse.ok || !addMusicPayload.success) {
+          throw new Error(addMusicPayload.error || `Impossible d'ajouter ${videoId} en base.`);
+        }
+
+        return videoId;
+      }
+
+      async function linkTrackToPlaylist(playlistId, musicId) {
+        const body = new URLSearchParams({
+          addPlaylistMusic: '1',
+          IdPlaylist: String(playlistId),
+          IdMusique: String(musicId),
+        });
+
+        const response = await fetch('php/interface.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          body,
+        });
+
+        if (response.status === 401) {
+          window.location.replace('login.html');
+          throw new Error('Authentification requise.');
+        }
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || `Impossible d'associer ${musicId} a la playlist.`);
+        }
+      }
+
+      async function duplicateCurrentYoutubePlaylist() {
+        if (isBusy) {
+          return;
+        }
+
+        if (!currentPlaylist || !currentPlaylistTracks.length) {
+          setPlaylistStatus('Aucune playlist ouverte a dupliquer.');
+          return;
+        }
+
+        const confirmed = window.confirm(
+          `Dupliquer la playlist "${String(currentPlaylist.title || 'Playlist')}" et telecharger ${currentPlaylistTracks.length} musique(s) ?`
+        );
+        if (!confirmed) {
+          return;
+        }
+
+        setBusyState(true, 'Duplication en cours...');
+        setPlaylistStatus('Duplication en cours...');
+
+        try {
+          setBusyState(true, 'Creation de la playlist locale...');
+          const newPlaylistId = await createDuplicatedPlaylist();
+          if (newPlaylistId <= 0) {
+            throw new Error('Creation de la playlist impossible.');
+          }
+
+          const total = currentPlaylistTracks.length;
+          for (let index = 0; index < total; index += 1) {
+            const track = currentPlaylistTracks[index];
+            const title = String((track && track.title) || 'musique').trim();
+            setBusyState(true, `Traitement ${index + 1}/${total}: ${title}`);
+
+            const musicId = await persistTrackForPlaylist(track);
+            await linkTrackToPlaylist(newPlaylistId, musicId);
+          }
+
+          setPlaylistStatus(`Playlist dupliquee avec succes (${currentPlaylistTracks.length} musique(s)).`);
+          postToParent('REFRESH_ALL_PLAYLISTS');
+        } catch (error) {
+          console.error(error);
+          setPlaylistStatus(String((error && error.message) || 'La duplication a echoue.'));
+        } finally {
+          setBusyState(false);
+        }
+      }
+
       searchButton.addEventListener('click', () => {
         void searchPlaylists();
       });
 
       searchInput.addEventListener('keydown', (event) => {
+        if (isBusy) {
+          return;
+        }
+
         if (event.key === 'Enter') {
           void searchPlaylists();
         }
       });
 
       searchInput.addEventListener('input', (event) => {
+        if (isBusy) {
+          return;
+        }
+
         const query = event.target.value.trim();
 
         if (!query) {
@@ -476,11 +765,19 @@
       });
 
       backButton.addEventListener('click', () => {
+        if (isBusy) {
+          return;
+        }
+
         showSearchView();
       });
 
       playAllButton.addEventListener('click', () => {
         void playAllTracks();
+      });
+
+      duplicatePlaylistButton.addEventListener('click', () => {
+        void duplicateCurrentYoutubePlaylist();
       });
     </script>
   </body>
