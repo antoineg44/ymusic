@@ -110,40 +110,7 @@
 				border: 1px solid rgba(148, 163, 184, 0.28);
 			}
 
-			.playlist-menu-frame {
-				position: fixed;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				min-width: 280px;
-				max-width: min(92vw, 360px);
-				border-radius: 14px;
-				width: 320px;
-				height: 300px;
-				border: 0;
-				z-index: 9999;
-				display: none;
-				background: transparent;
-			}
-
-			.playlist-menu-frame.is-open {
-				display: block;
-			}
-
-			.playlist-menu-overlay {
-				position: fixed;
-				top: 0;
-				left: 0;
-				right: 0;
-				bottom: 0;
-				background: rgba(0, 0, 0, 0.6);
-				z-index: 9998;
-				display: none;
-			}
-
-			.playlist-menu-overlay.is-open {
-				display: block;
-			}
+			/* Playlist menu styles removed - now handled in index.html modal */
 
 			.favorite-button.is-active {
 				color: #facc15;
@@ -250,11 +217,9 @@
 		</style>
 	</head>
 	<body>
-		<div id="playlistMenuOverlay" class="playlist-menu-overlay"></div>
 		<section class="player-card">
 			<button id="addToPlaylistButton" type="button" class="add-to-playlist-button" aria-label="Ajouter à une playlist">+</button>
 			<button id="favoriteButton" type="button" class="favorite-button" aria-label="Ajouter aux favoris">☆</button>
-				<iframe id="playlistMenuFrame" class="playlist-menu-frame" src="playlistMenu.html" title="Ajouter à une playlist" loading="eager"></iframe>
 			<div class="player-head">
 				<div>
 					<strong id="nowPlaying" class="marquee-line"><span class="marquee-text">Aucune lecture en cours</span></strong>
@@ -286,8 +251,6 @@
 			const loadingSpinner = document.getElementById('loadingSpinner');
 			const favoriteButton = document.getElementById('favoriteButton');
 			const addToPlaylistButton = document.getElementById('addToPlaylistButton');
-			const playlistMenuFrame = document.getElementById('playlistMenuFrame');
-			const playlistMenuOverlay = document.getElementById('playlistMenuOverlay');
 			const primaryAudio = document.getElementById('audioPlayer');
 			const secondaryAudio = document.getElementById('audioPlayerSecondary');
 			const playerCard = document.querySelector('.player-card');
@@ -315,7 +278,6 @@
 			let autoChainRequested = false;
 			let activeAudio = primaryAudio;
 			let currentMusicId = '';
-			let playlistMenuReady = false;
 			let audioContext = null;
 			let analyserNode = null;
 			let analyserData = null;
@@ -672,26 +634,14 @@
 				favoriteButton.setAttribute('aria-label', isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris');
 			}
 
-			function sendPlaylistMenuMessage(type, payload = {}) {
-				if (!playlistMenuFrame || !playlistMenuFrame.contentWindow) {
-					return;
-				}
-
-				playlistMenuFrame.contentWindow.postMessage({ target: 'playlistMenu', type, ...payload }, '*');
-			}
+			/* Playlist menu is now handled by parent modal */
 
 			function closePlaylistMenu() {
-				playlistMenuFrame.classList.remove('is-open');
-				playlistMenuOverlay.classList.remove('is-open');
-				sendPlaylistMenuMessage('CLOSE_MENU');
+				postToParent('CLOSE_PLAYLIST_MENU');
 			}
 
 			function openPlaylistMenu() {
-				playlistMenuFrame.classList.add('is-open');
-				playlistMenuOverlay.classList.add('is-open');
-				if (playlistMenuReady) {
-					sendPlaylistMenuMessage('OPEN_MENU', { musicId: currentMusicId });
-				}
+				postToParent('OPEN_PLAYLIST_MENU', { musicId: currentMusicId });
 			}
 
 			function showLoadingSpinner() {
@@ -775,13 +725,8 @@
 			}
 
 			playButton.addEventListener('click', toggleLocalPlayback);
-			addToPlaylistButton.addEventListener('click', async (event) => {
+			addToPlaylistButton.addEventListener('click', (event) => {
 				event.stopPropagation();
-				if (playlistMenuFrame.classList.contains('is-open')) {
-					closePlaylistMenu();
-					return;
-				}
-
 				openPlaylistMenu();
 			});
 			favoriteButton.addEventListener('click', () => {
@@ -858,49 +803,13 @@
 					return;
 				}
 
-				if (playlistMenuFrame.classList.contains('is-open')) {
-					closePlaylistMenu();
-					return;
-				}
-
 				postToParent('OPEN_DESCRIPTION');
 			});
 
-			document.addEventListener('click', (event) => {
-				const target = event.target;
-				if (!(target instanceof Element)) {
-					return;
-				}
 
-				if (target.closest('.add-to-playlist-button') || target.closest('.playlist-menu-frame')) {
-					return;
-				}
-
-				if (target === playlistMenuOverlay) {
-					closePlaylistMenu();
-					return;
-				}
-
-				closePlaylistMenu();
-			});
 
 			window.addEventListener('message', (event) => {
 				const message = event.data;
-				if (message && message.source === 'playlistMenu') {
-					if (message.type === 'PLAYLIST_MENU_READY') {
-						playlistMenuReady = true;
-						if (playlistMenuFrame.classList.contains('is-open')) {
-							sendPlaylistMenuMessage('OPEN_MENU', { musicId: currentMusicId });
-						}
-						return;
-					}
-
-					if (message.type === 'CLOSE_MENU') {
-						closePlaylistMenu();
-						return;
-					}
-				}
-
 				if (!message || message.target !== 'lecteur') {
 					return;
 				}
@@ -927,7 +836,6 @@
 					setStatusText(nowPlayingMeta, String(message.meta || 'Bibliotheque locale'));
 					setFavoriteState(Boolean(message.isFavorite));
 					currentMusicId = String(message.musicId || '').trim();
-					closePlaylistMenu();
 					const fadeInSeconds = Math.max(0, Number(message.fadeInSeconds || 0));
 					const incomingAudio = getInactiveAudio();
 					const outgoingAudio = activeAudio;

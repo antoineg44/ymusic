@@ -42,6 +42,10 @@ const descriptionModal = document.getElementById('descriptionModal');
 const descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
 const descriptionFrame = document.getElementById('descriptionFrame');
 const descriptionCloseButton = document.getElementById('descriptionCloseButton');
+const playlistMenuModal = document.getElementById('playlistMenuModal');
+const playlistMenuBackdrop = document.getElementById('playlistMenuModalBackdrop');
+const playlistMenuFrame = document.getElementById('playlistMenuFrame');
+const playlistMenuCloseButton = document.getElementById('playlistMenuCloseButton');
 
 const playerController = window.createLecteurController({
   state,
@@ -74,8 +78,16 @@ if (descriptionCloseButton) {
   descriptionCloseButton.addEventListener('click', closeDescriptionPopup);
 }
 
+if (playlistMenuCloseButton) {
+  playlistMenuCloseButton.addEventListener('click', closePlaylistMenuPopup);
+}
+
 if (descriptionBackdrop) {
   descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
+}
+
+if (playlistMenuBackdrop) {
+  playlistMenuBackdrop.addEventListener('click', closePlaylistMenuPopup);
 }
 
 window.addEventListener('message', (event) => {
@@ -158,6 +170,13 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.source === 'playlistMenu') {
+    if (message.type === 'CLOSE_PLAYLIST_MENU') {
+      closePlaylistMenuPopup();
+    }
+    return;
+  }
+
   if (message.source === 'menu') {
     if (message.type === 'MENU_TAB_SELECTED') {
       setActiveTab(String(message.tab || 'accueil'));
@@ -166,6 +185,14 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.source === 'lecteur') {
+    if (message.type === 'OPEN_PLAYLIST_MENU') {
+      openPlaylistMenuPopup(message.musicId);
+      return;
+    }
+    if (message.type === 'CLOSE_PLAYLIST_MENU') {
+      closePlaylistMenuPopup();
+      return;
+    }
     playerController.handleMessage(message);
     
     // Mettre à jour l'affichage de la queue quand la musique change
@@ -646,6 +673,35 @@ function openEditionsPopup(musicId) {
   descriptionFrame.src = `editions.html?id=${encodeURIComponent(id)}&popup=1`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
+}
+
+function openPlaylistMenuPopup(musicId) {
+  if (!playlistMenuModal || !playlistMenuFrame) {
+    return;
+  }
+
+  const id = String(musicId || '').trim();
+  playlistMenuFrame.src = `playlistMenu.html?musicId=${encodeURIComponent(id)}`;
+  playlistMenuModal.classList.remove('is-hidden');
+  playlistMenuModal.setAttribute('aria-hidden', 'false');
+  
+  // Envoyer un message à la iframe pour l'ouvrir
+  if (playlistMenuFrame.contentWindow) {
+    playlistMenuFrame.contentWindow.postMessage(
+      { target: 'playlistMenu', type: 'OPEN_MENU', musicId: id },
+      '*'
+    );
+  }
+}
+
+function closePlaylistMenuPopup() {
+  if (!playlistMenuModal || !playlistMenuFrame) {
+    return;
+  }
+
+  playlistMenuModal.classList.add('is-hidden');
+  playlistMenuModal.setAttribute('aria-hidden', 'true');
+  playlistMenuFrame.src = 'about:blank';
 }
 
 async function loadLibrary(filePath) {

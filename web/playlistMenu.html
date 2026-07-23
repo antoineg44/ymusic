@@ -185,9 +185,10 @@
 					}
 
 					setStatus(payload.message || `Ajoute a ${playlistName}.`);
+					// Attendre un peu avant de fermer pour montrer le message de succès
 					window.setTimeout(() => {
-						postToParent('CLOSE_MENU');
-					}, 500);
+						postToParent('CLOSE_PLAYLIST_MENU');
+					}, 800);
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur lors de l\'ajout.');
