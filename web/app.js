@@ -98,6 +98,14 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (message.type === 'DISPLAY_OPEN_DESCRIPTION') {
+    const song = message.song || message.result || (message.payload && message.payload.song);
+    if (song) {
+      openDescriptionPopupForSong(song);
+    }
+    return;
+  }
+
   if (message.source === 'recherche') {
     rechercheController.handleMessage(message);
     return;
@@ -693,9 +701,10 @@ function openDescriptionPopupForSong(song) {
     return;
   }
 
-  const musicId = String((song && song.Id) || '').trim();
-  const title = String((song && song.Titre) || '').trim();
-  const artist = String((song && song.Artiste) || '').trim();
+  const musicId = String((song && (song.Id || song.videoId)) || '').trim();
+  const title = String((song && (song.Titre || song.title)) || '').trim();
+  const artistFromArray = Array.isArray(song && song.artists) ? String((song.artists[0] || '')) : '';
+  const artist = String((song && (song.Artiste || song.artist || artistFromArray)) || '').trim();
 
   if (!musicId) {
     setStatus('Impossible d\'ouvrir la description: identifiant de musique introuvable.');

@@ -74,14 +74,8 @@
 				text-decoration: underline;
 			}
 
-			.playlist-open-btn {
-				border: 0;
-				border-radius: 999px;
-				padding: 6px 10px;
+			.playlist-row {
 				cursor: pointer;
-				background: #38bdf8;
-				color: #082f49;
-				font-weight: 700;
 			}
 
 			.musiques-table {
@@ -223,7 +217,6 @@
 									<th>Date derniere modification</th>
 									<th>Vues</th>
 									<th>Utilisateur</th>
-									<th>Action</th>
 								</tr>
 							</thead>
 							<tbody id="playlistsBody"></tbody>
@@ -319,7 +312,7 @@
 				playlistsBody.innerHTML = '';
 
 				if (!playlists.length) {
-					playlistsBody.innerHTML = '<tr><td colspan="7">Aucune playlist en base.</td></tr>';
+					playlistsBody.innerHTML = '<tr><td colspan="6">Aucune playlist en base.</td></tr>';
 					return;
 				}
 
@@ -335,10 +328,14 @@
 						<td>${escapeHtml(formatDate(playlist.DateDerniereModification))}</td>
 						<td>${Number(playlist.NombreVue || 0)}</td>
 						<td>${renderUserLink(playlist)}</td>
-						<td><button type="button" class="playlist-open-btn">Ouvrir</button></td>
 					`;
 
-					tr.querySelector('.playlist-open-btn').addEventListener('click', () => {
+					tr.addEventListener('click', (event) => {
+						const target = event.target;
+						if (target instanceof HTMLElement && target.closest('a')) {
+							return;
+						}
+
 						activePlaylistId = id;
 						openedPlaylistName = String(playlist.NomPlaylist || String(id));
 						openedPlaylistDescription = String(playlist.Description || '');

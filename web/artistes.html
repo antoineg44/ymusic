@@ -76,6 +76,25 @@
 				color: #082f49;
 				font-weight: 700;
 			}
+
+			.artist-songs-list {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+
+			.artist-songs-list li {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.2);
+				border-radius: 10px;
+				padding: 8px 10px;
+			}
 		</style>
 	</head>
 	<body>
@@ -110,24 +129,14 @@
 						<button id="backToArtistsBtn" class="artists-back" type="button">Retour aux artistes</button>
 					</div>
 					<div class="artists-table-wrap">
-						<table class="artists-table" aria-label="Musiques de l'artiste">
-							<thead>
-								<tr>
-									<th>Titre</th>
-									<th>Album</th>
-									<th>Duree</th>
-									<th>Vues internes</th>
-									<th>Action</th>
-								</tr>
-							</thead>
-							<tbody id="songsBody"></tbody>
-						</table>
+						<ul id="songsList" class="artist-songs-list" aria-label="Musiques de l'artiste"></ul>
 					</div>
 					<audio id="artistPreviewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
 				</div>
 			</section>
 		</main>
 
+		<script src="js/display.js"></script>
 		<script>
 			const artistsBody = document.getElementById('artistsBody');
 			const artistsStatus = document.getElementById('artistsStatus');
@@ -136,7 +145,7 @@
 			const artistsHead = document.querySelector('.artists-head');
 			const songsTitle = document.getElementById('songsTitle');
 			const songsStatus = document.getElementById('songsStatus');
-			const songsBody = document.getElementById('songsBody');
+			const songsList = document.getElementById('songsList');
 			const backToArtistsBtn = document.getElementById('backToArtistsBtn');
 			let activeArtistName = '';
 
@@ -195,7 +204,7 @@
 				hideArtists();
 				artistSongsPanel.classList.remove('is-hidden');
 				songsTitle.textContent = `Musiques de ${artist}`;
-				songsBody.innerHTML = '';
+				songsList.innerHTML = '';
 				setSongsStatus('Chargement...');
 
 				try {
@@ -215,29 +224,41 @@
 					}
 
 					const songs = Array.isArray(payload.songs) ? payload.songs : [];
-					songsBody.innerHTML = '';
+					songsList.innerHTML = '';
 
 					if (!songs.length) {
-						songsBody.innerHTML = '<tr><td colspan="5">Aucune musique pour cet artiste</td></tr>';
+						songsList.innerHTML = '<li>Aucune musique pour cet artiste</li>';
 						setSongsStatus('Aucune musique trouvee pour cet artiste.');
 						return;
 					}
 
-					songs.forEach((song) => {
-						const row = document.createElement('tr');
-						row.innerHTML = `
-							<td>${escapeHtml(song.Titre || '')}</td>
-							<td>${escapeHtml(song.Album || '')}</td>
-							<td>${formatDuration(song.Duree)}</td>
-							<td>${Number(song.NombreVueInterne || 0)}</td>
-							<td><button type="button" class="song-play-button">▶</button></td>
-						`;
+					songs.forEach((song, index) => {
+						const preparedSong = {
+							Id: String(song.Id || ''),
+							Titre: String(song.Titre || ''),
+							Artiste: activeArtistName || String(song.Artiste || ''),
+							title: String(song.Titre || 'Musique inconnue'),
+							artists: [activeArtistName || String(song.Artiste || 'Artiste inconnu')],
+							duration: Number(song.Duree || 0),
+							views: Number(song.NombreVueInterne || 0),
+							showIndex: false,
+							buttons: {
+								buttons: {
+									play: {
+										type: 'ARTIST_PLAY_SONG',
+										result: {
+											...song,
+											Artiste: activeArtistName || String(song.Artiste || ''),
+										},
+										className: 'song-play-button',
+									},
+								},
+								source: 'artistes',
+							},
+						};
 
-						const playButton = row.querySelector('.song-play-button');
-						playButton.addEventListener('click', () => {
-							void playArtistSong(song);
-						});
-						songsBody.appendChild(row);
+						const item = renderElement(preparedSong, index);
+						songsList.appendChild(item);
 					});
 
 					setSongsStatus(`${songs.length} musique(s) chargee(s).`);
@@ -245,22 +266,6 @@
 					console.error(error);
 					setSongsStatus(error.message || 'Erreur de chargement.', true);
 				}
-			}
-
-			async function playArtistSong(song) {
-				const id = String((song && song.Id) || '').trim();
-				if (!id) {
-					setSongsStatus('Impossible de lire cette musique (Id manquant).', true);
-					return;
-				}
-
-				postToParent('ARTIST_PLAY_SONG', {
-					song: {
-						...song,
-						Artiste: activeArtistName || String(song.Artiste || ''),
-					},
-				});
-				setSongsStatus(`Lecture envoyee au lecteur: ${song.Titre || id}`);
 			}
 
 			async function loadArtists() {
@@ -317,7 +322,7 @@
 			backToArtistsBtn.addEventListener('click', () => {
 				showArtists();
 				artistSongsPanel.classList.add('is-hidden');
-				songsBody.innerHTML = '';
+				songsList.innerHTML = '';
 				activeArtistName = '';
 			});
 		</script>

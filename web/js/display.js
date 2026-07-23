@@ -6,6 +6,38 @@ function escapeHtml(value) {
     .replace(/\"/g, '&quot;');
 }
 
+const SINGLE_CLICK_DELAY_MS = 220;
+let pendingDisplayPlayTimer = null;
+
+function buildDescriptionSongPayload(el) {
+  const artists = Array.isArray(el && el.artists) ? el.artists : [];
+  const firstArtist = artists.length > 0 ? String(artists[0] || '').trim() : '';
+
+  return {
+    Id: String((el && (el.Id || el.videoId || (el.result && el.result.Id) || (el.result && el.result.videoId))) || '').trim(),
+    Titre: String((el && (el.Titre || el.title || (el.result && el.result.Titre) || (el.result && el.result.title))) || '').trim(),
+    Artiste: String((el && (el.Artiste || el.artist || (el.result && el.result.Artiste) || (el.result && el.result.artist) || firstArtist)) || '').trim(),
+  };
+}
+
+function postPlayMessage(infos, index) {
+  const message = {
+    source: infos.source,
+    type: infos.buttons.play.type,
+    index,
+  };
+
+  if (Object.prototype.hasOwnProperty.call(infos.buttons.play, 'result')) {
+    message.result = infos.buttons.play.result;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(infos.buttons.play, 'payload')) {
+    message.payload = infos.buttons.play.payload;
+  }
+
+  window.parent.postMessage(message, '*');
+}
+
 function getDisplayHTMLButtons(item, infos, index) {
   const playClassName = infos.buttons.play && infos.buttons.play.className
     ? String(infos.buttons.play.className)
@@ -28,21 +60,7 @@ function getDisplayHTMLButtons(item, infos, index) {
     button.addEventListener('click', () => {
       const action = button.dataset.action;
       if (action === 'play') {
-        const message = {
-          source: infos.source,
-          type: infos.buttons.play.type,
-          index,
-        };
-
-        if (Object.prototype.hasOwnProperty.call(infos.buttons.play, 'result')) {
-          message.result = infos.buttons.play.result;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(infos.buttons.play, 'payload')) {
-          message.payload = infos.buttons.play.payload;
-        }
-
-        window.parent.postMessage(message, '*');
+        postPlayMessage(infos, index);
       } else if (action === 'delete') {
         const message = {
           source: infos.source,
@@ -111,6 +129,49 @@ function renderElement(el, index) {
     item.classList.add('queue-item-missing');
 
   getDisplayHTMLButtons(item, el.buttons, index);
+
+  item.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest('button')) {
+      return;
+    }
+
+    if (!el.buttons || !el.buttons.buttons || !el.buttons.buttons.play) {
+      return;
+    }
+
+    if (pendingDisplayPlayTimer !== null) {
+      clearTimeout(pendingDisplayPlayTimer);
+    }
+
+    pendingDisplayPlayTimer = window.setTimeout(() => {
+      pendingDisplayPlayTimer = null;
+      postPlayMessage(el.buttons, index);
+    }, SINGLE_CLICK_DELAY_MS);
+  });
+
+  item.addEventListener('dblclick', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest('button')) {
+      return;
+    }
+
+    if (pendingDisplayPlayTimer !== null) {
+      clearTimeout(pendingDisplayPlayTimer);
+      pendingDisplayPlayTimer = null;
+    }
+
+    const song = buildDescriptionSongPayload(el);
+    if (!song.Id) {
+      return;
+    }
+
+    window.parent.postMessage({
+      source: el.buttons && el.buttons.source ? el.buttons.source : 'display',
+      type: 'DISPLAY_OPEN_DESCRIPTION',
+      song,
+    }, '*');
+  });
 
   return item;
 }
