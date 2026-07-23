@@ -85,6 +85,14 @@ class YouTubeMusic
         ]);
     }
 
+    public function songDetails(string $videoId): array
+    {
+        return $this->run([
+            'song_details',
+            $videoId
+        ]);
+    }
+
     public function download(string $musicId): array
     {
         $command =

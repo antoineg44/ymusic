@@ -605,6 +605,52 @@
         return Number(payload.playlist && payload.playlist.PlaylistId ? payload.playlist.PlaylistId : 0);
       }
 
+      function toPositiveInteger(value) {
+        const numeric = Number.parseInt(String(value ?? '').replace(/[^0-9]/g, ''), 10);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+          return null;
+        }
+        return numeric;
+      }
+
+      function parseDurationToSeconds(value) {
+        const text = String(value || '').trim();
+        if (!text) {
+          return null;
+        }
+
+        const chunks = text.split(':').map((chunk) => chunk.trim());
+        if (!chunks.length || chunks.some((chunk) => !/^[0-9]+$/.test(chunk))) {
+          return null;
+        }
+
+        let seconds = 0;
+        for (const chunk of chunks) {
+          seconds = (seconds * 60) + Number.parseInt(chunk, 10);
+        }
+
+        return seconds > 0 ? seconds : null;
+      }
+
+      async function fetchYoutubeTrackMetadata(videoId) {
+        const response = await fetch(`php/interface.php?musicMetadata=1&id=${encodeURIComponent(videoId)}`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+
+        if (response.status === 401) {
+          window.location.replace('login.html');
+          throw new Error('Authentification requise.');
+        }
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || `Impossible de recuperer les metadonnees de ${videoId}.`);
+        }
+
+        return payload.metadata || {};
+      }
+
       async function persistTrackForPlaylist(track) {
         const videoId = String((track && track.videoId) || '').trim();
         if (!videoId) {
@@ -626,17 +672,34 @@
           throw new Error(musicPayload.error || `Impossible de telecharger ${videoId}.`);
         }
 
-        const title = String((track && track.title) || '').trim();
-        const artist = Array.isArray(track && track.artists) ? String((track.artists[0] || '')).trim() : '';
+        const metadata = await fetchYoutubeTrackMetadata(videoId);
+
+        const trackTitle = String((track && track.title) || '').trim();
+        const trackArtist = Array.isArray(track && track.artists) ? String((track.artists[0] || '')).trim() : '';
+
+        const title = String((metadata && metadata.title) || trackTitle || videoId).trim();
+        const artist = String((metadata && metadata.artist) || trackArtist || '').trim();
+
+        let album = String((metadata && metadata.album) || '').trim();
+        if (!album) {
+          album = String((currentPlaylist && currentPlaylist.title) || '').trim();
+        }
+
+        const durationSeconds =
+          toPositiveInteger(metadata && metadata.durationSeconds)
+          || parseDurationToSeconds(track && track.duration)
+          || 0;
+
+        const views = toPositiveInteger(metadata && metadata.views) || 0;
 
         const addMusicBody = new URLSearchParams({
           addMusic: '1',
           Id: videoId,
           Titre: title,
           Artiste: artist,
-          Album: '',
-          Duree: '',
-          NombreVue: '',
+          Album: album,
+          Duree: String(durationSeconds),
+          NombreVue: String(views),
           DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
         });
 

@@ -363,6 +363,25 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['musicMetadata'])) {
+
+    try {
+        $videoId = trim((string) ($_GET['id'] ?? $_GET['videoId'] ?? ''));
+        if ($videoId === '') {
+            throw new RuntimeException('videoId requis');
+        }
+
+        echo json_encode(
+            $yt->songDetails($videoId),
+            JSON_UNESCAPED_UNICODE
+        );
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['savePlayedPlaylist']) || !empty($_POST['savePlayedPlaylist'])) {
 
     try {
