@@ -74,12 +74,15 @@ function renderElement(el, index) {
   const metadata = `${duration} • ${views} vues`;
 
   const showIndex = el.showIndex !== false;
+  const displayIndex = Number.isFinite(el.displayIndex)
+    ? Math.max(1, Math.floor(el.displayIndex))
+    : (index + 1);
 
   // Recalculer l'index d'affichage à partir de la musique actuelle
   const indexClass = el.isPlaying ? 'queue-item-index playing' : 'queue-item-index';
   const indexContent = el.isPlaying
     ? '<div class="playing-icon"><span></span><span></span><span></span></div>'
-    : String(index + 1);
+    : String(displayIndex);
 
   const item = document.createElement('li');
   if (showIndex) {

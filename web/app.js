@@ -46,6 +46,7 @@ const playlistMenuModal = document.getElementById('playlistMenuModal');
 const playlistMenuBackdrop = document.getElementById('playlistMenuModalBackdrop');
 const playlistMenuFrame = document.getElementById('playlistMenuFrame');
 const playlistMenuCloseButton = document.getElementById('playlistMenuCloseButton');
+let pendingQueueRefreshOnLoad = null;
 
 const playerController = window.createLecteurController({
   state,
@@ -420,6 +421,11 @@ function requestQueueRefresh() {
     postQueueUpdate();
   };
 
+  if (pendingQueueRefreshOnLoad) {
+    queueFrame.removeEventListener('load', pendingQueueRefreshOnLoad);
+  }
+
+  pendingQueueRefreshOnLoad = refreshOnLoad;
   queueFrame.addEventListener('load', refreshOnLoad, { once: true });
 }
 
