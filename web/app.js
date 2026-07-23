@@ -98,8 +98,11 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.source === 'liste') {
-    if (message.type === 'LIST_PLAY_SONG' && message.song) {
-      void handleListPlaySong(message.song);
+    if (message.type === 'LIST_PLAY_SONG') {
+      const song = message.song || message.result || (message.payload && message.payload.song);
+      if (song) {
+        void handleListPlaySong(song);
+      }
     }
     return;
   }

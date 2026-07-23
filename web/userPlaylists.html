@@ -149,6 +149,68 @@
 				font-weight: 700;
 			}
 
+			.duplicate-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #22c55e;
+				color: #052e16;
+				font-weight: 700;
+			}
+
+			.play-all-btn {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
+			}
+
+			.playlist-tracks {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			.playlist-tracks li {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 10px;
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.15);
+				border-radius: 12px;
+				padding: 10px 12px;
+			}
+
+			.track-info {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+				flex: 1;
+			}
+
+			.track-info strong {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.track-info small {
+				color: #94a3b8;
+			}
+
+			.actions {
+				display: flex;
+				gap: 8px;
+			}
+
 			@media (max-width: 980px) {
 				.content-grid {
 					grid-template-columns: 1fr;
@@ -191,39 +253,33 @@
 				<article id="songsCard" class="card hidden" aria-label="Musiques de la playlist">
 					<div class="songs-head">
 						<button id="backToPlaylistsButton" class="back-btn" type="button">← Retour</button>
+						<button id="playAllButton" class="play-all-btn" type="button">Lire tout</button>
+						<button id="duplicatePlaylistButton" class="duplicate-btn" type="button">Dupliquer</button>
 						<h2 id="songsTitle">Musiques</h2>
 					</div>
-					<div class="musiques-table-wrap">
-						<table class="musiques-table" aria-label="Musiques de playlist">
-							<thead>
-								<tr>
-									<th>Titre</th>
-									<th>Artiste</th>
-									<th>Album</th>
-									<th>Vues</th>
-									<th>Vues internes</th>
-									<th>Action</th>
-								</tr>
-							</thead>
-							<tbody id="songsBody"></tbody>
-						</table>
-					</div>
+					<ul id="songsList" class="playlist-tracks" aria-label="Musiques de playlist"></ul>
 				</article>
 			</section>
 		</main>
 
+		<script src="js/display.js"></script>
 		<script>
 			const playlistsStatus = document.getElementById('playlistsStatus');
 			const playlistsBody = document.getElementById('playlistsBody');
-			const songsBody = document.getElementById('songsBody');
+			const songsList = document.getElementById('songsList');
 			const songsTitle = document.getElementById('songsTitle');
 			const playlistsCard = document.getElementById('playlistsCard');
 			const songsCard = document.getElementById('songsCard');
 			const backToPlaylistsButton = document.getElementById('backToPlaylistsButton');
+			const playAllButton = document.getElementById('playAllButton');
+			const duplicatePlaylistButton = document.getElementById('duplicatePlaylistButton');
 			const createPlaylistButton = document.getElementById('createPlaylistButton');
 
 			let activePlaylistId = '';
 			let currentUserId = 0;
+			let openedPlaylistName = '';
+			let openedPlaylistDescription = '';
+			let openedPlaylistSongs = [];
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -246,7 +302,8 @@
 				playlistsCard.classList.remove('hidden');
 				songsCard.classList.add('hidden');
 				songsTitle.textContent = 'Musiques';
-				songsBody.innerHTML = '';
+				songsList.innerHTML = '';
+				openedPlaylistSongs = [];
 			}
 
 			function showSongsView() {
@@ -304,6 +361,8 @@
 
 					tr.querySelector('.playlist-open-btn').addEventListener('click', () => {
 						activePlaylistId = id;
+						openedPlaylistName = String(playlist.NomPlaylist || String(id));
+						openedPlaylistDescription = String(playlist.Description || '');
 						showSongsView();
 						void loadPlaylistSongs(String(id), playlist.NomPlaylist || String(id));
 						const allRows = playlistsBody.querySelectorAll('.playlist-row');
@@ -316,30 +375,34 @@
 			}
 
 			function renderSongs(rows) {
-				songsBody.innerHTML = '';
+				songsList.innerHTML = '';
 
 				if (!rows.length) {
-					songsBody.innerHTML = '<tr><td colspan="6">Aucune musique liée à cette playlist.</td></tr>';
+					songsList.innerHTML = '<li>Aucune musique liée à cette playlist.</li>';
 					return;
 				}
 
-				rows.forEach((row) => {
-					const tr = document.createElement('tr');
-					tr.innerHTML = `
-						<td>${escapeHtml(row.Titre)}</td>
-						<td>${escapeHtml(row.Artiste)}</td>
-						<td>${escapeHtml(row.Album)}</td>
-						<td>${Number(row.NombreVue || 0)}</td>
-						<td>${Number(row.NombreVueInterne || 0)}</td>
-						<td><button type="button" class="play-btn">▶</button></td>
-					`;
+				rows.forEach((row, index) => {
+					const preparedSong = {
+						title: String(row.Titre || 'Musique inconnue'),
+						artists: row.Artiste ? [String(row.Artiste)] : [],
+						duration: Number(row.Duree || 0),
+						views: Number(row.NombreVue || 0),
+						showIndex: false,
+						buttons: {
+							buttons: {
+								play: {
+									type: 'LIST_PLAY_SONG',
+									result: row,
+									className: 'play-btn',
+								},
+							},
+							source: 'liste',
+						},
+					};
 
-					tr.querySelector('.play-btn').addEventListener('click', () => {
-						postToParent('LIST_PLAY_SONG', { song: row });
-						setStatus(`Lecture envoyée au lecteur: ${row.Titre || row.Id}`);
-					});
-
-					songsBody.appendChild(tr);
+					const item = renderElement(preparedSong, index);
+					songsList.appendChild(item);
 				});
 			}
 
@@ -362,10 +425,12 @@
 					}
 
 					const rows = Array.isArray(payload.songs) ? payload.songs : [];
+					openedPlaylistSongs = rows;
 					renderSongs(rows);
 					setStatus(`Playlist "${playlistName}" chargée (${rows.length} musique(s)).`);
 				} catch (error) {
 					console.error(error);
+					openedPlaylistSongs = [];
 					setStatus(error.message || 'Erreur de chargement des musiques.', true);
 				}
 			}
@@ -462,11 +527,19 @@
 				}
 
 				const description = String(window.prompt('Description de la playlist:') || '').trim();
+				await createPlaylistInDatabase(name, description);
+			}
+
+			async function createPlaylistInDatabase(name, description) {
+				const safeName = String(name || '').trim();
+				if (!safeName) {
+					throw new Error('Nom de playlist requis.');
+				}
 
 				try {
 					const body = new URLSearchParams({
 						createPlaylist: '1',
-						NomPlaylist: name,
+						NomPlaylist: safeName,
 						Description: description,
 					});
 
@@ -490,14 +563,118 @@
 					setStatus('Playlist creee.');
 					await loadPlaylists();
 					const createdId = Number(payload.playlist && payload.playlist.PlaylistId ? payload.playlist.PlaylistId : 0);
-					if (createdId) {
-						activePlaylistId = createdId;
-						void loadPlaylistSongs(String(createdId), name);
-					}
+					return createdId;
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Impossible de créer la playlist.', true);
+					return 0;
 				}
+			}
+
+			async function addMusicToPlaylist(playlistId, musicId) {
+				const body = new URLSearchParams({
+					addPlaylistMusic: '1',
+					IdPlaylist: String(playlistId),
+					IdMusique: String(musicId),
+				});
+
+				const response = await fetch('php/interface.php', {
+					method: 'POST',
+					credentials: 'same-origin',
+					cache: 'no-store',
+					body,
+				});
+
+				if (response.status === 401) {
+					window.location.replace('login.html');
+					return;
+				}
+
+				const payload = await response.json();
+				if (!response.ok || !payload.success) {
+					throw new Error(payload.error || 'Impossible d\'ajouter une musique a la playlist.');
+				}
+			}
+
+			async function duplicateOpenedPlaylist() {
+				if (!activePlaylistId || !openedPlaylistName) {
+					setStatus('Aucune playlist ouverte a dupliquer.', true);
+					return;
+				}
+
+				const defaultName = `${openedPlaylistName} (copie)`;
+				const newName = String(window.prompt('Nom de la playlist dupliquee:', defaultName) || '').trim();
+				if (!newName) {
+					return;
+				}
+
+				try {
+					setStatus('Duplication de la playlist en cours...');
+					const newPlaylistId = await createPlaylistInDatabase(newName, openedPlaylistDescription);
+					if (!newPlaylistId) {
+						return;
+					}
+
+					const songIds = openedPlaylistSongs
+						.map((song) => String((song && song.Id) || '').trim())
+						.filter(Boolean);
+
+					let copiedCount = 0;
+					for (const songId of songIds) {
+						await addMusicToPlaylist(newPlaylistId, songId);
+						copiedCount += 1;
+					}
+
+					await loadPlaylists();
+					setStatus(`Playlist dupliquee: ${newName} (${copiedCount} musique(s) copiee(s)).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Impossible de dupliquer la playlist.', true);
+				}
+			}
+
+			function buildPlaylistQueueTracks(rows) {
+				return rows
+					.map((row) => {
+						const videoId = String((row && row.Id) || '').trim();
+						if (!videoId) {
+							return null;
+						}
+
+						const artist = String((row && row.Artiste) || '').trim();
+						return {
+							videoId,
+							title: String((row && row.Titre) || 'Musique inconnue').trim(),
+							artists: artist ? [artist] : [],
+							duration: Number((row && row.Duree) || 0),
+							views: Number((row && row.NombreVue) || 0),
+						};
+					})
+					.filter(Boolean);
+			}
+
+			function playAllOpenedPlaylist() {
+				if (!activePlaylistId || !openedPlaylistName) {
+					setStatus('Aucune playlist ouverte a lire.', true);
+					return;
+				}
+
+				const tracks = buildPlaylistQueueTracks(openedPlaylistSongs);
+				if (!tracks.length) {
+					setStatus('Aucune musique disponible dans cette playlist.', true);
+					return;
+				}
+
+				window.parent.postMessage(
+					{
+						source: 'playlists',
+						type: 'PLAYLIST_LOAD_ALL',
+						tracks,
+					},
+					'*'
+				);
+
+				setStatus(`File de lecture remplacee par "${openedPlaylistName}" (${tracks.length} musique(s)).`);
 			}
 
 			function initEvent() {
@@ -516,6 +693,12 @@
 			function init() {
 				createPlaylistButton.addEventListener('click', () => {
 					void createPlaylist();
+				});
+				playAllButton.addEventListener('click', () => {
+					playAllOpenedPlaylist();
+				});
+				duplicatePlaylistButton.addEventListener('click', () => {
+					void duplicateOpenedPlaylist();
 				});
 				backToPlaylistsButton.addEventListener('click', () => {
 					showPlaylistsView();
