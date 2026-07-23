@@ -114,7 +114,7 @@
 					const total = Number(playlist.TotalMusiques || 0);
 					button.textContent = `${playlistName} (${total})`;
 					button.addEventListener('click', () => {
-						void addCurrentMusicToPlaylist(playlistId, playlistName);
+						requestAddCurrentMusicToPlaylist(playlistId, playlistName);
 					});
 					playlistMenuList.appendChild(button);
 				});
@@ -154,47 +154,19 @@
 				}
 			}
 
-			async function addCurrentMusicToPlaylist(playlistId, playlistName) {
+			function requestAddCurrentMusicToPlaylist(playlistId, playlistName) {
 				const safePlaylistId = Number(playlistId || 0);
 				if (!safePlaylistId || !currentMusicId) {
 					setStatus('Musique courante introuvable.');
 					return;
 				}
 
-				try {
-					setStatus(`Ajout à ${playlistName}...`);
-					const body = new URLSearchParams({
-						addPlaylistMusic: '1',
-						IdPlaylist: String(safePlaylistId),
-						IdMusique: currentMusicId,
-					});
-
-					const response = await fetch('php/interface.php', {
-						method: 'POST',
-						credentials: 'same-origin',
-						cache: 'no-store',
-						body,
-					});
-
-					if (response.status === 401) {
-						window.location.replace('login.html');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
-						throw new Error(payload.error || 'Impossible d\'ajouter la musique.');
-					}
-
-					setStatus(payload.message || `Ajoute a ${playlistName}.`);
-					// Attendre un peu avant de fermer pour montrer le message de succès
-					window.setTimeout(() => {
-						postToParent('CLOSE_PLAYLIST_MENU');
-					}, 800);
-				} catch (error) {
-					console.error(error);
-					setStatus(error.message || 'Erreur lors de l\'ajout.');
-				}
+				setStatus(`Ajout à ${playlistName}...`);
+				postToParent('ADD_CURRENT_MUSIC_TO_PLAYLIST', {
+					playlistId: safePlaylistId,
+					playlistName,
+					musicId: currentMusicId,
+				});
 			}
 
 			window.addEventListener('message', (event) => {
@@ -211,6 +183,19 @@
 
 				if (message.type === 'CLOSE_MENU') {
 					setStatus('Choisissez une playlist.');
+					return;
+				}
+
+				if (message.type === 'ADD_TO_PLAYLIST_RESULT') {
+					if (message.success) {
+						setStatus(String(message.message || 'Musique ajoutee a la playlist.'));
+						window.setTimeout(() => {
+							postToParent('CLOSE_PLAYLIST_MENU');
+						}, 800);
+						return;
+					}
+
+					setStatus(String(message.error || 'Erreur lors de l\'ajout.'));
 				}
 			});
 

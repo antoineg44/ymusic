@@ -207,6 +207,8 @@ window.addEventListener('message', (event) => {
   if (message.source === 'playlistMenu') {
     if (message.type === 'CLOSE_PLAYLIST_MENU') {
       closePlaylistMenuPopup();
+    } else if (message.type === 'ADD_CURRENT_MUSIC_TO_PLAYLIST') {
+      void addCurrentMusicToPlaylistFromMenu(message);
     }
     return;
   }
@@ -801,6 +803,84 @@ function requestCommunityPlaylistsRefresh() {
     },
     '*'
   );
+}
+
+function postPlaylistMenuResult(payload) {
+  if (!playlistMenuFrame || !playlistMenuFrame.contentWindow) {
+    return;
+  }
+
+  playlistMenuFrame.contentWindow.postMessage(
+    {
+      target: 'playlistMenu',
+      type: 'ADD_TO_PLAYLIST_RESULT',
+      ...(payload || {}),
+    },
+    '*'
+  );
+}
+
+async function addCurrentMusicToPlaylistFromMenu(message) {
+  const playlistId = Number((message && message.playlistId) || 0);
+  const playlistName = String((message && message.playlistName) || '').trim();
+  let musicId = String((message && message.musicId) || '').trim();
+
+  if (playlistId <= 0) {
+    postPlaylistMenuResult({ success: false, error: 'Playlist invalide.' });
+    return;
+  }
+
+  try {
+    // Même comportement que le bouton favoris: sauvegarde/telechargement en base d'abord.
+    if (playerController && typeof playerController.toggleFavorite === 'function') {
+      await playerController.toggleFavorite();
+    }
+
+    if (!musicId) {
+      musicId = resolveCurrentTrackId();
+    }
+
+    if (!musicId) {
+      throw new Error('Musique courante introuvable.');
+    }
+
+    const body = new URLSearchParams({
+      addPlaylistMusic: '1',
+      IdPlaylist: String(playlistId),
+      IdMusique: musicId,
+    });
+
+    const response = await fetch('php/interface.php', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body,
+    });
+
+    if (response.status === 401) {
+      window.location.replace('login.html');
+      return;
+    }
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Impossible d\'ajouter la musique.');
+    }
+
+    postPlaylistMenuResult({
+      success: true,
+      message: String(payload.message || `Ajoute a ${playlistName || 'la playlist'}.`),
+    });
+
+    requestMyPlaylistsRefresh();
+    requestCommunityPlaylistsRefresh();
+  } catch (error) {
+    console.error(error);
+    postPlaylistMenuResult({
+      success: false,
+      error: String((error && error.message) || 'Erreur lors de l\'ajout.'),
+    });
+  }
 }
 
 function openPlaylistMenuPopup(musicId) {
