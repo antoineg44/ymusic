@@ -256,6 +256,26 @@
 						<td><button type="button" class="play-btn">▶</button></td>
 					`;
 
+					tr.addEventListener('click', (event) => {
+						const target = event.target;
+						if (target instanceof HTMLElement && target.closest('button')) {
+							return;
+						}
+						void playMusic(row);
+					});
+
+					tr.addEventListener('dblclick', (event) => {
+						const target = event.target;
+						if (target instanceof HTMLElement && target.closest('button')) {
+							return;
+						}
+
+						postToParent('LIST_OPEN_DESCRIPTION', {
+							song: row,
+						});
+						setStatus(`Description demandee: ${row.Titre || row.Id}`);
+					});
+
 					const playButton = tr.querySelector('.play-btn');
 					playButton.addEventListener('click', () => {
 						void playMusic(row);

@@ -218,6 +218,24 @@ function find_downloaded_file_for_music_id(string $id): ?array
         );
     }
 
+    function count_music_playlist_links(PDO $pdo, string $musicId): int
+    {
+        if ($musicId === '') {
+            return 0;
+        }
+
+        ensure_playlists_tables($pdo);
+
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) AS Total
+             FROM MyPlaylistMusiques
+             WHERE IdMusique = :musicId'
+        );
+        $stmt->execute([':musicId' => $musicId]);
+
+        return (int) (($stmt->fetch(PDO::FETCH_ASSOC)['Total'] ?? 0));
+    }
+
 if (empty($_SESSION['user'])) {
     // Toutes les routes de cette API necessitent une session utilisateur active.
     http_response_code(401);
@@ -1540,6 +1558,49 @@ if (!empty($_GET['deleteFile'])) {
                 'NombreVue' => $nombreVue,
                 'NombreVueInterne' => $nombreVueInterne,
             ],
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['deleteMusic']) || !empty($_POST['deleteMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $id = trim((string) ($payload['Id'] ?? $payload['id'] ?? ''));
+
+        if ($id === '') {
+            throw new RuntimeException('Id requis');
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $existsStmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
+        $existsStmt->execute([':id' => $id]);
+        if ($existsStmt->fetch(PDO::FETCH_ASSOC) === false) {
+            throw new RuntimeException('Musique introuvable');
+        }
+
+        $playlistLinksCount = count_music_playlist_links($pdo, $id);
+        if ($playlistLinksCount > 0) {
+            throw new RuntimeException('Suppression impossible: retirez d\'abord la musique de toutes les playlists');
+        }
+
+        $deleteStmt = $pdo->prepare('DELETE FROM Musiques WHERE Id = :id');
+        $deleteStmt->execute([':id' => $id]);
+
+        if ($deleteStmt->rowCount() <= 0) {
+            throw new RuntimeException('Suppression de la musique impossible');
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Musique supprimee',
+            'Id' => $id,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([

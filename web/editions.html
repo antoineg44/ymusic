@@ -79,6 +79,22 @@
 				cursor: pointer;
 			}
 
+			.delete-btn {
+				border: 0;
+				border-radius: 8px;
+				padding: 8px 10px;
+				background: #ef4444;
+				color: #fee2e2;
+				font-weight: 700;
+				cursor: pointer;
+				margin-left: 8px;
+			}
+
+			.delete-btn[disabled] {
+				opacity: 0.6;
+				cursor: default;
+			}
+
 			.empty-row {
 				color: #cbd5e1;
 			}
@@ -194,6 +210,7 @@
 					const card = document.createElement('article');
 					card.className = 'music-editor-card';
 					card.dataset.id = row.Id;
+					card.dataset.linkedPlaylistsCount = '0';
 					card.innerHTML = `
 						<div class="music-editor-title">Musique ${escapeHtml(row.Id)}</div>
 						<table class="fields-table" aria-label="Champs edition musique ${escapeHtml(row.Id)}">
@@ -210,7 +227,10 @@
 								<tr><th>NombreVueInterne</th><td><input data-field="NombreVueInterne" value="${escapeHtml(numberValue(row.NombreVueInterne))}" /></td></tr>
 							</tbody>
 						</table>
-						<div style="margin-top: 10px;"><button class="save-btn" type="button" data-action="save">Enregistrer</button></div>
+						<div style="margin-top: 10px;">
+							<button class="save-btn" type="button" data-action="save">Enregistrer</button>
+							<button class="delete-btn" type="button" data-action="delete-music" disabled title="Chargement des playlists...">Supprimer</button>
+						</div>
 						<section class="linked-playlists" aria-label="Playlists contenant cette musique">
 							<h3>Playlists contenant cette musique</h3>
 							<ul class="linked-playlists-list" data-role="linked-playlists-list">
@@ -223,6 +243,26 @@
 				});
 			}
 
+			function updateDeleteButtonState(container, linkedCount, hasPlaylistLoadError = false) {
+				const deleteButton = container.querySelector('button[data-action="delete-music"]');
+				if (!deleteButton) {
+					return;
+				}
+
+				if (hasPlaylistLoadError) {
+					deleteButton.disabled = true;
+					deleteButton.title = 'Suppression indisponible: impossible de verifier les playlists';
+					return;
+				}
+
+				const count = Math.max(0, Number(linkedCount || 0));
+				container.dataset.linkedPlaylistsCount = String(count);
+				deleteButton.disabled = count > 0;
+				deleteButton.title = count > 0
+					? 'Retirez la musique de toutes les playlists avant suppression'
+					: 'Supprimer cette musique';
+			}
+
 			function renderLinkedPlaylists(container, musicId, playlists) {
 				const list = container.querySelector('[data-role="linked-playlists-list"]');
 				if (!list) {
@@ -233,8 +273,11 @@
 
 				if (!Array.isArray(playlists) || playlists.length === 0) {
 					list.innerHTML = '<li class="no-playlist-link">Cette musique n\'est dans aucune playlist.</li>';
+					updateDeleteButtonState(container, 0, false);
 					return;
 				}
+
+				updateDeleteButtonState(container, playlists.length, false);
 
 				playlists.forEach((playlist) => {
 					const playlistId = Number(playlist && playlist.PlaylistId ? playlist.PlaylistId : 0);
@@ -338,6 +381,7 @@
 				} catch (error) {
 					console.error(error);
 					renderLinkedPlaylists(container, musicId, []);
+					updateDeleteButtonState(container, 0, true);
 				}
 			}
 
@@ -506,6 +550,71 @@
 				}
 			}
 
+			async function deleteMusic(container) {
+				const id = String(container.dataset.id || '').trim();
+				if (!id) {
+					setStatus('Id musique manquant.', true);
+					return;
+				}
+
+				const linkedPlaylistsCount = Math.max(0, Number(container.dataset.linkedPlaylistsCount || 0));
+				if (linkedPlaylistsCount > 0) {
+					setStatus('Suppression impossible: la musique appartient encore a une ou plusieurs playlists.', true);
+					return;
+				}
+
+				const confirmed = window.confirm('Confirmer la suppression definitive de cette musique ?');
+				if (!confirmed) {
+					return;
+				}
+
+				const deleteButton = container.querySelector('button[data-action="delete-music"]');
+				const initialLabel = deleteButton ? deleteButton.textContent : 'Supprimer';
+				if (deleteButton) {
+					deleteButton.disabled = true;
+					deleteButton.textContent = '...';
+				}
+
+				try {
+					const body = new URLSearchParams({
+						deleteMusic: '1',
+						Id: id,
+					});
+
+					const response = await fetch('php/interface.php', {
+						method: 'POST',
+						credentials: 'same-origin',
+						cache: 'no-store',
+						body,
+					});
+
+					if (response.status === 401) {
+						window.location.replace('login.html');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Suppression impossible');
+					}
+
+					container.remove();
+					if (!editionsBody.querySelector('.music-editor-card')) {
+						editionsBody.innerHTML = '<div class="empty-row">Aucune musique a editer</div>';
+					}
+
+					setStatus(`Musique ${id} supprimee.`);
+					window.parent.postMessage({ source: 'editions', type: 'MUSIC_DELETED', id }, '*');
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur lors de la suppression.', true);
+					if (deleteButton) {
+						deleteButton.disabled = false;
+						deleteButton.textContent = initialLabel || 'Supprimer';
+					}
+				}
+			}
+
 			editionsBody.addEventListener('click', (event) => {
 				const target = event.target;
 				if (!(target instanceof HTMLElement)) {
@@ -517,6 +626,16 @@
 				}
 
 				if (target.dataset.action !== 'save') {
+					if (target.dataset.action !== 'delete-music') {
+						return;
+					}
+
+					const deleteContainer = target.closest('.music-editor-card');
+					if (!deleteContainer) {
+						return;
+					}
+
+					void deleteMusic(deleteContainer);
 					return;
 				}
 

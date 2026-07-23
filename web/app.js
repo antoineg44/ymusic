@@ -116,6 +116,11 @@ window.addEventListener('message', (event) => {
       if (song) {
         void handleListPlaySong(song);
       }
+    } else if (message.type === 'LIST_OPEN_DESCRIPTION') {
+      const song = message.song || message.result || (message.payload && message.payload.song);
+      if (song) {
+        openDescriptionPopupForSong(song);
+      }
     } else if (message.type === 'OPEN_PLAYLIST_EDITION') {
       openPlaylistEditionPopup(message.playlistId, message.playlistName);
     } else if (message.type === 'REFRESH_ALL_PLAYLISTS') {
@@ -178,6 +183,10 @@ window.addEventListener('message', (event) => {
 
   if (message.source === 'editions') {
     if (message.type === 'REFRESH_ALL_PLAYLISTS') {
+      requestMyPlaylistsRefresh();
+      requestCommunityPlaylistsRefresh();
+    } else if (message.type === 'MUSIC_DELETED') {
+      requestListRefresh();
       requestMyPlaylistsRefresh();
       requestCommunityPlaylistsRefresh();
     }
@@ -661,6 +670,33 @@ function openDescriptionPopup() {
   const track = state.currentTrack || {};
   const title = String(track.title || '').trim();
   const artist = String(track.artist || '').trim();
+  if (!musicId) {
+    setStatus('Impossible d\'ouvrir la description: identifiant de musique introuvable.');
+    return;
+  }
+
+  const params = new URLSearchParams({ id: musicId });
+  if (title) {
+    params.set('title', title);
+  }
+  if (artist) {
+    params.set('artist', artist);
+  }
+
+  descriptionFrame.src = `description.html?${params.toString()}`;
+  descriptionModal.classList.remove('is-hidden');
+  descriptionModal.setAttribute('aria-hidden', 'false');
+}
+
+function openDescriptionPopupForSong(song) {
+  if (!descriptionModal || !descriptionFrame) {
+    return;
+  }
+
+  const musicId = String((song && song.Id) || '').trim();
+  const title = String((song && song.Titre) || '').trim();
+  const artist = String((song && song.Artiste) || '').trim();
+
   if (!musicId) {
     setStatus('Impossible d\'ouvrir la description: identifiant de musique introuvable.');
     return;
