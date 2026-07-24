@@ -59,55 +59,55 @@ async function loadLatestMusiques(titleQuery = '') {
 
     try {
         const params = new URLSearchParams({
-        musiques: '1',
-        sortBy: 'DateAjout',
-        sortDir: 'desc',
-        page: '1',
-        perPage: '5',
+            musiques: '1',
+            sortBy: 'DateAjout',
+            sortDir: 'desc',
+            page: '1',
+            perPage: '5',
         });
 
         const trimmedTitleQuery = String(titleQuery || '').trim();
         if (trimmedTitleQuery) {
-        params.set('titleQuery', trimmedTitleQuery);
+            params.set('titleQuery', trimmedTitleQuery);
         }
 
-        const response = await fetch(`php/interface.php?${params.toString()}`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
+        const response = await fetch(`../../php/interface.php?${params.toString()}`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
         });
 
         if (response.status === 401) {
-        window.location.replace('login.html');
-        return;
+            window.location.replace('login.html');
+            return;
         }
 
         const payload = await response.json();
         if (!response.ok || !payload.success) {
-        throw new Error(payload.error || 'Impossible de charger les musiques');
+            throw new Error(payload.error || 'Impossible de charger les musiques');
         }
 
         const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
         if (musiques.length === 0) {
-        if (trimmedTitleQuery) {
-            setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
-        } else {
-            setStatus('Aucune musique trouvee.');
-        }
-        homeEmpty.style.display = 'block';
-        return;
+            if (trimmedTitleQuery) {
+                setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
+            } else {
+                setStatus('Aucune musique trouvee.');
+            }
+            homeEmpty.style.display = 'block';
+            return;
         }
 
         musiques.forEach((row, index) => {
-        const preparedSong = normalizeMusicRow(row);
-        preparedSong.displayIndex = index + 1;
-        const item = renderElement(preparedSong, index);
-        homeResults.appendChild(item);
+            const preparedSong = normalizeMusicRow(row);
+            preparedSong.displayIndex = index + 1;
+            const item = renderElement(preparedSong, index);
+            homeResults.appendChild(item);
         });
 
         if (trimmedTitleQuery) {
-        setStatus(`5 resultats max pour "${trimmedTitleQuery}".`);
+            setStatus(`5 resultats max pour "${trimmedTitleQuery}".`);
         } else {
-        setStatus('5 dernieres musiques chargees.');
+            setStatus('5 dernieres musiques chargees.');
         }
     } catch (error) {
         setStatus(`Erreur: ${error && error.message ? error.message : error}`, true);
