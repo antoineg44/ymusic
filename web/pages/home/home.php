@@ -46,8 +46,16 @@ if (!empty($_GET['latest_musiques'])) {
         $queryParams = [];
 
         $research_param = remove_accent_and_ponctuation($titleQueryInput);
-        $whereClause = $research_param["whereClause"];
-        $queryParams[':titleQueryNormalized'] = $research_param["queryParams"];
+        
+
+        if ($research_param["text"] === '') {
+            $whereClause = 'WHERE 1 = 0';
+        }
+        else
+        {
+            $whereClause = $research_param["whereClause"];
+            $queryParams[':titleQueryNormalized'] = $research_param["queryParams"];
+        }
 
 
         $countQuery = "SELECT COUNT(*) AS Total FROM Musiques m {$whereClause}";
