@@ -89,6 +89,55 @@
         padding: 10px 12px;
       }
 
+      .home-results .queue-item-index {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        background: rgba(56, 189, 248, 0.2);
+        border-radius: 50%;
+        color: #38bdf8;
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      .home-results .track-info {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .home-results .track-info strong,
+      .home-results .track-info small {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .home-results .track-info small {
+        color: #94a3b8;
+      }
+
+      .home-results .actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        min-width: 40px;
+      }
+
+      .home-results .actions button {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 0;
+        cursor: pointer;
+      }
+
       .home-empty {
         margin-top: 10px;
         color: #94a3b8;
