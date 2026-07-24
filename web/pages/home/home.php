@@ -46,9 +46,8 @@ if (!empty($_GET['latest_musiques'])) {
         $queryParams = [];
 
         $research_param = remove_accent_and_ponctuation($titleQueryInput);
-        
 
-        if ($research_param["text"] === '') {
+        if ($research_param == NULL) {
             $whereClause = 'WHERE 1 = 0';
         }
         else

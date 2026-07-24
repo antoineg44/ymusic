@@ -92,10 +92,7 @@ function remove_accent_and_ponctuation($textToSearch)
         $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '}', '')";
 
         if ($normalizedTextToSearch === '') {
-            $whereClause = 'WHERE 1 = 0';
-        } else {
-            $whereClause = "WHERE {$normalizedTitleSql} LIKE :titleQueryNormalized";
-            $queryParams[':titleQueryNormalized'] = '%' . $normalizedTextToSearch . '%';
+            return NULL;
         }
 
         $research_param["text"] = $normalizedTextToSearch;
