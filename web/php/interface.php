@@ -1603,7 +1603,7 @@ if (!empty($_GET['deleteFile'])) {
             $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '?', '')";
             $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '''', '')";
             $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '’', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '"', '')";
+            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, CHAR(34), '')";
             $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '-', '')";
             $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '_', '')";
             $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '/', '')";
