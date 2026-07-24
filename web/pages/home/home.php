@@ -4,6 +4,7 @@
 
 require '../../php/YouTubeMusic.php';
 require_once '../../php/database_interface.php';
+require_once '../../php/tools/recherche.php';
 
 header('Content-Type: application/json');
 
@@ -43,101 +44,11 @@ if (!empty($_GET['latest_musiques'])) {
 
         $whereClause = '';
         $queryParams = [];
-        if ($titleQueryInput !== '') {
-            $normalizedTitleQueryInput = function_exists('mb_strtolower')
-                ? mb_strtolower($titleQueryInput, 'UTF-8')
-                : strtolower($titleQueryInput);
-            $normalizedTitleQueryInput = strtr($normalizedTitleQueryInput, [
-                'à' => 'a',
-                'â' => 'a',
-                'ä' => 'a',
-                'á' => 'a',
-                'ã' => 'a',
-                'å' => 'a',
-                'æ' => 'ae',
-                'ç' => 'c',
-                'è' => 'e',
-                'é' => 'e',
-                'ê' => 'e',
-                'ë' => 'e',
-                'ì' => 'i',
-                'í' => 'i',
-                'î' => 'i',
-                'ï' => 'i',
-                'ñ' => 'n',
-                'ò' => 'o',
-                'ó' => 'o',
-                'ô' => 'o',
-                'ö' => 'o',
-                'õ' => 'o',
-                'œ' => 'oe',
-                'ù' => 'u',
-                'ú' => 'u',
-                'û' => 'u',
-                'ü' => 'u',
-                'ý' => 'y',
-                'ÿ' => 'y',
-            ]);
-            $normalizedTitleQueryInput = (string) preg_replace('/[[:punct:]\s]+/u', '', $normalizedTitleQueryInput);
 
-            // Normalise accents + ponctuation SQL pour recherche souple sur les titres.
-            $normalizedTitleSql = 'LOWER(m.Titre)';
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'à', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'â', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ä', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'á', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ã', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'å', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'æ', 'ae')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ç', 'c')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'è', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'é', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ê', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ë', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ì', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'í', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'î', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ï', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ñ', 'n')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ò', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ó', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ô', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ö', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'õ', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'œ', 'oe')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ù', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ú', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'û', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ü', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ý', 'y')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ÿ', 'y')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ' ', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '.', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ',', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ';', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ':', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '!', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '?', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '''', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '’', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, CHAR(34), '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '-', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '_', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '/', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '(', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ')', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '[', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ']', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '{', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '}', '')";
+        $research_param = remove_accent_and_ponctuation($titleQueryInput);
+        $whereClause = $research_param["whereClause"];
+        $queryParams[':titleQueryNormalized'] = $research_param["queryParams"];
 
-            if ($normalizedTitleQueryInput === '') {
-                $whereClause = 'WHERE 1 = 0';
-            } else {
-                $whereClause = "WHERE {$normalizedTitleSql} LIKE :titleQueryNormalized";
-                $queryParams[':titleQueryNormalized'] = '%' . $normalizedTitleQueryInput . '%';
-            }
-        }
 
         $countQuery = "SELECT COUNT(*) AS Total FROM Musiques m {$whereClause}";
         $countStmt = $pdo->prepare($countQuery);
