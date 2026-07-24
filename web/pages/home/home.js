@@ -52,26 +52,20 @@ function normalizeMusicRow(row) {
     };
 }
 
-async function loadLatestMusiques(titleQuery = '') {
+async function searchMusiques(titleQuery = '') {
     setStatus('Chargement...');
     homeResults.innerHTML = '';
     homeEmpty.style.display = 'none';
 
     try {
-        const params = new URLSearchParams({
-            musiques: '1',
-            sortBy: 'DateAjout',
-            sortDir: 'desc',
-            page: '1',
-            perPage: '5',
-        });
-
-        const trimmedTitleQuery = String(titleQuery || '').trim();
-        if (trimmedTitleQuery) {
-            params.set('titleQuery', trimmedTitleQuery);
+        if (!titleQuery || typeof titleQuery !== 'string') {
+            setStatus('La requete de recherche est invalide.');
+            return;
         }
+        
+        const trimmedTitleQuery = String(titleQuery || '').trim();
 
-        const response = await fetch(`../../php/interface.php?${params.toString()}`, {
+        const response = await fetch(`home.php?search=1&titleQuery=${encodeURIComponent(trimmedTitleQuery)}`, {
             credentials: 'same-origin',
             cache: 'no-store',
         });
@@ -88,11 +82,48 @@ async function loadLatestMusiques(titleQuery = '') {
 
         const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
         if (musiques.length === 0) {
-            if (trimmedTitleQuery) {
-                setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
-            } else {
-                setStatus('Aucune musique trouvee.');
-            }
+            setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
+            homeEmpty.style.display = 'block';
+            return;
+        }
+
+        musiques.forEach((row, index) => {
+            const preparedSong = normalizeMusicRow(row);
+            preparedSong.showIndex = false;
+            const item = renderElement(preparedSong, index);
+            homeResults.appendChild(item);
+        });
+
+        setStatus(`20 resultats max pour "${trimmedTitleQuery}".`);
+    } catch (error) {
+        setStatus(`Erreur: ${error && error.message ? error.message : error}`, true);
+    }
+}
+
+async function loadLatestMusiques() {
+    setStatus('Chargement...');
+    homeResults.innerHTML = '';
+    homeEmpty.style.display = 'none';
+
+    try {
+        const response = await fetch(`home.php?latest_musiques=1`, {
+            credentials: 'same-origin',
+            cache: 'no-store',
+        });
+
+        if (response.status === 401) {
+            window.location.replace('login.html');
+            return;
+        }
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+            throw new Error(payload.error || 'Impossible de charger les musiques');
+        }
+
+        const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+        if (musiques.length === 0) {
+            setStatus('Aucune musique trouvee.');
             homeEmpty.style.display = 'block';
             return;
         }
@@ -104,11 +135,7 @@ async function loadLatestMusiques(titleQuery = '') {
             homeResults.appendChild(item);
         });
 
-        if (trimmedTitleQuery) {
-            setStatus(`5 resultats max pour "${trimmedTitleQuery}".`);
-        } else {
-            setStatus('5 dernieres musiques chargees.');
-        }
+        setStatus('5 dernieres musiques chargees.');
     } catch (error) {
         setStatus(`Erreur: ${error && error.message ? error.message : error}`, true);
     }
@@ -116,7 +143,7 @@ async function loadLatestMusiques(titleQuery = '') {
 
 function searchByTitle() {
     const query = homeSearchInput ? homeSearchInput.value : '';
-    void loadLatestMusiques(query);
+    void searchMusiques(query);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -138,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (homeSearchInput) {
             homeSearchInput.value = '';
         }
-        void loadLatestMusiques('');
+        void loadLatestMusiques();
         });
     }
 

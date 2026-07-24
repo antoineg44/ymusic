@@ -4,6 +4,7 @@
 
 require 'YouTubeMusic.php';
 require_once __DIR__ . '/database_interface.php';
+require_once __DIR__ . '/tools/recherche.php';
 
 header('Content-Type: application/json');
 
@@ -1563,56 +1564,7 @@ if (!empty($_GET['deleteFile'])) {
             ]);
             $normalizedTitleQueryInput = (string) preg_replace('/[[:punct:]\s]+/u', '', $normalizedTitleQueryInput);
 
-            // Normalise accents + ponctuation SQL pour recherche souple sur les titres.
-            $normalizedTitleSql = 'LOWER(m.Titre)';
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'à', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'â', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ä', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'á', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ã', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'å', 'a')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'æ', 'ae')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ç', 'c')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'è', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'é', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ê', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ë', 'e')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ì', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'í', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'î', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ï', 'i')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ñ', 'n')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ò', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ó', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ô', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ö', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'õ', 'o')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'œ', 'oe')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ù', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ú', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'û', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ü', 'u')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ý', 'y')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, 'ÿ', 'y')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ' ', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '.', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ',', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ';', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ':', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '!', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '?', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '''', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '’', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, CHAR(34), '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '-', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '_', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '/', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '(', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ')', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '[', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, ']', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '{', '')";
-            $normalizedTitleSql = "REPLACE({$normalizedTitleSql}, '}', '')";
+            $normalizedTitleSql = build_title_search_sql('m.Titre');
 
             if ($normalizedTitleQueryInput === '') {
                 $whereClause = 'WHERE 1 = 0';
