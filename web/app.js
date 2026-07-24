@@ -14,6 +14,7 @@ const state = {
   searchReady: false,
 };
 
+const homePanel = document.getElementById('homePanel');
 const libraryPanel = document.getElementById('libraryPanel');
 const searchPanel = document.getElementById('searchPanel');
 const artistsPanel = document.getElementById('artistsPanel');
@@ -23,6 +24,7 @@ const myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
 const communityPlaylistsPanel = document.getElementById('communityPlaylistsPanel');
 const settingsPanel = document.getElementById('settingsPanel');
 const queuePanel = document.getElementById('queuePanel');
+const homeFrame = document.getElementById('homeFrame');
 const listFrame = document.getElementById('listFrame');
 const searchFrame = document.getElementById('searchFrame');
 const artistsFrame = document.getElementById('artistsFrame');
@@ -286,6 +288,7 @@ function setActiveTab(tab) {
     heroSection.hidden = !isHomeTab;
   }
 
+  homePanel.classList.toggle('is-hidden', !isHomeTab);
   searchPanel.classList.toggle('is-hidden', !isSearchTab);
   libraryPanel.classList.toggle('is-hidden', !isListTab);
   artistsPanel.classList.toggle('is-hidden', !isArtistsTab);
@@ -338,6 +341,11 @@ function ensureIframeLoaded(iframe) {
 }
 
 function ensureTabIframeLoaded(tab) {
+  if (tab === 'accueil') {
+    ensureIframeLoaded(homeFrame);
+    return;
+  }
+
   if (tab === 'listes') {
     ensureIframeLoaded(listFrame);
     return;
