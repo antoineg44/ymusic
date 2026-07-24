@@ -11,6 +11,11 @@
     'search' => [                       // Facultatif
         'field' => 'Titre',
         'value' => 'love'
+    ],
+    'equals' => [
+        'Id' => 42,
+        'Utilisateur' => 'john',
+        'Genre' => 'Rock'
     ]
 ];
  */
@@ -48,7 +53,7 @@ function dMusique_get(array $options)
     $queryParams = [];
     $searchWhereClause = '';
 
-    // Recherche
+    // Recherche textuelle
     if (!empty($options['search'])) {
         $field = $options['search']['field'] ?? '';
 
@@ -61,6 +66,20 @@ function dMusique_get(array $options)
         $searchWhereClause = $research_param["whereClause"];
         $sql .= ' ' . $searchWhereClause;
         $queryParams[':search'] = '%' . $research_param["queryParams"] . '%';
+    }
+
+    // Recherche par égalité
+    if (!empty($options['equals'])) {
+        foreach ($options['equals'] as $field => $value) {
+
+            if (!in_array($field, $champsAutorises, true)) {
+                throw new InvalidArgumentException("Champ '$field' invalide.");
+            }
+
+            $param = ':eq_' . $field;
+            $sql .= " WHERE m.$field = $param";
+            $queryParams[$param] = $value;
+        }
     }
 
     // Tri

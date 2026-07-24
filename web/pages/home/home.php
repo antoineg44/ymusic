@@ -2,7 +2,7 @@
 
 // API principale: recherche, playlist, telechargement, metadonnees et routes artistes/albums.
 
-require '../../php/YouTubeMusic.php';
+require '../../php/yt/YouTubeMusic.php';
 require_once '../../php/database_interface.php';
 require_once '../../php/tools/recherche.php';
 require_once '../../php/database/interface_Musiques.php';
@@ -30,7 +30,7 @@ if (!empty($_GET['latest_musiques'])) {
     }
 }
 
-if (!empty($_GET['search']) && !empty($_GET['titleQuery'])) {
+if (!empty($_GET['search'])) {
     try {
         dMusique_get([
             'select' => ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
@@ -40,7 +40,7 @@ if (!empty($_GET['search']) && !empty($_GET['titleQuery'])) {
             'page' => 1,
             'search' => [
                 'field' => 'Titre',
-                'value' => $_GET['titleQuery']
+                'value' => $_GET['search']
             ]
         ]);
     } catch (Throwable $exception) {

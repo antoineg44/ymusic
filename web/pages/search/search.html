@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recherche</title>
+    <link rel="stylesheet" href="../../components/colors/colors.css" />
+    <link rel="stylesheet" href="../../components/listMusic/listMusic.css" />
+    <link rel="stylesheet" href="search.css" />
+  </head>
+  <body>
+    <section class="search-embed">
+      <div class="search-row">
+        <input id="searchInput" type="text" placeholder="Rechercher une chanson ou un artiste" />
+        <button id="searchButton" type="button">
+          <span class="search-button-label">Rechercher</span>
+          <span class="search-button-icon" aria-hidden="true">🔍</span>
+        </button>
+      </div>
+      <div id="suggestions" class="suggestions" aria-live="polite"></div>
+      <div id="suggestionsSpinner" class="spinner" aria-label="Chargement des suggestions"></div>
+      <div id="searchStatus" class="status"></div>
+      <div id="searchSpinner" class="spinner" aria-label="Recherche en cours"></div>
+      <ul id="searchResults" class="search-results"></ul>
+    </section>
+
+    <script src="../../components/listMusic/listMusic.js"></script>
+    <script src="search.js"></script>
+  </body>
+</html>

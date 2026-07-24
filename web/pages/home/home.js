@@ -65,7 +65,7 @@ async function searchMusiques(titleQuery = '') {
         
         const trimmedTitleQuery = String(titleQuery || '').trim();
 
-        const response = await fetch(`home.php?search=1&titleQuery=${encodeURIComponent(trimmedTitleQuery)}`, {
+        const response = await fetch(`home.php?search=${encodeURIComponent(trimmedTitleQuery)}`, {
             credentials: 'same-origin',
             cache: 'no-store',
         });
