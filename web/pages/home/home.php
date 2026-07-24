@@ -2,7 +2,7 @@
 
 // API principale: recherche, playlist, telechargement, metadonnees et routes artistes/albums.
 
-require __DIR__ . '../../php/YouTubeMusic.php';
+require '../../php/YouTubeMusic.php';
 require_once __DIR__ . '../../php/database_interface.php';
 
 header('Content-Type: application/json');
