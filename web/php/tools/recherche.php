@@ -99,9 +99,9 @@ function remove_accent_and_ponctuation($textToSearch)
         }
 
         return {
-            "text": $normalizedTextToSearch,
-            "whereClause": "WHERE {$normalizedTitleSql} LIKE :titleQueryNormalized",
-            "queryParams": '%' . $normalizedTextToSearch . '%'
+            "text": $normalizedTextToSearch;
+            "whereClause": "WHERE {$normalizedTitleSql} LIKE :titleQueryNormalized";
+            "queryParams": '%' . $normalizedTextToSearch . '%';
         };
     }
     else
