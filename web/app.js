@@ -44,6 +44,10 @@ const descriptionModal = document.getElementById('descriptionModal');
 const descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
 const descriptionFrame = document.getElementById('descriptionFrame');
 const descriptionCloseButton = document.getElementById('descriptionCloseButton');
+const usersModal = document.getElementById('usersModal');
+const usersBackdrop = document.getElementById('usersModalBackdrop');
+const usersFrame = document.getElementById('usersFrame');
+const usersCloseButton = document.getElementById('usersCloseButton');
 const playlistMenuModal = document.getElementById('playlistMenuModal');
 const playlistMenuBackdrop = document.getElementById('playlistMenuModalBackdrop');
 const playlistMenuFrame = document.getElementById('playlistMenuFrame');
@@ -85,12 +89,20 @@ if (playlistMenuCloseButton) {
   playlistMenuCloseButton.addEventListener('click', closePlaylistMenuPopup);
 }
 
+if (usersCloseButton) {
+  usersCloseButton.addEventListener('click', closeUsersPopup);
+}
+
 if (descriptionBackdrop) {
   descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
 }
 
 if (playlistMenuBackdrop) {
   playlistMenuBackdrop.addEventListener('click', closePlaylistMenuPopup);
+}
+
+if (usersBackdrop) {
+  usersBackdrop.addEventListener('click', closeUsersPopup);
 }
 
 window.addEventListener('message', (event) => {
@@ -214,6 +226,13 @@ window.addEventListener('message', (event) => {
       closePlaylistMenuPopup();
     } else if (message.type === 'ADD_CURRENT_MUSIC_TO_PLAYLIST') {
       void addCurrentMusicToPlaylistFromMenu(message);
+    }
+    return;
+  }
+
+  if (message.source === 'parameters') {
+    if (message.type === 'OPEN_USERS_MODAL') {
+      openUsersPopup();
     }
     return;
   }
@@ -852,6 +871,26 @@ function closePlaylistMenuPopup() {
   playlistMenuModal.classList.add('is-hidden');
   playlistMenuModal.setAttribute('aria-hidden', 'true');
   playlistMenuFrame.src = 'about:blank';
+}
+
+function openUsersPopup() {
+  if (!usersModal || !usersFrame) {
+    return;
+  }
+
+  usersFrame.src = 'popup/users/users.html';
+  usersModal.classList.remove('is-hidden');
+  usersModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeUsersPopup() {
+  if (!usersModal || !usersFrame) {
+    return;
+  }
+
+  usersModal.classList.add('is-hidden');
+  usersModal.setAttribute('aria-hidden', 'true');
+  usersFrame.src = 'about:blank';
 }
 
 async function loadLibrary(filePath) {

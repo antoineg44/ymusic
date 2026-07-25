@@ -82,7 +82,7 @@
   <body>
     <section class="panel settings-embed">
       <p class="settings-description">Gerez les comptes et les droits d'acces depuis l'interface d'administration.</p>
-      <a class="settings-link" href="../../popup/users/users.html">Gerer les utilisateurs</a>
+      <a id="manageUsersLink" class="settings-link" href="../../popup/users/users.html">Gerer les utilisateurs</a>
 
       <div class="settings-toggle">
         <label for="trimQuietPartsToggle">
@@ -110,6 +110,7 @@
 
       const trimQuietPartsToggle = document.getElementById('trimQuietPartsToggle');
       const crossfadeSecondsInput = document.getElementById('crossfadeSecondsInput');
+      const manageUsersLink = document.getElementById('manageUsersLink');
 
       function readTrimSetting() {
         try {
@@ -178,6 +179,15 @@
       crossfadeSecondsInput.addEventListener('input', () => {
         writeCrossfadeSeconds(crossfadeSecondsInput.value);
       });
+
+      if (manageUsersLink) {
+        manageUsersLink.addEventListener('click', (event) => {
+          if (window.parent && window.parent !== window) {
+            event.preventDefault();
+            window.parent.postMessage({ source: 'parameters', type: 'OPEN_USERS_MODAL' }, '*');
+          }
+        });
+      }
     </script>
   </body>
 </html>

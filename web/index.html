@@ -154,6 +154,20 @@
             </div>
           </section>
 
+          <section id="usersModal" class="description-modal is-hidden" aria-hidden="true">
+            <div id="usersModalBackdrop" class="description-modal-backdrop"></div>
+            <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Gestion des utilisateurs">
+              <button id="usersCloseButton" type="button" class="description-close-button">Fermer</button>
+              <iframe
+                id="usersFrame"
+                class="description-frame"
+                src="about:blank"
+                title="Gestion des utilisateurs"
+                loading="eager"
+              ></iframe>
+            </div>
+          </section>
+
           <section id="playlistMenuModal" class="playlist-menu-modal is-hidden" aria-hidden="true">
             <div id="playlistMenuModalBackdrop" class="playlist-menu-modal-backdrop"></div>
             <div class="playlist-menu-modal-content" role="dialog" aria-modal="true" aria-label="Ajouter à une playlist">
