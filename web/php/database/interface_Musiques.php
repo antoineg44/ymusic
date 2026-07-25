@@ -127,7 +127,7 @@ function dMusique_get(array $options)
     $where = [];
 
     if (!empty($options['search'])) {
-        $where[] = substr($searchWhereClause, 7); // retire le " WHERE "
+        $where[] = substr($searchWhereClause, strlen('WHERE '));
     }
 
     if (!empty($options['equals'])) {
