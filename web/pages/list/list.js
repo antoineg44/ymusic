@@ -240,7 +240,6 @@ function initEvent() {
 }
 
 function init() {
-    void loadMusiques();
     initEvent();
 }
 

@@ -120,9 +120,16 @@ function renderElement(el, index) {
     ? el.artists.join(', ')
     : String(el.artist || '').trim();
 
-  const duration = (el.duration || 0);
-  const views = (el.views || 0);
-  const metadata = `${duration} • ${views} vues`;
+  var metadata = ``;
+  if(el.duration && el.views) {
+    metadata = `${el.duration} • ${el.views} vues`;
+  }
+  else if(el.duration) {
+    metadata = `${el.duration}`;
+  }
+  else if(el.views) {
+    metadata = `${el.views} vues`;
+  }
 
   const showIndex = el.showIndex !== false;
   const displayIndex = Number.isFinite(el.displayIndex)

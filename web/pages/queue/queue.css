@@ -1,3 +1,10 @@
+:root {
+    color-scheme: dark;
+    font-family: Inter, Arial, sans-serif;
+    background: var(--background);
+    color: #e2e8f0;
+}
+
 html,
 body {
     margin: 0;
@@ -8,6 +15,7 @@ body {
     color-scheme: dark;
     font-family: Inter, Arial, sans-serif;
     color: #e2e8f0;
+    min-height: 100vh;
 }
 
 .queue-page {

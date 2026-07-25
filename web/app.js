@@ -65,7 +65,6 @@ const playerController = window.createLecteurController({
   isValidVideoId,
   parseViewCount,
   saveLikedMusic,
-  loadLibrary,
   onTrackChanged: updateQueueDisplay,
   onOpenDescription: openDescriptionPopup,
 });
@@ -925,59 +924,6 @@ function closeMusicIntegrityPopup() {
   musicIntegrityModal.classList.add('is-hidden');
   musicIntegrityModal.setAttribute('aria-hidden', 'true');
   musicIntegrityFrame.src = 'about:blank';
-}
-
-async function loadLibrary(filePath) {
-  try {
-    let url = 'php/list_library.php';
-    
-    // Si un chemin de fichier est fourni, on cherche juste cette musique
-    if (filePath) {
-      url = `php/list_library.php?file=${encodeURIComponent(filePath)}`;
-      const response = await fetch(url, { credentials: 'same-origin' });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          return;
-        }
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const track = await response.json();
-      if (track) {
-        // Ajouter ou mettre à jour la musique dans la bibliothèque
-        const existingIndex = state.library.findIndex(
-          (t) => t.file === track.file || t.path === track.path
-        );
-        
-        if (existingIndex >= 0) {
-          state.library[existingIndex] = track;
-        } else {
-          state.library.push(track);
-        }
-      }
-      return;
-    }
-
-    // Charger toute la bibliothèque (comportement par défaut)
-    const response = await fetch(url, { credentials: 'same-origin' });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return;
-      }
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const tracks = await response.json();
-    state.library = tracks || [];
-    setStatus(`Bibliothèque chargée (${state.library.length} titres)`);
-  } catch (error) {
-    console.error(error);
-    setStatus('Impossible de charger la bibliothèque locale.');
-  }
 }
 
 function findLibraryTrackByMusicId(musicId) {

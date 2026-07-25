@@ -8,7 +8,6 @@
       isValidVideoId,
       parseViewCount,
       saveLikedMusic,
-      loadLibrary,
       onTrackChanged,
       onOpenDescription,
     } = deps;
@@ -240,7 +239,6 @@
           }
 
           await waitForMediaReady(preparedTrackDraft.path);
-          await loadLibrary(preparedTrackDraft.path);
 
           const preparedTrack = state.library.find((entry) => entry.path === preparedTrackDraft.path || entry.file === preparedTrackDraft.file) || preparedTrackDraft;
           preparedTrack.title = preparedTrackDraft.title || preparedTrack.title;
@@ -407,7 +405,6 @@
         }
 
         await waitForMediaReady(track.path);
-        await loadLibrary(track.path);
 
         const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
         const resolvedTitle = String(title || '').trim();

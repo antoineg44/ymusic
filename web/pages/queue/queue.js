@@ -22,66 +22,6 @@ function isQueueRenderActive(token) {
   return token === queueRenderToken;
 }
 
-async function checkMusicInDatabase(track, signal) {
-  const id = String((track && track.videoId) || "").trim();
-  if (!id) {
-    return { found: false, duration: 0, views: 0 };
-  }
-
-  const title = String((track && track.title) || "").trim();
-  const artist = Array.isArray(track && track.artists)
-    ? String(track.artists[0] || "").trim()
-    : "";
-
-  const requestParams = new URLSearchParams({
-    musicDetails: "1",
-    id,
-  });
-
-  if (title) {
-    requestParams.set("title", title);
-  }
-
-  if (artist) {
-    requestParams.set("artist", artist);
-  }
-
-  try {
-    const response = await fetch(
-      `../../php/interface.php?${requestParams.toString()}`,
-      {
-        credentials: "same-origin",
-        cache: "no-store",
-        signal,
-      },
-    );
-
-    if (response.status === 401) {
-      window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-      return { found: false, duration: 0, views: 0 };
-    }
-
-    const payload = await response.json();
-    const found = Boolean(
-      response.ok && payload.success && payload.found === true,
-    );
-    const music = payload.music || {};
-
-    return {
-      found,
-      duration: Number(music.Duree || 0),
-      views: Number(music.NombreVue || 0),
-    };
-  } catch (error) {
-    if (error && error.name === "AbortError") {
-      return null;
-    }
-
-    console.debug("Presence check failed for queue track:", error);
-    return { found: false, duration: 0, views: 0 };
-  }
-}
-
 async function renderQueue(queue, currentIndex) {
   const renderRun = beginQueueRender();
 
@@ -126,27 +66,11 @@ async function renderQueue(queue, currentIndex) {
     };
 
     // Vérifier si la musique existe en base et récupérer les détails
-    const musicInfo = await checkMusicInDatabase(
-      displayTrack,
-      renderRun.signal,
-    );
     if (!isQueueRenderActive(renderRun.token)) {
       return;
     }
 
-    if (musicInfo === null) {
-      return;
-    }
-
-    displayTrack.isInDatabase = musicInfo.found;
-
-    // Utiliser les durée et vues de la base si disponibles
-    if (!displayTrack.duration) {
-      displayTrack.duration = musicInfo.duration;
-    }
-    if (!displayTrack.views) {
-      displayTrack.views = musicInfo.views;
-    }
+    displayTrack.isInDatabase = track.inDatabase;
 
     // buttons configurations
     displayTrack.buttons = {

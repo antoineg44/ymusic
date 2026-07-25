@@ -1,4 +1,3 @@
-
 .track-info {
   display: flex;
   flex-direction: column;
@@ -19,4 +18,12 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.info-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
 }

@@ -92,7 +92,8 @@ def playlist(video_id):
         tracks.append({
             "title": track.get("title"),
             "videoId": track.get("videoId"),
-            "duration": track.get("duration"),
+            "duration": track.get("length"),
+            "views": track.get("views"),
             "artists": [
                 artist.get("name")
                 for artist in track.get("artists", [])
