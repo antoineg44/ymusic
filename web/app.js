@@ -692,7 +692,7 @@ function openEditionsPopup(musicId) {
     return;
   }
 
-  descriptionFrame.src = `pages/edition/edition.html?id=${encodeURIComponent(id)}&popup=1`;
+  descriptionFrame.src = `popup/edition/edition.html?id=${encodeURIComponent(id)}&popup=1`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
 }

@@ -1,0 +1,126 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Arial, sans-serif;
+  background: var(--background);
+  color: #e2e8f0;
+}
+
+html,
+body {
+  margin: 0;
+  /*background: linear-gradient(135deg, #111827, #1e293b);*/
+  background: var(--background);
+  min-height: 100vh;
+}
+
+.description-page {
+    padding: 16px;
+}
+
+.description-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.edit-button {
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    background: #38bdf8;
+    color: #082f49;
+    font-weight: 700;
+}
+
+.head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.download-button {
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    background: #22c55e;
+    color: #052e16;
+    font-weight: 700;
+}
+
+.youtube-button {
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    background: #ef4444;
+    color: #fee2e2;
+    font-weight: 700;
+}
+
+.description-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.description-subtitle {
+    margin: 16px 0 8px;
+}
+
+.playlist-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.playlist-item {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.playlist-name {
+    color: #f8fafc;
+    font-weight: 700;
+}
+
+.playlist-meta {
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    margin-top: 4px;
+}
+
+.description-item {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 10px;
+    align-items: start;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.description-key {
+    color: #cbd5e1;
+    font-weight: 700;
+}
+
+.description-value {
+    color: #f8fafc;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+    .description-item {
+        grid-template-columns: 1fr;
+    }
+}

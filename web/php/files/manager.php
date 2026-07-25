@@ -70,3 +70,44 @@ function move_downloaded_webm_for_music(array $payload): ?array
         'to' => str_replace('\\', '/', substr($destination, strlen($webRoot) + 1)),
     ];
 }
+
+function find_downloaded_file_for_music_id(string $id): ?array
+{
+    $webRoot = "../../";
+    $baseDir = $webRoot . '/data';
+    if (!is_dir($baseDir)) {
+        return null;
+    }
+
+    $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+    foreach ($iterator as $fileInfo) {
+        if (!$fileInfo->isFile()) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($fileInfo->getFilename(), PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowedExtensions, true)) {
+            continue;
+        }
+
+        $filenameWithoutExt = pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME);
+        if ($filenameWithoutExt !== $id) {
+            continue;
+        }
+
+        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
+
+        return [
+            'file' => $fileInfo->getFilename(),
+            'path' => $relativePath,
+        ];
+    }
+
+    return null;
+}

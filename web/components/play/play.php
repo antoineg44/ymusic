@@ -34,6 +34,7 @@ if (!empty($_GET['add'])) {
                 'success' => false,
                 'error' => "La musique est déjà présente dans la base de données",
             ], JSON_UNESCAPED_UNICODE);
+            exit;
         }
 
         $yt = new YouTubeMusic();
