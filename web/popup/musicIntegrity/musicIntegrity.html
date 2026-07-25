@@ -87,6 +87,26 @@
         container.innerHTML = `<p class="audit-empty">${escapeHtml(label)}</p>`;
       }
 
+      function createActionButtons(actions) {
+        const buttons = actions.map((action) => {
+          const actionName = escapeHtml(action.action || '');
+          const label = escapeHtml(action.label || 'Action');
+          const toneClass = action.tone === 'danger' ? 'audit-action-danger' : 'audit-action-primary';
+          const musicId = escapeHtml(action.musicId || '');
+          const filePath = escapeHtml(action.filePath || '');
+
+          return `<button
+            type="button"
+            class="audit-action ${toneClass}"
+            data-audit-action="${actionName}"
+            data-music-id="${musicId}"
+            data-file-path="${filePath}"
+          >${label}</button>`;
+        }).join('');
+
+        return `<div class="audit-actions">${buttons}</div>`;
+      }
+
       function renderMissingFiles(items) {
         if (!Array.isArray(items) || items.length === 0) {
           renderEmpty(missingFilesContainer, 'Aucune musique manquante.');
@@ -99,6 +119,22 @@
             <td>${escapeHtml(item.Titre || '')}</td>
             <td>${escapeHtml(item.Artiste || '')}</td>
             <td>${escapeHtml(item.Album || '')}</td>
+            <td>
+              ${createActionButtons([
+                {
+                  action: 'add_music_file',
+                  label: 'Ajouter fichier',
+                  musicId: item.Id || '',
+                  tone: 'primary',
+                },
+                {
+                  action: 'delete_music_entry',
+                  label: 'Supprimer entree',
+                  musicId: item.Id || '',
+                  tone: 'danger',
+                },
+              ])}
+            </td>
           </tr>
         `).join('');
 
@@ -111,6 +147,7 @@
                   <th>Titre</th>
                   <th>Artiste</th>
                   <th>Album</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -130,6 +167,23 @@
             <td class="audit-code">${escapeHtml(item.id || '')}</td>
             <td>${escapeHtml(item.file || '')}</td>
             <td class="audit-code">${escapeHtml(item.path || '')}</td>
+            <td>
+              ${createActionButtons([
+                {
+                  action: 'add_music_entry',
+                  label: 'Ajouter entree',
+                  musicId: item.id || '',
+                  filePath: item.path || '',
+                  tone: 'primary',
+                },
+                {
+                  action: 'delete_file',
+                  label: 'Supprimer fichier',
+                  filePath: item.path || '',
+                  tone: 'danger',
+                },
+              ])}
+            </td>
           </tr>
         `).join('');
 
@@ -141,6 +195,7 @@
                   <th>Id detecte</th>
                   <th>Fichier</th>
                   <th>Chemin</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -196,6 +251,40 @@
         metricMultipleFilesCount.textContent = String(summary.multipleFilesPerMusicCount || 0);
       }
 
+      async function runIntegrityAction(action, musicId, filePath) {
+        const body = new URLSearchParams({
+          musicFilesIntegrityAction: '1',
+          action: String(action || ''),
+        });
+
+        if (musicId) {
+          body.set('musicId', String(musicId));
+        }
+
+        if (filePath) {
+          body.set('filePath', String(filePath));
+        }
+
+        const response = await fetch('../../php/interface.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          body,
+        });
+
+        if (response.status === 401) {
+          window.parent.postMessage({ type: 'USER_LOGGED_OUT' }, '*');
+          return { redirected: true };
+        }
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || `Erreur API (${response.status})`);
+        }
+
+        return payload;
+      }
+
       async function runAudit() {
         setStatus('Verification en cours...');
         runAuditButton.disabled = true;
@@ -234,6 +323,50 @@
 
       runAuditButton.addEventListener('click', () => {
         void runAudit();
+      });
+
+      document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+
+        const action = String(target.dataset.auditAction || '').trim();
+        if (!action) {
+          return;
+        }
+
+        const musicId = String(target.dataset.musicId || '').trim();
+        const filePath = String(target.dataset.filePath || '').trim();
+        const isDeleteAction = action === 'delete_music_entry' || action === 'delete_file';
+        if (isDeleteAction && !window.confirm('Confirmer cette suppression ?')) {
+          return;
+        }
+
+        const allActionButtons = Array.from(document.querySelectorAll('[data-audit-action]'));
+        allActionButtons.forEach((button) => {
+          button.disabled = true;
+        });
+
+        void (async () => {
+          try {
+            setStatus('Application de la correction...');
+            const payload = await runIntegrityAction(action, musicId, filePath);
+            if (payload && payload.redirected) {
+              return;
+            }
+
+            setStatus('Correction appliquee. Reverification...');
+            await runAudit();
+          } catch (error) {
+            console.error(error);
+            setStatus(String(error.message || 'Erreur lors de la correction.'), true);
+          } finally {
+            allActionButtons.forEach((button) => {
+              button.disabled = false;
+            });
+          }
+        })();
       });
 
       void runAudit();

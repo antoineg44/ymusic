@@ -344,6 +344,187 @@ function build_music_files_integrity_report(PDO $pdo): array
     ];
 }
 
+function is_valid_youtube_video_id(string $value): bool
+{
+    return (bool) preg_match('/^[0-9A-Za-z_-]{11}$/', trim($value));
+}
+
+function resolve_audio_file_by_id_and_path(string $id, string $path = ''): ?array
+{
+    $audioIndex = build_audio_files_index();
+    $entries = $audioIndex['filesById'][$id] ?? [];
+    if (!is_array($entries) || empty($entries)) {
+        return null;
+    }
+
+    $targetPath = trim($path);
+    if ($targetPath !== '') {
+        foreach ($entries as $entry) {
+            if (trim((string) ($entry['path'] ?? '')) === $targetPath) {
+                return $entry;
+            }
+        }
+    }
+
+    return $entries[0];
+}
+
+function delete_audio_file_by_relative_path(string $relativePath): string
+{
+    $relative = trim($relativePath);
+    if ($relative === '') {
+        throw new RuntimeException('Chemin fichier requis');
+    }
+
+    $webRoot = realpath(dirname(__DIR__));
+    $baseDir = realpath(dirname(__DIR__) . '/data');
+    if ($webRoot === false || $baseDir === false) {
+        throw new RuntimeException('Dossier data introuvable');
+    }
+
+    $candidateAbsolutePath = $webRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    $realPath = realpath($candidateAbsolutePath);
+    if ($realPath === false || strpos($realPath, $baseDir) !== 0) {
+        throw new RuntimeException('Fichier non autorise');
+    }
+
+    if (!is_file($realPath)) {
+        throw new RuntimeException('Fichier introuvable');
+    }
+
+    if (!unlink($realPath)) {
+        throw new RuntimeException('Suppression du fichier impossible');
+    }
+
+    return str_replace('\\', '/', substr($realPath, strlen($webRoot) + 1));
+}
+
+function delete_music_entry_only(PDO $pdo, string $musicId): array
+{
+    ensure_music_table($pdo);
+    ensure_playlists_tables($pdo);
+
+    $id = trim($musicId);
+    if ($id === '') {
+        throw new RuntimeException('Id musique requis');
+    }
+
+    $existsStmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
+    $existsStmt->execute([':id' => $id]);
+    if ($existsStmt->fetch(PDO::FETCH_ASSOC) === false) {
+        throw new RuntimeException('Musique introuvable');
+    }
+
+    $playlistLinksCount = count_music_playlist_links($pdo, $id);
+    if ($playlistLinksCount > 0) {
+        throw new RuntimeException('Suppression impossible: retirez d\'abord la musique de toutes les playlists');
+    }
+
+    $deleteStmt = $pdo->prepare('DELETE FROM Musiques WHERE Id = :id');
+    $deleteStmt->execute([':id' => $id]);
+    if ($deleteStmt->rowCount() <= 0) {
+        throw new RuntimeException('Suppression de la musique impossible');
+    }
+
+    return [
+        'musicId' => $id,
+        'deleted' => true,
+    ];
+}
+
+function add_music_file_for_existing_entry(YouTubeMusic $yt, string $musicId): array
+{
+    $id = trim($musicId);
+    if ($id === '') {
+        throw new RuntimeException('Id musique requis');
+    }
+
+    $download = $yt->download($id);
+    if (!is_array($download) || empty($download['success'])) {
+        $error = is_array($download) ? ($download['error'] ?? 'Telechargement impossible') : 'Telechargement impossible';
+        throw new RuntimeException((string) $error);
+    }
+
+    return [
+        'musicId' => $id,
+        'download' => $download,
+    ];
+}
+
+function add_music_entry_for_orphan_file(PDO $pdo, YouTubeMusic $yt, string $musicId, string $relativePath = ''): array
+{
+    ensure_music_table($pdo);
+
+    $id = trim($musicId);
+    if ($id === '') {
+        throw new RuntimeException('Id musique requis');
+    }
+
+    $existsStmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
+    $existsStmt->execute([':id' => $id]);
+    if ($existsStmt->fetch(PDO::FETCH_ASSOC) !== false) {
+        return [
+            'musicId' => $id,
+            'alreadyExists' => true,
+        ];
+    }
+
+    $fileEntry = resolve_audio_file_by_id_and_path($id, $relativePath);
+    if ($fileEntry === null) {
+        throw new RuntimeException('Fichier correspondant introuvable');
+    }
+
+    $filePath = str_replace('\\', '/', (string) ($fileEntry['path'] ?? ''));
+    $pathParts = array_values(array_filter(explode('/', $filePath), static function ($part) {
+        return trim((string) $part) !== '';
+    }));
+
+    $album = '';
+    if (count($pathParts) >= 3) {
+        $album = (string) $pathParts[count($pathParts) - 2];
+    }
+
+    $metadata = [];
+    if (is_valid_youtube_video_id($id)) {
+        $details = $yt->songDetails($id);
+        if (is_array($details) && !empty($details['success']) && is_array($details['metadata'] ?? null)) {
+            $metadata = $details['metadata'];
+        }
+    }
+
+    $title = trim((string) ($metadata['title'] ?? ''));
+    if ($title === '') {
+        $title = $id;
+    }
+
+    $artist = trim((string) ($metadata['artist'] ?? ''));
+    if ($artist === '' && !empty($metadata['artists']) && is_array($metadata['artists'])) {
+        $artist = trim((string) ($metadata['artists'][0] ?? ''));
+    }
+
+    $albumFromMetadata = trim((string) ($metadata['album'] ?? ''));
+    if ($albumFromMetadata !== '') {
+        $album = $albumFromMetadata;
+    }
+
+    $payload = [
+        'Id' => $id,
+        'Titre' => $title,
+        'Artiste' => $artist,
+        'Album' => $album,
+        'Duree' => $metadata['durationSeconds'] ?? null,
+        'NombreVue' => $metadata['views'] ?? 0,
+    ];
+
+    $music = add_music_to_database($payload, $pdo);
+
+    return [
+        'musicId' => $id,
+        'music' => $music,
+        'sourceFile' => $filePath,
+    ];
+}
+
     function table_exists(PDO $pdo, string $tableName): bool
     {
         $stmt = $pdo->prepare('SHOW TABLES LIKE :name');
@@ -1990,6 +2171,51 @@ if (!empty($_GET['deleteFile'])) {
         echo json_encode([
             'success' => true,
             'report' => $report,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['musicFilesIntegrityAction']) || !empty($_POST['musicFilesIntegrityAction'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $action = trim((string) ($payload['action'] ?? ''));
+        if ($action === '') {
+            throw new RuntimeException('Action requise');
+        }
+
+        $pdo = get_database_pdo();
+        $result = [];
+
+        if ($action === 'delete_music_entry') {
+            $musicId = trim((string) ($payload['musicId'] ?? ''));
+            $result = delete_music_entry_only($pdo, $musicId);
+        } elseif ($action === 'add_music_file') {
+            $musicId = trim((string) ($payload['musicId'] ?? ''));
+            $result = add_music_file_for_existing_entry($yt, $musicId);
+        } elseif ($action === 'delete_file') {
+            $filePath = trim((string) ($payload['filePath'] ?? ''));
+            $deletedPath = delete_audio_file_by_relative_path($filePath);
+            $result = [
+                'filePath' => $deletedPath,
+                'deleted' => true,
+            ];
+        } elseif ($action === 'add_music_entry') {
+            $musicId = trim((string) ($payload['musicId'] ?? ''));
+            $filePath = trim((string) ($payload['filePath'] ?? ''));
+            $result = add_music_entry_for_orphan_file($pdo, $yt, $musicId, $filePath);
+        } else {
+            throw new RuntimeException('Action inconnue');
+        }
+
+        echo json_encode([
+            'success' => true,
+            'action' => $action,
+            'result' => $result,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
