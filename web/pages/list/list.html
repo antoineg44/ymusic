@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Liste des musiques - YMusic</title>
+		<link rel="stylesheet" href="../../css/colors.css" />
+		<link rel="stylesheet" href="list.css" />
+	</head>
+	<body>
+		<main class="musiques-page">
+			<section class="panel">
+				<div class="musiques-head">
+					<div>
+						<p id="musiquesStatus" class="status">Chargement...</p>
+					</div>
+				</div>
+
+				<div class="musiques-table-wrap">
+					<table class="musiques-table" aria-label="Liste complete des musiques">
+						<thead>
+							<tr>
+								<th class="sortable" data-sort="Id">Id</th>
+								<th class="sortable" data-sort="Titre">Titre</th>
+								<th class="sortable" data-sort="Artiste">Artiste</th>
+								<th class="sortable" data-sort="Utilisateur">Utilisateur</th>
+								<th class="sortable" data-sort="Album">Album</th>
+								<th class="sortable" data-sort="Duree">Duree</th>
+								<th class="sortable" data-sort="AnneeParution">Annee</th>
+								<th class="sortable" data-sort="Genre">Genre</th>
+								<th class="sortable" data-sort="NombreVue">NombreVue</th>
+								<th class="sortable" data-sort="NombreVueInterne">NombreVueInterne</th>
+								<th class="sortable" data-sort="DateAjout">DateAjout</th>
+								<th>Action</th>
+							</tr>
+						</thead>
+						<tbody id="musiquesBody"></tbody>
+					</table>
+				</div>
+
+				<div class="pagination" aria-label="Pagination des musiques">
+					<button type="button" id="pagePrev" title="Afficher les 50 resultats precedents">50 precedents</button>
+					<span id="pageInfo">Resultats 0 - 0 / 0</span>
+					<button type="button" id="pageNext" title="Afficher les 50 resultats suivants">50 suivants</button>
+				</div>
+
+				<audio id="previewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
+			</section>
+		</main>
+		<script src="list.js"></script>
+	</body>
+</html>
