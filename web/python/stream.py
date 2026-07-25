@@ -30,7 +30,8 @@ def normalize_video_id(raw_value: str) -> str:
 
 def build_download_basename(music_id: str) -> str:
     cleaned_id = re.sub(r'[^A-Za-z0-9._-]+', '-', music_id.strip())
-    cleaned_id = cleaned_id.strip('-.')
+    # Keep leading '-' characters from valid IDs; only strip trailing/leading dots.
+    cleaned_id = cleaned_id.strip('.')
     return cleaned_id or 'download'
 
 
