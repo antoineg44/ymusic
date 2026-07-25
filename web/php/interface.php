@@ -54,8 +54,23 @@ function move_downloaded_webm_for_music(array $payload): ?array
     $artist = sanitize_folder_name((string) ($payload['Artiste'] ?? ''));
     $webRoot = dirname(__DIR__);
     $baseDir = $webRoot . '/data';
-    $source = $baseDir . '/temp/' . $id . '.webm';
-    if (!is_file($source)) {
+
+    $tempDir = $baseDir . '/temp';
+    if (!is_dir($tempDir)) {
+        return null;
+    }
+
+    $allowedExtensions = ['webm', 'm4a', 'mp3', 'ogg', 'wav', 'aac', 'flac'];
+    $source = null;
+    foreach ($allowedExtensions as $extension) {
+        $candidate = $tempDir . '/' . $id . '.' . $extension;
+        if (is_file($candidate)) {
+            $source = $candidate;
+            break;
+        }
+    }
+
+    if ($source === null) {
         return null;
     }
 
@@ -66,7 +81,7 @@ function move_downloaded_webm_for_music(array $payload): ?array
 
     $destination = build_unique_destination_path($destinationDir, basename($source));
     if (!rename($source, $destination)) {
-        throw new RuntimeException('Impossible de deplacer le fichier webm vers le dossier artiste');
+        throw new RuntimeException('Impossible de deplacer le fichier audio vers le dossier artiste');
     }
 
     return [
@@ -234,6 +249,12 @@ function build_audio_files_index(): array
             continue;
         }
 
+        $absolutePath = $fileInfo->getPathname();
+        $relativePath = str_replace('\\', '/', substr($absolutePath, strlen($webRoot) + 1));
+        if (strpos($relativePath, 'data/temp/') === 0) {
+            continue;
+        }
+
         $extension = strtolower(pathinfo($fileInfo->getFilename(), PATHINFO_EXTENSION));
         if (!in_array($extension, $allowedExtensions, true)) {
             continue;
@@ -243,9 +264,6 @@ function build_audio_files_index(): array
         if ($id === '') {
             continue;
         }
-
-        $absolutePath = $fileInfo->getPathname();
-        $relativePath = str_replace('\\', '/', substr($absolutePath, strlen($webRoot) + 1));
 
         if (!isset($filesById[$id])) {
             $filesById[$id] = [];
@@ -439,14 +457,29 @@ function add_music_file_for_existing_entry(YouTubeMusic $yt, string $musicId): a
         throw new RuntimeException('Id musique requis');
     }
 
+    $music = find_music_by_id($id);
+    if ($music === null) {
+        throw new RuntimeException('Musique introuvable');
+    }
+
     $download = $yt->download($id);
     if (!is_array($download) || empty($download['success'])) {
         $error = is_array($download) ? ($download['error'] ?? 'Telechargement impossible') : 'Telechargement impossible';
         throw new RuntimeException((string) $error);
     }
 
+    $moved = move_downloaded_webm_for_music([
+        'Id' => $id,
+        'Artiste' => (string) ($music['Artiste'] ?? ''),
+    ]);
+
+    if ($moved === null) {
+        throw new RuntimeException('Fichier telecharge introuvable dans data/temp');
+    }
+
     return [
         'musicId' => $id,
+        'movedFile' => $moved,
         'download' => $download,
     ];
 }
