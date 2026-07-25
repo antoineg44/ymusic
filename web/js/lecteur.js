@@ -66,7 +66,7 @@
     }
 
     function sendPlayerMessage(type, payload) {
-      // Envoie une commande au lecteur embarqué dans l'iframe lecteur.html.
+      // Envoie une commande au lecteur embarqué dans l'iframe player.html.
       if (!playerFrame || !playerFrame.contentWindow) {
         return;
       }

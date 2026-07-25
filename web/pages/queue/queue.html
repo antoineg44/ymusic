@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Queue</title>
+    <link rel="stylesheet" href="css/colors.css" />
+    <link rel="stylesheet" href="../../components/listMusic/listMusic.css" />
+    <link rel="stylesheet" href="queue.css" />
+    <style>
+      
+    </style>
+  </head>
+  <body>
+    <main class="queue-page">
+      <section class="panel">
+        <div class="queue-header">
+          <h1 class="queue-title">Musiques en attente</h1>
+        </div>
+        <div id="queueStatus" class="status"></div>
+        <ul id="queueList"></ul>
+        <div id="queueEmpty" class="queue-empty" style="display: none;">
+          Aucune musique en attente
+        </div>
+      </section>
+    </main>
+
+    <script src="../../components/listMusic/listMusic.js"></script>
+    <script src="queue.js"></script>
+  </body>
+</html>

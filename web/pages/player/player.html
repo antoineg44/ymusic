@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Lecteur</title>
+		<!--<link rel="stylesheet" href="styles.css" />-->
+		<link rel="stylesheet" href="../../css/colors.css" />
+		<link rel="stylesheet" href="player.css" />
+		
+	</head>
+	<body>
+		<section class="player-card">
+			<button id="addToPlaylistButton" type="button" class="add-to-playlist-button" aria-label="Ajouter à une playlist">+</button>
+			<button id="favoriteButton" type="button" class="favorite-button" aria-label="Ajouter aux favoris">☆</button>
+			<div class="player-head">
+				<div>
+					<strong id="nowPlaying" class="marquee-line"><span class="marquee-text">Aucune lecture en cours</span></strong>
+					<div class="spinner hidden" id="loadingSpinner" aria-label="Chargement en cours"></div>
+					<div id="nowPlayingMeta" class="status marquee-line"><span class="marquee-text">Selectionnez un titre dans la bibliotheque</span></div>
+					<div id="nextPlaying" class="status marquee-line"><span class="marquee-text">Prochaine musique: aucune</span></div>
+				</div>
+			</div>
+			<div class="player-controls">
+				<button id="prevButton" type="button">⏮</button>
+				<button id="playButton" type="button">▶</button>
+				<button id="nextButton" type="button">⏭</button>
+				<input id="seekBar" type="range" min="0" max="100" value="0" />
+				<span id="timeLabel">00:00 / 00:00</span>
+			</div>
+			<audio id="audioPlayer"></audio>
+			<audio id="audioPlayerSecondary"></audio>
+		</section>
+
+		<script src="player.js"></script>
+	</body>
+</html>

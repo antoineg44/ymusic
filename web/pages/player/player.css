@@ -1,0 +1,207 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--background);
+    overflow: hidden;
+    font-family: Inter, Arial, sans-serif;
+    color: #e2e8f0;
+    color-scheme: dark;
+}
+
+.player-card {
+    box-sizing: border-box;
+    padding: 20px;
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 0;
+    width: min(100%, 1120px);
+    border-radius: 16px 16px 0 0;
+    z-index: 1200;
+    background: #0f172a;
+    max-width: 1120px;
+}
+
+.player-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.player-head>div {
+    width: 100%;
+    min-width: 0;
+}
+
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.player-controls #seekBar {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.player-controls #timeLabel {
+    flex: 0 0 auto;
+}
+
+#timeLabel.is-fade-active {
+    animation: fade-indicator-blink 0.45s linear infinite;
+}
+
+.player-controls button {
+    border: 0;
+    background: #0ea5e9;
+    color: white;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.favorite-button {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    border: 0;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 1.4rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    z-index: 1;
+}
+
+#addToPlaylistButton {
+    z-index: 1;
+}
+
+.add-to-playlist-button {
+    position: absolute;
+    top: 14px;
+    right: 58px;
+    border: 0;
+    background: rgba(15, 23, 42, 0.88);
+    color: #cbd5e1;
+    font-size: 1.1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* Playlist menu styles removed - now handled in index.html modal */
+
+.favorite-button.is-active {
+    color: #facc15;
+}
+
+.spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    border-top-color: rgba(56, 189, 248, 0.8);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 8px;
+    display: inline-block;
+}
+
+.spinner.hidden {
+    display: none;
+}
+
+.status {
+    margin-top: 10px;
+    color: #7dd3fc;
+    min-height: 1.3em;
+}
+
+.marquee-line {
+    overflow: hidden;
+    white-space: nowrap;
+    display: block;
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.marquee-line .marquee-text {
+    display: inline-block;
+    white-space: nowrap;
+    transform: translateX(0);
+}
+
+.marquee-line.is-overflow .marquee-text {
+    padding-left: 100%;
+    animation: status-marquee var(--status-scroll-duration, 12s) linear infinite;
+}
+
+@keyframes status-marquee {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(calc(-1 * var(--status-scroll-distance, 100%)));
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fade-indicator-blink {
+    0% {
+        opacity: 1;
+        color: #e2e8f0;
+    }
+
+    50% {
+        opacity: 0.35;
+        color: #38bdf8;
+    }
+
+    100% {
+        opacity: 1;
+        color: #e2e8f0;
+    }
+}
+
+@media (max-width: 470px) {
+    .player-controls {
+        gap: 6px;
+    }
+
+    .player-controls button {
+        width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
+    }
+
+    .status {
+        font-size: 0.7rem;
+    }
+
+    .player-card {
+        padding: 12px;
+    }
+
+    #timeLabel {
+        font-size: 0.7rem;
+    }
+}
