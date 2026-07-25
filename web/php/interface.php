@@ -467,6 +467,45 @@ function delete_audio_file_by_relative_path(string $relativePath): string
     return str_replace('\\', '/', substr($realPath, strlen($webRoot) + 1));
 }
 
+function delete_all_temp_files(): array
+{
+    $webRoot = realpath(dirname(__DIR__));
+    $tempDir = realpath(dirname(__DIR__) . '/data/temp');
+    if ($webRoot === false || $tempDir === false) {
+        throw new RuntimeException('Dossier temp introuvable');
+    }
+
+    $deleted = [];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($tempDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+
+    foreach ($iterator as $entry) {
+        if (!$entry->isFile()) {
+            continue;
+        }
+
+        $absolutePath = $entry->getPathname();
+        $realPath = realpath($absolutePath);
+        if ($realPath === false || strpos($realPath, $tempDir) !== 0) {
+            continue;
+        }
+
+        if (!unlink($realPath)) {
+            throw new RuntimeException('Impossible de supprimer le fichier temporaire: ' . $entry->getFilename());
+        }
+
+        $deleted[] = str_replace('\\', '/', substr($realPath, strlen($webRoot) + 1));
+    }
+
+    return [
+        'deletedCount' => count($deleted),
+        'deletedFiles' => $deleted,
+    ];
+}
+
 function delete_music_entry_only(PDO $pdo, string $musicId): array
 {
     ensure_music_table($pdo);
@@ -2299,6 +2338,23 @@ if (!empty($_GET['deleteFile'])) {
         echo json_encode([
             'success' => true,
             'action' => $action,
+            'result' => $result,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['clearTempFiles']) || !empty($_POST['clearTempFiles'])) {
+
+    try {
+        $result = delete_all_temp_files();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Fichiers temporaires supprimes',
             'result' => $result,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
