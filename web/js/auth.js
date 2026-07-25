@@ -23,7 +23,7 @@
         const payload = await response.json();
 
         if (!payload.success) {
-          window.location.replace('login.html');
+          window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
           return false;
         }
 
@@ -35,7 +35,7 @@
         return true;
       } catch (error) {
         console.error(error);
-        window.location.replace('login.html');
+        window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
         return false;
       }
     }
@@ -50,7 +50,7 @@
       } catch (error) {
         console.error(error);
       } finally {
-        window.location.replace('login.html');
+        window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
       }
     }
 

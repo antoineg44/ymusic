@@ -601,7 +601,7 @@ window.addEventListener('message', (event) => {
         const halfFadeSeconds = Math.max(0.05, fadeInSeconds / 2);
         const token = crossfadeToken;
 
-        incomingAudio.src = String(message.src || '');
+        incomingAudio.src = String("../../" + message.src || '');
         incomingAudio.currentTime = 0;
         incomingAudio.volume = canCrossfade ? 0 : 1;
         incomingAudio.load();

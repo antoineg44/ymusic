@@ -253,6 +253,10 @@ window.addEventListener('message', (event) => {
     }
     return;
   }
+
+  if (message.type === 'USER_LOGGED_OUT') {
+    window.location.replace('pages/login/login.html');
+  }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -761,7 +765,7 @@ function openEditionsPopup(musicId) {
     return;
   }
 
-  descriptionFrame.src = `editions.html?id=${encodeURIComponent(id)}&popup=1`;
+  descriptionFrame.src = `pages/edition/edition.html?id=${encodeURIComponent(id)}&popup=1`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
 }
@@ -783,7 +787,7 @@ function openPlaylistEditionPopup(playlistId, playlistName) {
     params.set('name', name);
   }
 
-  descriptionFrame.src = `playlistEdition.html?${params.toString()}`;
+  descriptionFrame.src = `popup/playlistEdition/playlistEdition.html?${params.toString()}`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
 }
@@ -869,7 +873,7 @@ async function addCurrentMusicToPlaylistFromMenu(message) {
     });
 
     if (response.status === 401) {
-      window.location.replace('login.html');
+      window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
       return;
     }
 
@@ -900,7 +904,7 @@ function openPlaylistMenuPopup(musicId) {
   }
 
   const id = String(musicId || '').trim();
-  playlistMenuFrame.src = `playlistMenu.html?musicId=${encodeURIComponent(id)}`;
+  playlistMenuFrame.src = `popup/playlistMenu/playlistMenu.html?musicId=${encodeURIComponent(id)}`;
   playlistMenuModal.classList.remove('is-hidden');
   playlistMenuModal.setAttribute('aria-hidden', 'false');
   
@@ -934,7 +938,7 @@ async function loadLibrary(filePath) {
 
       if (!response.ok) {
         if (response.status === 401) {
-          window.location.replace('login.html');
+          window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
           return;
         }
         throw new Error(`HTTP ${response.status}`);
@@ -961,7 +965,7 @@ async function loadLibrary(filePath) {
 
     if (!response.ok) {
       if (response.status === 401) {
-        window.location.replace('login.html');
+        window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
         return;
       }
       throw new Error(`HTTP ${response.status}`);

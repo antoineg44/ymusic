@@ -34,7 +34,7 @@ function renderUtilisateurCell(row) {
         return escapeHtml(userName);
     }
 
-    const href = `users.html#user-${encodeURIComponent(userId)}`;
+    const href = `./../popup/users/users.html#user-${encodeURIComponent(userId)}`;
     const label = escapeHtml(userId);
     const title = userName ? ` title="${escapeHtml(userName)}"` : '';
     return `<a href="${href}"${title}>${label}</a>`;
@@ -161,7 +161,7 @@ async function loadMusiques() {
         });
 
         if (response.status === 401) {
-            window.location.replace('login.html');
+            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
             return;
         }
 

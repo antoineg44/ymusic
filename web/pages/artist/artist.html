@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Artistes - YMusic</title>
+		<link rel="stylesheet" href="../../styles.css" />
+		<style>
+			.artists-page {
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 24px;
+			}
+
+			.artists-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.artists-back {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: rgba(56, 189, 248, 0.2);
+				color: #7dd3fc;
+				font-weight: 700;
+			}
+
+			.artists-table-wrap {
+				overflow-x: auto;
+			}
+
+			.artists-table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.artists-table th,
+			.artists-table td {
+				text-align: left;
+				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+				padding: 10px;
+			}
+
+			.artist-row {
+				cursor: pointer;
+			}
+
+			.artist-row:hover {
+				background: rgba(56, 189, 248, 0.08);
+			}
+
+			.artist-songs-panel {
+				margin-top: 16px;
+			}
+
+			.artist-songs-panel.is-hidden {
+				display: none;
+			}
+
+			.artists-head.is-hidden,
+			.artists-table-wrap.is-hidden {
+				display: none;
+			}
+
+			.song-play-button {
+				border: 0;
+				border-radius: 999px;
+				padding: 6px 10px;
+				cursor: pointer;
+				background: #38bdf8;
+				color: #082f49;
+				font-weight: 700;
+			}
+
+			.artist-songs-list {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+
+			.artist-songs-list li {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.2);
+				border-radius: 10px;
+				padding: 8px 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<main class="artists-page">
+			<section class="panel">
+				<div class="artists-head">
+					<div>
+						<h1>Artistes en base</h1>
+						<p id="artistsStatus" class="status">Chargement...</p>
+					</div>
+				</div>
+
+				<div class="artists-table-wrap">
+					<table class="artists-table" aria-label="Liste des artistes">
+						<thead>
+							<tr>
+								<th>Artiste</th>
+								<th>Nombre de musiques</th>
+							</tr>
+						</thead>
+						<tbody id="artistsBody"></tbody>
+					</table>
+				</div>
+
+				<div id="artistSongsPanel" class="artist-songs-panel is-hidden">
+					<div class="artists-head">
+						<div>
+							<h2 id="songsTitle">Musiques</h2>
+							<p id="songsStatus" class="status"></p>
+						</div>
+						<button id="backToArtistsBtn" class="artists-back" type="button">Retour aux artistes</button>
+					</div>
+					<div class="artists-table-wrap">
+						<ul id="songsList" class="artist-songs-list" aria-label="Musiques de l'artiste"></ul>
+					</div>
+					<audio id="artistPreviewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
+				</div>
+			</section>
+		</main>
+
+		<script src="../../js/display.js"></script>
+		<script>
+			const artistsBody = document.getElementById('artistsBody');
+			const artistsStatus = document.getElementById('artistsStatus');
+			const artistSongsPanel = document.getElementById('artistSongsPanel');
+			const artistsTableWrap = document.querySelector('.artists-table-wrap');
+			const artistsHead = document.querySelector('.artists-head');
+			const songsTitle = document.getElementById('songsTitle');
+			const songsStatus = document.getElementById('songsStatus');
+			const songsList = document.getElementById('songsList');
+			const backToArtistsBtn = document.getElementById('backToArtistsBtn');
+			let activeArtistName = '';
+
+			function postToParent(type, payload = {}) {
+				window.parent.postMessage({ source: 'artistes', type, ...payload }, '*');
+			}
+
+			function hideArtists() {
+				artistsHead.classList.add('is-hidden');
+				artistsTableWrap.classList.add('is-hidden');
+			}
+
+			function showArtists() {
+				artistsHead.classList.remove('is-hidden');
+				artistsTableWrap.classList.remove('is-hidden');
+			}
+
+			function escapeHtml(value) {
+				return String(value)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/\"/g, '&quot;');
+			}
+
+			function setStatus(message, isError = false) {
+				artistsStatus.textContent = message;
+				artistsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function setSongsStatus(message, isError = false) {
+				songsStatus.textContent = message;
+				songsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+			}
+
+			function formatDuration(value) {
+				const seconds = Number(value || 0);
+				if (!Number.isFinite(seconds) || seconds <= 0) {
+					return '-';
+				}
+
+				const total = Math.floor(seconds);
+				const minutes = Math.floor(total / 60);
+				const remaining = total % 60;
+				return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+			}
+
+			async function loadArtistSongs(artistName) {
+				const artist = String(artistName || '').trim();
+				if (!artist) {
+					return;
+				}
+
+				activeArtistName = artist;
+
+				hideArtists();
+				artistSongsPanel.classList.remove('is-hidden');
+				songsTitle.textContent = `Musiques de ${artist}`;
+				songsList.innerHTML = '';
+				setSongsStatus('Chargement...');
+
+				try {
+					const response = await fetch(`../../php/interface.php?artistSongs=1&artist=${encodeURIComponent(artist)}`, {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer les musiques de cet artiste');
+					}
+
+					const songs = Array.isArray(payload.songs) ? payload.songs : [];
+					songsList.innerHTML = '';
+
+					if (!songs.length) {
+						songsList.innerHTML = '<li>Aucune musique pour cet artiste</li>';
+						setSongsStatus('Aucune musique trouvee pour cet artiste.');
+						return;
+					}
+
+					songs.forEach((song, index) => {
+						const preparedSong = {
+							Id: String(song.Id || ''),
+							Titre: String(song.Titre || ''),
+							Artiste: activeArtistName || String(song.Artiste || ''),
+							title: String(song.Titre || 'Musique inconnue'),
+							artists: [activeArtistName || String(song.Artiste || 'Artiste inconnu')],
+							duration: Number(song.Duree || 0),
+							views: Number(song.NombreVueInterne || 0),
+							showIndex: false,
+							buttons: {
+								buttons: {
+									play: {
+										type: 'ARTIST_PLAY_SONG',
+										result: {
+											...song,
+											Artiste: activeArtistName || String(song.Artiste || ''),
+										},
+										className: 'song-play-button',
+									},
+								},
+								source: 'artistes',
+							},
+						};
+
+						const item = renderElement(preparedSong, index);
+						songsList.appendChild(item);
+					});
+
+					setSongsStatus(`${songs.length} musique(s) chargee(s).`);
+				} catch (error) {
+					console.error(error);
+					setSongsStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			async function loadArtists() {
+				try {
+					const response = await fetch('../../php/interface.php?artists=1', {
+						credentials: 'same-origin',
+						cache: 'no-store',
+					});
+
+					if (response.status === 401) {
+						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+						return;
+					}
+
+					const payload = await response.json();
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.error || 'Impossible de recuperer la liste des artistes');
+					}
+
+					const artists = Array.isArray(payload.artists) ? payload.artists : [];
+
+					artistsBody.innerHTML = '';
+					if (!artists.length) {
+						artistsBody.innerHTML = '<tr><td colspan="2">Aucun artiste en base</td></tr>';
+						setStatus('Aucun artiste trouve.');
+						return;
+					}
+
+					artists.forEach((artist) => {
+						const row = document.createElement('tr');
+						row.className = 'artist-row';
+						const artistName = String(artist.Artiste || '').trim();
+						row.innerHTML = `
+							<td>${escapeHtml(artist.Artiste || '')}</td>
+							<td>${Number(artist.TotalMusiques || 0)}</td>
+						`;
+
+						row.addEventListener('click', () => {
+							void loadArtistSongs(artistName);
+						});
+						artistsBody.appendChild(row);
+					});
+
+					setStatus(`${artists.length} artiste(s) charge(s).`);
+				} catch (error) {
+					console.error(error);
+					setStatus(error.message || 'Erreur de chargement.', true);
+				}
+			}
+
+			void loadArtists();
+
+			backToArtistsBtn.addEventListener('click', () => {
+				showArtists();
+				artistSongsPanel.classList.add('is-hidden');
+				songsList.innerHTML = '';
+				activeArtistName = '';
+			});
+		</script>
+	</body>
+</html>

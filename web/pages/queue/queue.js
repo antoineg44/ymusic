@@ -57,7 +57,7 @@ async function checkMusicInDatabase(track, signal) {
     );
 
     if (response.status === 401) {
-      window.location.replace("login.html");
+      window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
       return { found: false, duration: 0, views: 0 };
     }
 
