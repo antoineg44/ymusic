@@ -208,6 +208,142 @@ function delete_downloaded_files_for_music_id(string $id): array
     return $deletedPaths;
 }
 
+function build_audio_files_index(): array
+{
+    $webRoot = dirname(__DIR__);
+    $baseDir = $webRoot . '/data';
+
+    if (!is_dir($baseDir)) {
+        return [
+            'filesById' => [],
+            'filesList' => [],
+        ];
+    }
+
+    $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
+    $filesById = [];
+    $filesList = [];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $fileInfo) {
+        if (!$fileInfo->isFile()) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($fileInfo->getFilename(), PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowedExtensions, true)) {
+            continue;
+        }
+
+        $id = trim((string) pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME));
+        if ($id === '') {
+            continue;
+        }
+
+        $absolutePath = $fileInfo->getPathname();
+        $relativePath = str_replace('\\', '/', substr($absolutePath, strlen($webRoot) + 1));
+
+        if (!isset($filesById[$id])) {
+            $filesById[$id] = [];
+        }
+
+        $fileEntry = [
+            'id' => $id,
+            'file' => $fileInfo->getFilename(),
+            'path' => $relativePath,
+        ];
+
+        $filesById[$id][] = $fileEntry;
+        $filesList[] = $fileEntry;
+    }
+
+    return [
+        'filesById' => $filesById,
+        'filesList' => $filesList,
+    ];
+}
+
+function build_music_files_integrity_report(PDO $pdo): array
+{
+    ensure_music_table($pdo);
+
+    $stmt = $pdo->query(
+        'SELECT Id, Titre, Artiste, Album
+         FROM Musiques
+         ORDER BY DateAjout DESC, Titre ASC'
+    );
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $dbMusicById = [];
+    foreach ($rows as $row) {
+        $id = trim((string) ($row['Id'] ?? ''));
+        if ($id === '') {
+            continue;
+        }
+
+        $dbMusicById[$id] = [
+            'Id' => $id,
+            'Titre' => (string) ($row['Titre'] ?? ''),
+            'Artiste' => (string) ($row['Artiste'] ?? ''),
+            'Album' => (string) ($row['Album'] ?? ''),
+        ];
+    }
+
+    $audioIndex = build_audio_files_index();
+    $filesById = $audioIndex['filesById'];
+    $filesList = $audioIndex['filesList'];
+
+    $missingFiles = [];
+    foreach ($dbMusicById as $id => $music) {
+        if (empty($filesById[$id])) {
+            $missingFiles[] = $music;
+        }
+    }
+
+    $orphanFiles = [];
+    foreach ($filesList as $fileEntry) {
+        $id = (string) ($fileEntry['id'] ?? '');
+        if ($id === '' || isset($dbMusicById[$id])) {
+            continue;
+        }
+
+        $orphanFiles[] = $fileEntry;
+    }
+
+    $multipleFilesPerMusic = [];
+    foreach ($filesById as $id => $entries) {
+        if (!isset($dbMusicById[$id])) {
+            continue;
+        }
+
+        if (count($entries) <= 1) {
+            continue;
+        }
+
+        $multipleFilesPerMusic[] = [
+            'music' => $dbMusicById[$id],
+            'files' => $entries,
+        ];
+    }
+
+    return [
+        'summary' => [
+            'dbMusicCount' => count($dbMusicById),
+            'audioFilesCount' => count($filesList),
+            'missingFilesCount' => count($missingFiles),
+            'orphanFilesCount' => count($orphanFiles),
+            'multipleFilesPerMusicCount' => count($multipleFilesPerMusic),
+        ],
+        'missingFiles' => $missingFiles,
+        'orphanFiles' => $orphanFiles,
+        'multipleFilesPerMusic' => $multipleFilesPerMusic,
+    ];
+}
+
     function table_exists(PDO $pdo, string $tableName): bool
     {
         $stmt = $pdo->prepare('SHOW TABLES LIKE :name');
@@ -1839,6 +1975,23 @@ if (!empty($_GET['deleteFile'])) {
             $pdo->rollBack();
         }
 
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['musicFilesIntegrity'])) {
+
+    try {
+        $pdo = get_database_pdo();
+        $report = build_music_files_integrity_report($pdo);
+
+        echo json_encode([
+            'success' => true,
+            'report' => $report,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,
             'error' => $exception->getMessage(),

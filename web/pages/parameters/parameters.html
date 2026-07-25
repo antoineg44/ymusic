@@ -83,6 +83,7 @@
     <section class="panel settings-embed">
       <p class="settings-description">Gerez les comptes et les droits d'acces depuis l'interface d'administration.</p>
       <a id="manageUsersLink" class="settings-link" href="../../popup/users/users.html">Gerer les utilisateurs</a>
+      <a id="musicIntegrityLink" class="settings-link" href="../../popup/musicIntegrity/musicIntegrity.html">Verifier coherence Musiques/fichiers</a>
 
       <div class="settings-toggle">
         <label for="trimQuietPartsToggle">
@@ -111,6 +112,7 @@
       const trimQuietPartsToggle = document.getElementById('trimQuietPartsToggle');
       const crossfadeSecondsInput = document.getElementById('crossfadeSecondsInput');
       const manageUsersLink = document.getElementById('manageUsersLink');
+      const musicIntegrityLink = document.getElementById('musicIntegrityLink');
 
       function readTrimSetting() {
         try {
@@ -185,6 +187,15 @@
           if (window.parent && window.parent !== window) {
             event.preventDefault();
             window.parent.postMessage({ source: 'parameters', type: 'OPEN_USERS_MODAL' }, '*');
+          }
+        });
+      }
+
+      if (musicIntegrityLink) {
+        musicIntegrityLink.addEventListener('click', (event) => {
+          if (window.parent && window.parent !== window) {
+            event.preventDefault();
+            window.parent.postMessage({ source: 'parameters', type: 'OPEN_MUSIC_INTEGRITY_MODAL' }, '*');
           }
         });
       }
