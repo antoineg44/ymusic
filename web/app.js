@@ -574,85 +574,12 @@ async function saveLikedMusic(track) {
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
 
-  if (persistedId && (!persistedAlbumId || parsedViews <= 0)) {
-    try {
-      const fallbackParams = new URLSearchParams({
-        musicDetails: '1',
-        id: persistedId,
-      });
-      const fallbackTitle = String(track.title || '').trim();
-      const fallbackArtist = String(track.artist || '').trim();
-      if (fallbackTitle) {
-        fallbackParams.set('title', fallbackTitle);
-      }
-      if (fallbackArtist) {
-        fallbackParams.set('artist', fallbackArtist);
-      }
-
-      const fallbackResponse = await fetch(`php/interface.php?${fallbackParams.toString()}`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-
-      if (fallbackResponse.ok) {
-        const fallbackPayload = await fallbackResponse.json();
-        const fallbackMusic = fallbackPayload && fallbackPayload.music ? fallbackPayload.music : null;
-        if (fallbackMusic) {
-          if (!persistedAlbumId) {
-            persistedAlbumId = String(fallbackMusic.Album || '').trim();
-          }
-
-          if (parsedViews <= 0) {
-            parsedViews = parseViewCount(fallbackMusic.NombreVue);
-          }
-        }
-      }
-    } catch (error) {
-      console.debug('Fallback music details unavailable for addMusic payload:', error);
-    }
-  }
-
-  if (persistedId && (!persistedAlbumId || parsedViews <= 0) && (!Array.isArray(state.queue) || state.queue.length === 0)) {
-    try {
-      const playlistResponse = await fetch(`php/interface.php?videoId=${encodeURIComponent(persistedId)}`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-
-      if (playlistResponse.ok) {
-        const playlistPayload = await playlistResponse.json();
-        const playlist = Array.isArray(playlistPayload.playlist) ? playlistPayload.playlist : [];
-        const currentEntry = playlist.find((entry) => entry && entry.videoId === persistedId) || playlist[0] || null;
-
-        if (currentEntry) {
-          if (!persistedAlbumId) {
-            persistedAlbumId = String((currentEntry.album && currentEntry.album.id) || '').trim();
-          }
-
-          if (parsedViews <= 0) {
-            parsedViews = parseViewCount(currentEntry.views);
-          }
-        }
-      }
-    } catch (error) {
-      console.debug('Fallback playlist metadata unavailable for addMusic payload:', error);
-    }
-  }
-
   const params = new URLSearchParams({
-    addMusic: '1',
-    Id: persistedId,
-    Titre: String(track.title || ''),
-    Artiste: String(track.artist || ''),
-    Album: persistedAlbumId,
-    Duree: Number.isFinite(state.currentDuration) && state.currentDuration > 0 ? String(Math.round(state.currentDuration)) : '',
-    NombreVue: parsedViews > 0 ? String(parsedViews) : '',
-    Utilisateur: String((state.currentUser && state.currentUser.username) || ''),
-    DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    add: persistedId
   });
 
   try {
-    const response = await fetch(`php/interface.php?${params.toString()}`);
+    const response = await fetch(`components/play/play.php?${params.toString()}`);
     const payload = await response.json();
 
     if (!payload.success) {
@@ -711,7 +638,7 @@ function openDescriptionPopup() {
     params.set('artist', artist);
   }
 
-  descriptionFrame.src = `description.html?${params.toString()}`;
+  descriptionFrame.src = `popup/description/description.html?${params.toString()}`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
 }
@@ -739,7 +666,7 @@ function openDescriptionPopupForSong(song) {
     params.set('artist', artist);
   }
 
-  descriptionFrame.src = `description.html?${params.toString()}`;
+  descriptionFrame.src = `popup/description/description.html?${params.toString()}`;
   descriptionModal.classList.remove('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'false');
 }
