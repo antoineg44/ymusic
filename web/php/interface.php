@@ -506,6 +506,28 @@ function delete_all_temp_files(): array
     ];
 }
 
+function count_temp_files(): int
+{
+    $tempDir = realpath(dirname(__DIR__) . '/data/temp');
+    if ($tempDir === false || !is_dir($tempDir)) {
+        return 0;
+    }
+
+    $count = 0;
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($tempDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $entry) {
+        if ($entry->isFile()) {
+            $count += 1;
+        }
+    }
+
+    return $count;
+}
+
 function delete_music_entry_only(PDO $pdo, string $musicId): array
 {
     ensure_music_table($pdo);
@@ -2356,6 +2378,21 @@ if (!empty($_GET['deleteFile'])) {
             'success' => true,
             'message' => 'Fichiers temporaires supprimes',
             'result' => $result,
+            'tempFilesCount' => count_temp_files(),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['tempFilesCount']) || !empty($_POST['tempFilesCount'])) {
+
+    try {
+        echo json_encode([
+            'success' => true,
+            'tempFilesCount' => count_temp_files(),
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
