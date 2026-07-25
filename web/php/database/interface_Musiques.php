@@ -70,6 +70,9 @@ function dMusique_get(array $options)
 
     // Recherche par égalité
     if (!empty($options['equals'])) {
+
+        $conditions = [];
+
         foreach ($options['equals'] as $field => $value) {
 
             if (!in_array($field, $champsAutorises, true)) {
@@ -77,8 +80,13 @@ function dMusique_get(array $options)
             }
 
             $param = ':eq_' . $field;
-            $sql .= " WHERE m.$field = $param";
+            $conditions[] = "$field = $param";
             $queryParams[$param] = $value;
+        }
+
+        if (!empty($conditions)) {
+            $sql .= ($searchWhereClause === '' ? ' WHERE ' : ' AND ');
+            $sql .= implode(' AND ', $conditions);
         }
     }
 
@@ -114,9 +122,22 @@ function dMusique_get(array $options)
     $stmt->execute();
     $musiques = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $countSql = 'SELECT COUNT(*) AS Total FROM Musiques';
-    if ($searchWhereClause !== '') {
-        $countSql .= ' ' . $searchWhereClause;
+    $countSql = "SELECT COUNT(*) AS Total FROM Musiques";
+
+    $where = [];
+
+    if (!empty($options['search'])) {
+        $where[] = substr($searchWhereClause, 7); // retire le " WHERE "
+    }
+
+    if (!empty($options['equals'])) {
+        foreach ($options['equals'] as $field => $value) {
+            $where[] = "$field = :eq_$field";
+        }
+    }
+
+    if (!empty($where)) {
+        $countSql .= " WHERE " . implode(' AND ', $where);
     }
 
     $countStmt = $pdo->prepare($countSql);
@@ -130,7 +151,7 @@ function dMusique_get(array $options)
         $options['page'] = $totalPages;
     }
 
-    echo json_encode([
+    return[
         'success' => true,
         'musiques' => $musiques,
         'sortBy' => $options['orderBy'] ?? null,
@@ -140,7 +161,5 @@ function dMusique_get(array $options)
         'titleQuery' => $options['search']['value'] ?? null,
         'totalRows' => $totalRows,
         'totalPages' => $totalPages,
-    ], JSON_UNESCAPED_UNICODE);
-
-    return true;
+    ];
 }

@@ -43,10 +43,24 @@ if (!empty($_GET['query'])) {
 
         $yt = new YouTubeMusic();
 
-        echo json_encode(
-            $yt->search($query),
-            JSON_UNESCAPED_UNICODE
-        );
+        $res = $yt->search($query);
+
+        // Vérifie si chaque musique de la recherche est déjà présente dans la base de données
+        foreach ($res['results'] as &$element) {
+
+            $db = dMusique_get([
+                'select' => ['Id'],
+                'equals' => [
+                    'Id' => $element['videoId'],
+                ],
+                'limit' => 1
+            ]);
+            $element['inDatabase'] = !empty($db['musiques']);
+        }
+        unset($element);
+
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        
     } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,
@@ -57,12 +71,12 @@ if (!empty($_GET['query'])) {
 
 if (!empty($_GET['search']) && !empty($_GET['Id'])) {
     try {
-        dMusique_get([
+        echo json_encode(dMusique_get([
             'select' => ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue'],
             'equals' => [
                 'Id' => $_GET['Id'],
             ]
-        ]);
+        ]), JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,

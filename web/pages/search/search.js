@@ -92,52 +92,6 @@ function hideSearchSpinner() {
   notifyParentHeight();
 }
 
-async function checkMusicInDatabase(result) {
-  const id = String((result && result.videoId) || "").trim();
-  if (!id) {
-    return false;
-  }
-
-  const title = String((result && result.title) || "").trim();
-  const artist = Array.isArray(result && result.artists)
-    ? String(result.artists[0] || "").trim()
-    : "";
-
-  const requestParams = new URLSearchParams({
-    musicDetails: "1",
-    id,
-  });
-
-  if (title) {
-    requestParams.set("title", title);
-  }
-
-  if (artist) {
-    requestParams.set("artist", artist);
-  }
-
-  try {
-    const response = await fetch(
-      `search.php?search=1&id=${encodeURIComponent(id)}`,
-      {
-        credentials: "same-origin",
-        cache: "no-store",
-      },
-    );
-
-    if (response.status === 401) {
-      window.location.replace("login.html");
-      return false;
-    }
-
-    const payload = await response.json();
-    return Boolean(response.ok && payload.success && payload.found === true);
-  } catch (error) {
-    console.debug("Presence check failed for search result:", error);
-    return false;
-  }
-}
-
 async function requestSuggestions(query) {
   try {
     showSuggestionsSpinner();
@@ -288,7 +242,7 @@ async function annotateRenderedItems(renderedItems, searchToken) {
       return checks;
     }
 
-    const inDatabase = await checkMusicInDatabase(rendered.result);
+    const inDatabase = rendered.result['inDatabase'];
     if (searchToken !== currentSearchToken) {
       return checks;
     }

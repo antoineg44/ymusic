@@ -15,13 +15,13 @@ if (session_status() === PHP_SESSION_NONE) {
 
 if (!empty($_GET['latest_musiques'])) {
     try {
-        dMusique_get([
+        echo json_encode(dMusique_get([
             'select' => ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
             'orderBy' => 'DateAjout',
             'order' => 'DESC',
             'limit' => 5,
             'page' => 1
-        ]);
+        ]),JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,
@@ -32,7 +32,7 @@ if (!empty($_GET['latest_musiques'])) {
 
 if (!empty($_GET['search'])) {
     try {
-        dMusique_get([
+        echo json_encode(dMusique_get([
             'select' => ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
             'orderBy' => 'Titre',
             'order' => 'ASC',
@@ -42,7 +42,7 @@ if (!empty($_GET['search'])) {
                 'field' => 'Titre',
                 'value' => $_GET['search']
             ]
-        ]);
+        ]),JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,

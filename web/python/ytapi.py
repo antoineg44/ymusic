@@ -234,8 +234,7 @@ try:
 
         print(json.dumps({
             "success": True,
-            "results": search(query),
-            "suggestions": get_suggestions(query)
+            "results": search(query)
         }))
 
     elif action == "playlist_search":
