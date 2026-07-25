@@ -62,11 +62,61 @@ function move_downloaded_webm_for_music(array $payload): ?array
 
     $allowedExtensions = ['webm', 'm4a', 'mp3', 'ogg', 'wav', 'aac', 'flac'];
     $source = null;
-    foreach ($allowedExtensions as $extension) {
-        $candidate = $tempDir . '/' . $id . '.' . $extension;
-        if (is_file($candidate)) {
-            $source = $candidate;
-            break;
+
+    $downloadedFile = trim((string) ($payload['DownloadedFile'] ?? ''));
+    if ($downloadedFile !== '') {
+        $preferred = $tempDir . '/' . basename($downloadedFile);
+        if (is_file($preferred)) {
+            $source = $preferred;
+        }
+    }
+
+    if ($source === null) {
+        foreach ($allowedExtensions as $extension) {
+            $candidate = $tempDir . '/' . $id . '.' . $extension;
+            if (is_file($candidate)) {
+                $source = $candidate;
+                break;
+            }
+        }
+    }
+
+    if ($source === null) {
+        $candidates = [];
+        $prefixPattern = '/^' . preg_quote($id, '/') . '([\s\-_\(\)0-9]*)\.(webm|m4a|mp3|ogg|wav|aac|flac)$/i';
+
+        $entries = scandir($tempDir);
+        if (is_array($entries)) {
+            foreach ($entries as $entry) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+
+                $fullPath = $tempDir . '/' . $entry;
+                if (!is_file($fullPath)) {
+                    continue;
+                }
+
+                if (!preg_match($prefixPattern, $entry)) {
+                    continue;
+                }
+
+                $mtime = @filemtime($fullPath);
+                $candidates[] = [
+                    'path' => $fullPath,
+                    'mtime' => $mtime === false ? 0 : (int) $mtime,
+                ];
+            }
+        }
+
+        if (!empty($candidates)) {
+            usort($candidates, static function (array $left, array $right): int {
+                return $right['mtime'] <=> $left['mtime'];
+            });
+            $source = (string) ($candidates[0]['path'] ?? '');
+            if ($source === '') {
+                $source = null;
+            }
         }
     }
 
@@ -471,6 +521,7 @@ function add_music_file_for_existing_entry(YouTubeMusic $yt, string $musicId): a
     $moved = move_downloaded_webm_for_music([
         'Id' => $id,
         'Artiste' => (string) ($music['Artiste'] ?? ''),
+        'DownloadedFile' => (string) ($download['file'] ?? ''),
     ]);
 
     if ($moved === null) {
