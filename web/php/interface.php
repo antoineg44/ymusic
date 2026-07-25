@@ -133,6 +133,81 @@ function find_downloaded_file_for_music_id(string $id): ?array
     return null;
 }
 
+function find_downloaded_files_for_music_id(string $id): array
+{
+    $webRoot = dirname(__DIR__);
+    $baseDir = $webRoot . '/data';
+    if (!is_dir($baseDir)) {
+        return [];
+    }
+
+    $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
+    $matches = [];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $fileInfo) {
+        if (!$fileInfo->isFile()) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($fileInfo->getFilename(), PATHINFO_EXTENSION));
+        if (!in_array($extension, $allowedExtensions, true)) {
+            continue;
+        }
+
+        $filenameWithoutExt = pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME);
+        if ($filenameWithoutExt !== $id) {
+            continue;
+        }
+
+        $absolutePath = $fileInfo->getPathname();
+        $matches[] = [
+            'file' => $fileInfo->getFilename(),
+            'path' => str_replace('\\', '/', substr($absolutePath, strlen($webRoot) + 1)),
+            'absolutePath' => $absolutePath,
+        ];
+    }
+
+    return $matches;
+}
+
+function delete_downloaded_files_for_music_id(string $id): array
+{
+    if ($id === '') {
+        return [];
+    }
+
+    $matches = find_downloaded_files_for_music_id($id);
+    if (empty($matches)) {
+        return [];
+    }
+
+    $deletedPaths = [];
+
+    foreach ($matches as $match) {
+        $absolutePath = (string) ($match['absolutePath'] ?? '');
+        if ($absolutePath === '') {
+            continue;
+        }
+
+        if (!is_file($absolutePath)) {
+            continue;
+        }
+
+        if (!unlink($absolutePath)) {
+            throw new RuntimeException('Suppression du fichier audio impossible: ' . (string) ($match['path'] ?? $absolutePath));
+        }
+
+        $deletedPaths[] = (string) ($match['path'] ?? '');
+    }
+
+    return $deletedPaths;
+}
+
     function table_exists(PDO $pdo, string $tableName): bool
     {
         $stmt = $pdo->prepare('SHOW TABLES LIKE :name');
@@ -1741,6 +1816,8 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Suppression impossible: retirez d\'abord la musique de toutes les playlists');
         }
 
+        $pdo->beginTransaction();
+
         $deleteStmt = $pdo->prepare('DELETE FROM Musiques WHERE Id = :id');
         $deleteStmt->execute([':id' => $id]);
 
@@ -1748,12 +1825,20 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Suppression de la musique impossible');
         }
 
+        $deletedFiles = delete_downloaded_files_for_music_id($id);
+        $pdo->commit();
+
         echo json_encode([
             'success' => true,
             'message' => 'Musique supprimee',
             'Id' => $id,
+            'deletedFiles' => $deletedFiles,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
         echo json_encode([
             'success' => false,
             'error' => $exception->getMessage(),
