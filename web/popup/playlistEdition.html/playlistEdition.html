@@ -282,7 +282,7 @@
 
 				try {
 					setStatus('Chargement de la playlist...');
-					const response = await fetch(`php/interface.php?playlistEdition=1&id=${encodeURIComponent(String(playlistId))}`, {
+					const response = await fetch(`../../php/interface.php?playlistEdition=1&id=${encodeURIComponent(String(playlistId))}`, {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -328,7 +328,7 @@
 						playlistId: String(playlistId),
 					});
 
-					const response = await fetch('php/interface.php', {
+					const response = await fetch('../../php/interface.php', {
 						method: 'POST',
 						credentials: 'same-origin',
 						cache: 'no-store',
@@ -436,7 +436,7 @@
 					orderedMusicIds: JSON.stringify(orderedMusicIds),
 				});
 
-				const response = await fetch('php/interface.php', {
+				const response = await fetch('../../php/interface.php', {
 					method: 'POST',
 					credentials: 'same-origin',
 					cache: 'no-store',
@@ -490,7 +490,7 @@
 						IdMusique: String(musicId),
 					});
 
-					const response = await fetch('php/interface.php', {
+					const response = await fetch('../../php/interface.php', {
 						method: 'POST',
 						credentials: 'same-origin',
 						cache: 'no-store',
@@ -538,7 +538,7 @@
 						Description: description,
 					});
 
-					const response = await fetch('php/interface.php', {
+					const response = await fetch('../../php/interface.php', {
 						method: 'POST',
 						credentials: 'same-origin',
 						cache: 'no-store',
@@ -587,7 +587,7 @@
 						playlistId: String(playlistId),
 					});
 
-					const response = await fetch('php/interface.php', {
+					const response = await fetch('../../php/interface.php', {
 						method: 'POST',
 						credentials: 'same-origin',
 						cache: 'no-store',

@@ -48,7 +48,7 @@ async function checkMusicInDatabase(track, signal) {
 
   try {
     const response = await fetch(
-      `php/interface.php?${requestParams.toString()}`,
+      `../../php/interface.php?${requestParams.toString()}`,
       {
         credentials: "same-origin",
         cache: "no-store",

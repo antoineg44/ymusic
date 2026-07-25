@@ -1,0 +1,477 @@
+const editionsBody = document.getElementById('editionsBody');
+const editionsStatus = document.getElementById('editionsStatus');
+const searchParams = new URLSearchParams(window.location.search);
+const requestedId = String(searchParams.get('id') || '').trim();
+let currentUserId = 0;
+
+function escapeHtml(value) {
+return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;');
+}
+
+function setStatus(message, isError = false) {
+editionsStatus.textContent = message;
+editionsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+}
+
+function numberValue(value) {
+if (value === '' || value === null || value === undefined) {
+    return '';
+}
+const parsed = Number(value);
+return Number.isFinite(parsed) ? String(Math.max(0, Math.floor(parsed))) : '';
+}
+
+function renderRows(rows) {
+editionsBody.innerHTML = '';
+
+if (!rows.length) {
+    editionsBody.innerHTML = '<div class="empty-row">Aucune musique a editer</div>';
+    return;
+}
+
+rows.forEach((row) => {
+    const card = document.createElement('article');
+    card.className = 'music-editor-card';
+    card.dataset.id = row.Id;
+    card.dataset.linkedPlaylistsCount = '0';
+    card.innerHTML = `
+        <div class="music-editor-title">Musique ${escapeHtml(row.Id)}</div>
+        <table class="fields-table" aria-label="Champs edition musique ${escapeHtml(row.Id)}">
+            <tbody>
+                <tr><th>Id</th><td>${escapeHtml(row.Id)}</td></tr>
+                <tr><th>Titre</th><td><input data-field="Titre" value="${escapeHtml(row.Titre)}" /></td></tr>
+                <tr><th>Artiste</th><td><input data-field="Artiste" value="${escapeHtml(row.Artiste)}" /></td></tr>
+                <tr><th>Utilisateur</th><td><input data-field="Utilisateur" value="${escapeHtml(row.Utilisateur)}" /></td></tr>
+                <tr><th>Album</th><td><input data-field="Album" value="${escapeHtml(row.Album)}" /></td></tr>
+                <tr><th>Duree</th><td><input data-field="Duree" value="${escapeHtml(row.Duree)}" /></td></tr>
+                <tr><th>Annee</th><td><input data-field="AnneeParution" value="${escapeHtml(row.AnneeParution)}" /></td></tr>
+                <tr><th>Genre</th><td><input data-field="Genre" value="${escapeHtml(row.Genre)}" /></td></tr>
+                <tr><th>NombreVue</th><td><input data-field="NombreVue" value="${escapeHtml(numberValue(row.NombreVue))}" /></td></tr>
+                <tr><th>NombreVueInterne</th><td><input data-field="NombreVueInterne" value="${escapeHtml(numberValue(row.NombreVueInterne))}" /></td></tr>
+            </tbody>
+        </table>
+        <div style="margin-top: 10px;">
+            <button class="save-btn" type="button" data-action="save">Enregistrer</button>
+            <button class="delete-btn" type="button" data-action="delete-music" disabled title="Chargement des playlists...">Supprimer</button>
+        </div>
+        <section class="linked-playlists" aria-label="Playlists contenant cette musique">
+            <h3>Playlists contenant cette musique</h3>
+            <ul class="linked-playlists-list" data-role="linked-playlists-list">
+                <li class="no-playlist-link">Chargement des playlists...</li>
+            </ul>
+        </section>
+    `;
+    editionsBody.appendChild(card);
+    void loadLinkedPlaylistsForCard(card, row);
+});
+}
+
+function updateDeleteButtonState(container, linkedCount, hasPlaylistLoadError = false) {
+const deleteButton = container.querySelector('button[data-action="delete-music"]');
+if (!deleteButton) {
+    return;
+}
+
+if (hasPlaylistLoadError) {
+    deleteButton.disabled = true;
+    deleteButton.title = 'Suppression indisponible: impossible de verifier les playlists';
+    return;
+}
+
+const count = Math.max(0, Number(linkedCount || 0));
+container.dataset.linkedPlaylistsCount = String(count);
+deleteButton.disabled = count > 0;
+deleteButton.title = count > 0
+    ? 'Retirez la musique de toutes les playlists avant suppression'
+    : 'Supprimer cette musique';
+}
+
+function renderLinkedPlaylists(container, musicId, playlists) {
+const list = container.querySelector('[data-role="linked-playlists-list"]');
+if (!list) {
+    return;
+}
+
+list.innerHTML = '';
+
+if (!Array.isArray(playlists) || playlists.length === 0) {
+    list.innerHTML = '<li class="no-playlist-link">Cette musique n\'est dans aucune playlist.</li>';
+    updateDeleteButtonState(container, 0, false);
+    return;
+}
+
+updateDeleteButtonState(container, playlists.length, false);
+
+playlists.forEach((playlist) => {
+    const playlistId = Number(playlist && playlist.PlaylistId ? playlist.PlaylistId : 0);
+    const playlistName = String((playlist && playlist.NomPlaylist) || 'Playlist sans nom').trim();
+    const ownerId = Number(playlist && playlist.Utilisateur ? playlist.Utilisateur : 0);
+    const ownerName = String((playlist && playlist.UtilisateurNom) || '').trim();
+    const position = Number(playlist && playlist.PositionLecture ? playlist.PositionLecture : 0);
+    const canRemove = playlistId > 0 && ownerId > 0 && ownerId === currentUserId;
+
+    const metaParts = [];
+    if (ownerName) {
+        metaParts.push(`Par ${ownerName}`);
+    }
+    if (position > 0) {
+        metaParts.push(`Position ${position}`);
+    }
+
+    const item = document.createElement('li');
+    item.className = 'linked-playlists-item';
+    item.innerHTML = `
+        <div>
+            <div>${escapeHtml(playlistName)}</div>
+            <div class="linked-playlists-meta">${escapeHtml(metaParts.join(' • ') || 'Playlist')}</div>
+        </div>
+        <button
+            class="remove-link-btn"
+            type="button"
+            data-action="remove-link"
+            data-playlist-id="${escapeHtml(String(playlistId))}"
+            data-music-id="${escapeHtml(String(musicId || ''))}"
+            ${canRemove ? '' : 'disabled'}
+            >
+            Retirer
+        </button>
+    `;
+
+    list.appendChild(item);
+});
+}
+
+async function loadCurrentUser() {
+try {
+    const response = await fetch('../../php/interface.php?currentUser=1', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+    });
+
+    if (response.status === 401) {
+        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        return;
+    }
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+        return;
+    }
+
+    currentUserId = Number(payload.id || 0);
+} catch (error) {
+    console.error(error);
+}
+}
+
+async function loadLinkedPlaylistsForCard(container, row) {
+const musicId = String((row && row.Id) || '').trim();
+if (!musicId) {
+    renderLinkedPlaylists(container, '', []);
+    return;
+}
+
+const title = String((row && row.Titre) || '').trim();
+const artist = String((row && row.Artiste) || '').trim();
+const params = new URLSearchParams({
+    musicDetails: '1',
+    id: musicId,
+});
+if (title) {
+    params.set('title', title);
+}
+if (artist) {
+    params.set('artist', artist);
+}
+
+try {
+    const response = await fetch(`../../php/interface.php?${params.toString()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+    });
+
+    if (response.status === 401) {
+        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        return;
+    }
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Impossible de charger les playlists liees');
+    }
+
+    renderLinkedPlaylists(container, musicId, payload.playlists);
+} catch (error) {
+    console.error(error);
+    renderLinkedPlaylists(container, musicId, []);
+    updateDeleteButtonState(container, 0, true);
+}
+}
+
+async function loadRows() {
+try {
+    await loadCurrentUser();
+
+    const response = await fetch('../../php/interface.php?musiques=1', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+    });
+
+    if (response.status === 401) {
+        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        return;
+    }
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Impossible de charger les musiques');
+    }
+
+    const rows = Array.isArray(payload.musiques) ? payload.musiques : [];
+    const filteredRows = requestedId
+        ? rows.filter((row) => String(row.Id || '').trim() === requestedId)
+        : rows;
+
+    if (requestedId && !filteredRows.length) {
+        renderRows([]);
+        setStatus(`La musique ${requestedId} est introuvable pour edition.`, true);
+        return;
+    }
+
+    renderRows(filteredRows);
+    if (requestedId) {
+        setStatus(`Edition ciblee sur la musique ${requestedId}.`);
+    } else {
+        setStatus(`${filteredRows.length} musique(s) chargee(s).`);
+    }
+} catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Erreur de chargement.', true);
+}
+}
+
+async function removePlaylistLink(button) {
+const playlistId = Number(button.dataset.playlistId || 0);
+const musicId = String(button.dataset.musicId || '').trim();
+
+if (playlistId <= 0 || !musicId) {
+    setStatus('Parametres de suppression invalides.', true);
+    return;
+}
+
+const confirmed = window.confirm('Retirer cette musique de cette playlist ?');
+if (!confirmed) {
+    return;
+}
+
+const container = button.closest('.music-editor-card');
+if (!container) {
+    return;
+}
+
+const initialLabel = button.textContent;
+button.disabled = true;
+button.textContent = '...';
+
+try {
+    const body = new URLSearchParams({
+        removePlaylistMusic: '1',
+        IdPlaylist: String(playlistId),
+        IdMusique: musicId,
+    });
+
+    const response = await fetch('../../php/interface.php', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body,
+    });
+
+    if (response.status === 401) {
+        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        return;
+    }
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Impossible de retirer le lien playlist-musique');
+    }
+
+    setStatus('Lien playlist-musique supprime.');
+    const row = {
+        Id: musicId,
+        Titre: String(container.querySelector('input[data-field="Titre"]')?.value || '').trim(),
+        Artiste: String(container.querySelector('input[data-field="Artiste"]')?.value || '').trim(),
+    };
+    await loadLinkedPlaylistsForCard(container, row);
+
+    window.parent.postMessage({
+        source: 'editions',
+        type: 'REFRESH_ALL_PLAYLISTS',
+    }, '*');
+} catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Erreur lors de la suppression du lien.', true);
+    button.disabled = false;
+    button.textContent = initialLabel || 'Retirer';
+}
+}
+
+async function saveRow(container) {
+const id = container.dataset.id;
+if (!id) {
+    return;
+}
+
+const getValue = (field) => {
+    const input = container.querySelector(`input[data-field="${field}"]`);
+    return input ? String(input.value || '').trim() : '';
+};
+
+const body = new URLSearchParams({
+    updateMusic: '1',
+    Id: id,
+    Titre: getValue('Titre'),
+    Artiste: getValue('Artiste'),
+    Utilisateur: getValue('Utilisateur'),
+    Album: getValue('Album'),
+    Duree: getValue('Duree'),
+    AnneeParution: getValue('AnneeParution'),
+    Genre: getValue('Genre'),
+    NombreVue: getValue('NombreVue'),
+    NombreVueInterne: getValue('NombreVueInterne'),
+});
+
+const button = container.querySelector('button[data-action="save"]');
+const initialLabel = button ? button.textContent : 'Enregistrer';
+if (button) {
+    button.disabled = true;
+    button.textContent = '...';
+}
+
+try {
+    const response = await fetch('../../php/interface.php', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body,
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Echec de la mise a jour');
+    }
+
+    setStatus(`Musique ${id} mise a jour.`);
+} catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Erreur de mise a jour.', true);
+} finally {
+    if (button) {
+        button.disabled = false;
+        button.textContent = initialLabel || 'Enregistrer';
+    }
+}
+}
+
+async function deleteMusic(container) {
+const id = String(container.dataset.id || '').trim();
+if (!id) {
+    setStatus('Id musique manquant.', true);
+    return;
+}
+
+const linkedPlaylistsCount = Math.max(0, Number(container.dataset.linkedPlaylistsCount || 0));
+if (linkedPlaylistsCount > 0) {
+    setStatus('Suppression impossible: la musique appartient encore a une ou plusieurs playlists.', true);
+    return;
+}
+
+const confirmed = window.confirm('Confirmer la suppression definitive de cette musique ?');
+if (!confirmed) {
+    return;
+}
+
+const deleteButton = container.querySelector('button[data-action="delete-music"]');
+const initialLabel = deleteButton ? deleteButton.textContent : 'Supprimer';
+if (deleteButton) {
+    deleteButton.disabled = true;
+    deleteButton.textContent = '...';
+}
+
+try {
+    const body = new URLSearchParams({
+        deleteMusic: '1',
+        Id: id,
+    });
+
+    const response = await fetch('../../php/interface.php', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body,
+    });
+
+    if (response.status === 401) {
+        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        return;
+    }
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Suppression impossible');
+    }
+
+    container.remove();
+    if (!editionsBody.querySelector('.music-editor-card')) {
+        editionsBody.innerHTML = '<div class="empty-row">Aucune musique a editer</div>';
+    }
+
+    setStatus(`Musique ${id} supprimee.`);
+    window.parent.postMessage({ source: 'editions', type: 'MUSIC_DELETED', id }, '*');
+} catch (error) {
+    console.error(error);
+    setStatus(error.message || 'Erreur lors de la suppression.', true);
+    if (deleteButton) {
+        deleteButton.disabled = false;
+        deleteButton.textContent = initialLabel || 'Supprimer';
+    }
+}
+}
+
+editionsBody.addEventListener('click', (event) => {
+const target = event.target;
+if (!(target instanceof HTMLElement)) {
+    return;
+}
+if (target.dataset.action === 'remove-link') {
+    void removePlaylistLink(target);
+    return;
+}
+
+if (target.dataset.action !== 'save') {
+    if (target.dataset.action !== 'delete-music') {
+        return;
+    }
+
+    const deleteContainer = target.closest('.music-editor-card');
+    if (!deleteContainer) {
+        return;
+    }
+
+    void deleteMusic(deleteContainer);
+    return;
+}
+
+const container = target.closest('.music-editor-card');
+if (!container) {
+    return;
+}
+
+void saveRow(container);
+});
+
+void loadRows();
