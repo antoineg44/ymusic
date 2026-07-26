@@ -1,6 +1,6 @@
-web/.venv
-web/data/*
-web/php/connexion.php
-web/php/.venv/*
-web/python/cookies.txt
-web/python/.venv/*
+src/.venv
+src/data/*
+src/php/connexion.php
+src/php/.venv/*
+src/python/cookies.txt
+src/python/.venv/*
