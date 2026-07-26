@@ -33,6 +33,26 @@
                 "glob": "**/*",
                 "input": "src/assets",
                 "output": "assets"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/components",
+                "output": "components"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/pages",
+                "output": "pages"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/js",
+                "output": "js"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/popup",
+                "output": "popup"
               }
             ],
             "styles": ["src/global.scss"],
