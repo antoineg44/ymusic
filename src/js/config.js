@@ -16,19 +16,17 @@ function webapp() {
 }
 
 function get_url() {
-    if(webapp()) {
+    if (webapp()) {
         return "";
     }
-    else {
-        return "https://music.partitions.ovh/php/tools/";
-    }
+
+    return "https://music.partitions.ovh/php/tools/";
 }
 
 function get_url_from_base() {
-    if(webapp()) {
+    if (webapp()) {
         return "";
     }
-    else {
-        return "https://music.partitions.ovh/";
-    }
+
+    return "https://music.partitions.ovh/";
 }
