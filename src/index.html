@@ -18,6 +18,7 @@
     <script src="js/lecteur.js"></script>
     <script src="js/recherche.js"></script>
     <script src="components/auth/auth.js"></script>
+    <script src="app.js"></script>
     <script>
       const domain_approv = [
         "localhost",
@@ -33,24 +34,8 @@
         .then(response => response.text())
         .then(html => {
           document.getElementById("webapp").innerHTML = html;
-        });
-
-        // Ajout des fichiers javascript
-        const javascript_file = [
-          "app.js"
-        ];
-        javascript_file.forEach(element => {
-          const script = document.createElement("script");
-          script.src = element;
-          script.onload = () => {
-              console.log("Script " + element + " chargé");
-
-              // Fin de l'initialisation : lancement de l'application
-              if(element == "app.js") {
-                initializeApp();
-              }
-          };
-          document.head.appendChild(script);
+          // Initialiser l'app après que le HTML soit inséré
+          void initializeApp();
         });
 
       } else {

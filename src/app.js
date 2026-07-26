@@ -14,40 +14,79 @@ const state = {
   searchReady: false,
 };
 
-const homePanel = document.getElementById('homePanel');
-const libraryPanel = document.getElementById('libraryPanel');
-const searchPanel = document.getElementById('searchPanel');
-const artistsPanel = document.getElementById('artistsPanel');
-const albumsPanel = document.getElementById('albumsPanel');
-const playlistsPanel = document.getElementById('playlistsPanel');
-const myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
-const communityPlaylistsPanel = document.getElementById('communityPlaylistsPanel');
-const settingsPanel = document.getElementById('settingsPanel');
-const queuePanel = document.getElementById('queuePanel');
-const homeFrame = document.getElementById('homeFrame');
-const listFrame = document.getElementById('listFrame');
-const searchFrame = document.getElementById('searchFrame');
-const artistsFrame = document.getElementById('artistsFrame');
-const albumsFrame = document.getElementById('albumsFrame');
-const playlistsFrame = document.getElementById('playlistsFrame');
-const myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
-const communityPlaylistsFrame = document.getElementById('communityPlaylistsFrame');
-const queueFrame = document.getElementById('queueFrame');
-const settingsFrame = document.getElementById('settingsFrame');
-const manageUsersLink = document.getElementById('manageUsersLink');
-const statusBox = document.getElementById('status');
-const heroSection = document.querySelector('.hero');
-const menuFrame = document.getElementById('menuFrame');
-const playerFrame = document.getElementById('playerFrame');
-const logoutButton = document.getElementById('logoutButton');
-const descriptionModal = document.getElementById('descriptionModal');
-const descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
-const descriptionFrame = document.getElementById('descriptionFrame');
-const descriptionCloseButton = document.getElementById('descriptionCloseButton');
-const usersModal = document.getElementById('usersModal');
-const usersBackdrop = document.getElementById('usersModalBackdrop');
-const usersFrame = document.getElementById('usersFrame');
-const usersCloseButton = document.getElementById('usersCloseButton');
+// Variables déclarées mais initialisées après le chargement du HTML
+let homePanel;
+let libraryPanel;
+let searchPanel;
+let artistsPanel;
+let albumsPanel;
+let playlistsPanel;
+let myPlaylistsPanel;
+let communityPlaylistsPanel;
+let settingsPanel;
+let queuePanel;
+let homeFrame;
+let listFrame;
+let searchFrame;
+let artistsFrame;
+let albumsFrame;
+let playlistsFrame;
+let myPlaylistsFrame;
+let communityPlaylistsFrame;
+let queueFrame;
+let settingsFrame;
+let manageUsersLink;
+let statusBox;
+let heroSection;
+let menuFrame;
+let playerFrame;
+let logoutButton;
+let descriptionModal;
+let descriptionBackdrop;
+let descriptionFrame;
+let descriptionCloseButton;
+let usersModal;
+let usersBackdrop;
+let usersFrame;
+let usersCloseButton;
+
+// Fonction pour initialiser les références aux éléments DOM
+function initializeDOMElements() {
+  homePanel = document.getElementById('homePanel');
+  libraryPanel = document.getElementById('libraryPanel');
+  searchPanel = document.getElementById('searchPanel');
+  artistsPanel = document.getElementById('artistsPanel');
+  albumsPanel = document.getElementById('albumsPanel');
+  playlistsPanel = document.getElementById('playlistsPanel');
+  myPlaylistsPanel = document.getElementById('myPlaylistsPanel');
+  communityPlaylistsPanel = document.getElementById('communityPlaylistsPanel');
+  settingsPanel = document.getElementById('settingsPanel');
+  queuePanel = document.getElementById('queuePanel');
+  homeFrame = document.getElementById('homeFrame');
+  listFrame = document.getElementById('listFrame');
+  searchFrame = document.getElementById('searchFrame');
+  artistsFrame = document.getElementById('artistsFrame');
+  albumsFrame = document.getElementById('albumsFrame');
+  playlistsFrame = document.getElementById('playlistsFrame');
+  myPlaylistsFrame = document.getElementById('myPlaylistsFrame');
+  communityPlaylistsFrame = document.getElementById('communityPlaylistsFrame');
+  queueFrame = document.getElementById('queueFrame');
+  settingsFrame = document.getElementById('settingsFrame');
+  manageUsersLink = document.getElementById('manageUsersLink');
+  statusBox = document.getElementById('status');
+  heroSection = document.querySelector('.hero');
+  menuFrame = document.getElementById('menuFrame');
+  playerFrame = document.getElementById('playerFrame');
+  logoutButton = document.getElementById('logoutButton');
+  descriptionModal = document.getElementById('descriptionModal');
+  descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
+  descriptionFrame = document.getElementById('descriptionFrame');
+  descriptionCloseButton = document.getElementById('descriptionCloseButton');
+  usersModal = document.getElementById('usersModal');
+  usersBackdrop = document.getElementById('usersModalBackdrop');
+  usersFrame = document.getElementById('usersFrame');
+  usersCloseButton = document.getElementById('usersCloseButton');
+}
 const musicIntegrityModal = document.getElementById('musicIntegrityModal');
 const musicIntegrityBackdrop = document.getElementById('musicIntegrityModalBackdrop');
 const musicIntegrityFrame = document.getElementById('musicIntegrityFrame');
@@ -292,6 +331,9 @@ window.addEventListener('message', (event) => {
 });
 
 async function initializeApp() {
+  // Initialiser les références DOM en premier
+  initializeDOMElements();
+  
   const authenticated = await authController.ensureAuthenticated();
   if (!authenticated) {
     return;
