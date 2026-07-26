@@ -9,203 +9,7 @@
   </head>
   <body>
     <div class="app">
-      <div class="app-shell">
-        <section id="menu_liste" class="menu-frame-shell" aria-label="Menu principal">
-          <iframe
-            id="menuFrame"
-            class="menu-frame"
-            src="pages/menu/menu.html"
-            title="Menu"
-            loading="eager"
-          ></iframe>
-        </section>
-
-        <main class="content">
-          <section class="hero">
-            <div class="hero-topbar">
-              <h1>Lecteur musical</h1>
-              <button id="logoutButton" type="button" class="logout-button">Se deconnecter</button>
-            </div>
-            <p>Parcourez votre bibliothèque locale et recherchez des titres via YouTube Music.</p>
-            <div id="status" class="status">Chargement de la bibliothèque…</div>
-          </section>
-
-          <div class="layout">
-            <section id="homePanel" class="panel is-hidden">
-              <iframe
-                id="homeFrame"
-                class="search-frame"
-                data-src="pages/home/home.html"
-                title="Accueil"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="libraryPanel" class="panel is-hidden">
-              <h2>Liste des musiques</h2>
-              <iframe
-                id="listFrame"
-                class="search-frame"
-                data-src="pages/list/list.html"
-                title="Liste des musiques"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="queuePanel" class="panel is-hidden">
-              <iframe
-                id="queueFrame"
-                class="search-frame"
-                data-src="pages/queue/queue.html"
-                title="Queue"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="searchPanel" class="panel is-hidden">
-              <h2>Recherche YouTube Music</h2>
-              <iframe
-                id="searchFrame"
-                class="search-frame"
-                data-src="pages/search/search.html"
-                title="Recherche"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="artistsPanel" class="panel is-hidden">
-              <h2>Artistes</h2>
-              <iframe
-                id="artistsFrame"
-                class="search-frame"
-                data-src="pages/artist/artist.html"
-                title="Artistes"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="albumsPanel" class="panel is-hidden">
-              <h2>Albums</h2>
-              <iframe
-                id="albumsFrame"
-                class="search-frame"
-                data-src="pages/albums/albums.html"
-                title="Albums"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="playlistsPanel" class="panel is-hidden">
-              <h2>Playlists YouTube</h2>
-              <iframe
-                id="playlistsFrame"
-                class="search-frame"
-                data-src="pages/playlistsYT/playlistsYT.html"
-                title="Playlists"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="myPlaylistsPanel" class="panel is-hidden">
-              <h2>Mes playlists</h2>
-              <iframe
-                id="myPlaylistsFrame"
-                class="search-frame"
-                data-src="pages/playlistsUser/playlistsUser.html"
-                title="Mes playlists"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="communityPlaylistsPanel" class="panel is-hidden">
-              <h2>Playlists de la communauté</h2>
-              <iframe
-                id="communityPlaylistsFrame"
-                class="search-frame"
-                data-src="pages/playlistsDatabase/playlistsDatabase.html"
-                title="Playlists de la communauté"
-                loading="lazy"
-              ></iframe>
-            </section>
-
-            <section id="settingsPanel" class="panel is-hidden">
-              <h2>Parametres</h2>
-              <iframe
-                id="settingsFrame"
-                class="search-frame"
-                data-src="pages/parameters/parameters.html"
-                title="Parametres"
-                loading="lazy"
-              ></iframe>
-            </section>
-          </div>
-
-          <section id="descriptionModal" class="description-modal is-hidden" aria-hidden="true">
-            <div id="descriptionModalBackdrop" class="description-modal-backdrop"></div>
-            <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Description musique">
-              <button id="descriptionCloseButton" type="button" class="description-close-button">Fermer</button>
-              <iframe
-                id="descriptionFrame"
-                class="description-frame"
-                src="popup/description/description.html"
-                title="Description de la musique"
-                loading="eager"
-              ></iframe>
-            </div>
-          </section>
-
-          <section id="usersModal" class="description-modal is-hidden" aria-hidden="true">
-            <div id="usersModalBackdrop" class="description-modal-backdrop"></div>
-            <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Gestion des utilisateurs">
-              <button id="usersCloseButton" type="button" class="description-close-button">Fermer</button>
-              <iframe
-                id="usersFrame"
-                class="description-frame"
-                src="about:blank"
-                title="Gestion des utilisateurs"
-                loading="eager"
-              ></iframe>
-            </div>
-          </section>
-
-          <section id="musicIntegrityModal" class="description-modal is-hidden" aria-hidden="true">
-            <div id="musicIntegrityModalBackdrop" class="description-modal-backdrop"></div>
-            <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Verification coherence musiques/fichiers">
-              <button id="musicIntegrityCloseButton" type="button" class="description-close-button">Fermer</button>
-              <iframe
-                id="musicIntegrityFrame"
-                class="description-frame"
-                src="about:blank"
-                title="Verification coherence musiques/fichiers"
-                loading="eager"
-              ></iframe>
-            </div>
-          </section>
-
-          <section id="playlistMenuModal" class="playlist-menu-modal is-hidden" aria-hidden="true">
-            <div id="playlistMenuModalBackdrop" class="playlist-menu-modal-backdrop"></div>
-            <div class="playlist-menu-modal-content" role="dialog" aria-modal="true" aria-label="Ajouter à une playlist">
-              <button id="playlistMenuCloseButton" type="button" class="playlist-menu-close-button">Fermer</button>
-              <iframe
-                id="playlistMenuFrame"
-                class="playlist-menu-frame"
-                src="popup/playlistMenu/playlistMenu.html"
-                title="Ajouter à une playlist"
-                loading="eager"
-              ></iframe>
-            </div>
-          </section>
-        </main>
-
-        <section id="lecteur_musique" class="player-frame-shell">
-            <iframe
-              id="playerFrame"
-              class="player-frame"
-              src="pages/player/player.html"
-              title="Lecteur audio"
-              loading="eager"
-            ></iframe>
-          </section>
+      <div class="app-shell" id="webapp">
 
       </div>
     </div>
@@ -214,6 +18,45 @@
     <script src="js/lecteur.js"></script>
     <script src="js/recherche.js"></script>
     <script src="components/auth/auth.js"></script>
-    <script src="app.js"></script>
+    <script>
+      const domain_approv = [
+        "localhost",
+        "192.168.1.10",
+        "music.partitions.ovh"
+      ];
+      if (domain_approv.includes(window.location.host)) {
+        // application web
+        console.log("Domaine autorisé");
+        
+        // Ajout de includes.html avec l'interface web
+        fetch("includes.html")
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById("webapp").innerHTML = html;
+        });
+
+        // Ajout des fichiers javascript
+        const javascript_file = [
+          "app.js"
+        ];
+        javascript_file.forEach(element => {
+          const script = document.createElement("script");
+          script.src = element;
+          script.onload = () => {
+              console.log("Script " + element + " chargé");
+
+              // Fin de l'initialisation : lancement de l'application
+              if(element == "app.js") {
+                initializeApp();
+              }
+          };
+          document.head.appendChild(script);
+        });
+
+      } else {
+        // Application smartphone
+        console.log("Domaine non autorisé");
+      }
+    </script>
   </body>
 </html>

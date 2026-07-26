@@ -291,10 +291,6 @@ window.addEventListener('message', (event) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  void initializeApp();
-});
-
 async function initializeApp() {
   const authenticated = await authController.ensureAuthenticated();
   if (!authenticated) {
