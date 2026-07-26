@@ -649,7 +649,7 @@ async function saveLikedMusic(track) {
   });
 
   try {
-    const response = await fetch(`components/play/play.php?${params.toString()}`);
+    const response = await fetch(get_url_from_base() + `components/play/play.php?${params.toString()}`);
     const payload = await response.json();
 
     if (!payload.success) {
@@ -862,7 +862,7 @@ async function addCurrentMusicToPlaylistFromMenu(message) {
       IdMusique: musicId,
     });
 
-    const response = await fetch('php/interface.php', {
+    const response = await fetch(get_url_from_base() + 'php/interface.php', {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',

@@ -96,7 +96,7 @@ async function requestSuggestions(query) {
   try {
     showSuggestionsSpinner();
     const response = await fetch(
-      `search.php?suggestions=${encodeURIComponent(query)}`,
+      get_url() + `../../pages/search/search.php?suggestions=${encodeURIComponent(query)}`,
     );
     const payload = await response.json();
     if (query === searchInput.value.trim()) {
@@ -159,7 +159,7 @@ async function searchMusic() {
 
   try {
     const response = await fetch(
-      `search.php?query=${encodeURIComponent(query)}`,
+      get_url() + `../../pages/search/search.php?query=${encodeURIComponent(query)}`,
     );
     const payload = await response.json();
 

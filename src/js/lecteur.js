@@ -205,7 +205,7 @@
           }
 
           const next = nextQueue.entry;
-          const response = await fetch(`php/interface.php?musicId=${encodeURIComponent(next.videoId)}`);
+          const response = await fetch(get_url_from_base() + `php/interface.php?musicId=${encodeURIComponent(next.videoId)}`);
           const payload = await response.json();
 
           if (!payload.success) {
@@ -274,7 +274,7 @@
       // Attend que le fichier téléchargé soit effectivement accessible via HTTP.
       for (let attempt = 0; attempt < retries; attempt += 1) {
         try {
-          const response = await fetch(`${encodeURI(path)}?r=${Date.now()}`, { method: 'HEAD' });
+          const response = await fetch(get_url_from_base() + `${encodeURI(path)}?r=${Date.now()}`, { method: 'HEAD' });
           if (response.ok) {
             return;
           }
@@ -367,7 +367,7 @@
           await loadPlaylistQueue(videoId);
         }
 
-        const response = await fetch(`php/interface.php?musicId=${encodeURIComponent(videoId)}`);
+        const response = await fetch(get_url_from_base() + `php/interface.php?musicId=${encodeURIComponent(videoId)}`);
         const payload = await response.json();
 
         if (!payload.success) {
@@ -488,7 +488,7 @@
 
       try {
         const params = new URLSearchParams({ deleteFile: filePath });
-        const response = await fetch(`php/interface.php?${params.toString()}`, {
+        const response = await fetch(get_url_from_base() + `php/interface.php?${params.toString()}`, {
           credentials: 'same-origin',
         });
         const payload = await response.json();

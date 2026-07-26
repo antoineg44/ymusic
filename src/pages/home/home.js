@@ -65,7 +65,7 @@ async function searchMusiques(titleQuery = '') {
         
         const trimmedTitleQuery = String(titleQuery || '').trim();
 
-        const response = await fetch(`home.php?search=${encodeURIComponent(trimmedTitleQuery)}`, {
+        const response = await fetch(get_url() + `../../pages/home/home.php?search=${encodeURIComponent(trimmedTitleQuery)}`, {
             credentials: 'same-origin',
             cache: 'no-store',
         });
@@ -106,7 +106,7 @@ async function loadLatestMusiques() {
     homeEmpty.style.display = 'none';
 
     try {
-        const response = await fetch(`home.php?latest_musiques=1`, {
+        const response = await fetch(get_url() + `../../pages/home/home.php?latest_musiques=1`, {
             credentials: 'same-origin',
             cache: 'no-store',
         });

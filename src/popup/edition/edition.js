@@ -147,7 +147,7 @@ playlists.forEach((playlist) => {
 
 async function loadCurrentUser() {
 try {
-    const response = await fetch('../../php/interface.php?currentUser=1', {
+    const response = await fetch(get_url() + '../../php/interface.php?currentUser=1', {
         credentials: 'same-origin',
         cache: 'no-store',
     });
@@ -189,7 +189,7 @@ if (artist) {
 }
 
 try {
-    const response = await fetch(`../../php/interface.php?${params.toString()}`, {
+    const response = await fetch(get_url() + `../../php/interface.php?${params.toString()}`, {
         credentials: 'same-origin',
         cache: 'no-store',
     });
@@ -216,7 +216,7 @@ async function loadRows() {
 try {
     await loadCurrentUser();
 
-    const response = await fetch('../../php/interface.php?musiques=1', {
+    const response = await fetch(get_url() + '../../php/interface.php?musiques=1', {
         credentials: 'same-origin',
         cache: 'no-store',
     });
@@ -284,7 +284,7 @@ try {
         IdMusique: musicId,
     });
 
-    const response = await fetch('../../php/interface.php', {
+    const response = await fetch(get_url() + '../../php/interface.php', {
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
@@ -354,7 +354,7 @@ if (button) {
 }
 
 try {
-    const response = await fetch('../../php/interface.php', {
+    const response = await fetch(get_url() + '../../php/interface.php', {
         method: 'POST',
         credentials: 'same-origin',
         body,
@@ -408,7 +408,7 @@ try {
         Id: id,
     });
 
-    const response = await fetch('../../php/interface.php', {
+    const response = await fetch(get_url() + '../../php/interface.php', {
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',

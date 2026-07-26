@@ -387,7 +387,7 @@
 			async function loadPlaylistSongs(playlistId, playlistName) {
 				try {
 					songsTitle.textContent = `Musiques - ${playlistName}`;
-					const response = await fetch(`../../php/interface.php?playlistSongs=1&id=${encodeURIComponent(playlistId)}`, {
+					const response = await fetch(get_url() + `../../php/interface.php?playlistSongs=1&id=${encodeURIComponent(playlistId)}`, {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -425,7 +425,7 @@
 					Description: String(description || ''),
 				});
 
-				const response = await fetch('../../php/interface.php', {
+				const response = await fetch(get_url() + '../../php/interface.php', {
 					method: 'POST',
 					credentials: 'same-origin',
 					cache: 'no-store',
@@ -452,7 +452,7 @@
 					IdMusique: String(musicId),
 				});
 
-				const response = await fetch('../../php/interface.php', {
+				const response = await fetch(get_url() + '../../php/interface.php', {
 					method: 'POST',
 					credentials: 'same-origin',
 					cache: 'no-store',
@@ -532,7 +532,7 @@
 					playlistId: String(playlistId),
 				});
 
-				const response = await fetch('../../php/interface.php', {
+				const response = await fetch(get_url() + '../../php/interface.php', {
 					method: 'POST',
 					credentials: 'same-origin',
 					cache: 'no-store',
@@ -583,7 +583,7 @@
 
 			async function loadPlaylists() {
 				try {
-					const response = await fetch('../../php/interface.php?dbPlaylists=1', {
+					const response = await fetch(get_url() + '../../php/interface.php?dbPlaylists=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});

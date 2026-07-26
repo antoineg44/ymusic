@@ -155,7 +155,7 @@ async function loadMusiques() {
             perPage: String(pageSize),
         });
 
-        const response = await fetch(`list.php?${params.toString()}`, {
+        const response = await fetch(get_url() + `../../pages/list/list.php?${params.toString()}`, {
             credentials: 'same-origin',
             cache: 'no-store',
         });

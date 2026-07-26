@@ -130,7 +130,7 @@
 
 				try {
 					setStatus('Chargement des playlists...');
-					const response = await fetch('../../php/interface.php?myPlaylists=1', {
+					const response = await fetch(get_url() + '../../php/interface.php?myPlaylists=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});

@@ -25,7 +25,7 @@
       }
 
       try {
-        const response = await fetch(`components/nextMusic/nextMusic.php?next=${encodeURIComponent(videoId)}`);
+        const response = await fetch(get_url_from_base() + `components/nextMusic/nextMusic.php?next=${encodeURIComponent(videoId)}`);
         const payload = await response.json();
 
         if (!payload.success || !Array.isArray(payload.playlist)) {

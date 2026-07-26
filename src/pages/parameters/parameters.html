@@ -233,7 +233,7 @@
         }
 
         try {
-          const response = await fetch('../../php/interface.php?tempFilesCount=1', {
+          const response = await fetch(get_url() + '../../php/interface.php?tempFilesCount=1', {
             credentials: 'same-origin',
             cache: 'no-store',
           });
@@ -301,7 +301,7 @@
           clearTempFilesStatus.style.color = '#fbbf24';
 
           try {
-            const response = await fetch('../../php/interface.php', {
+            const response = await fetch(get_url() + '../../php/interface.php', {
               method: 'POST',
               credentials: 'same-origin',
               cache: 'no-store',

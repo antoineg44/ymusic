@@ -420,7 +420,7 @@
 			async function loadPlaylistSongs(playlistId, playlistName) {
 				try {
 					songsTitle.textContent = `Musiques - ${playlistName}`;
-					const response = await fetch(`../../php/interface.php?playlistSongs=1&id=${encodeURIComponent(playlistId)}`, {
+					const response = await fetch(get_url() + `../../php/interface.php?playlistSongs=1&id=${encodeURIComponent(playlistId)}`, {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -448,7 +448,7 @@
 
 			async function getCurrentUsername() {
 				try {
-					const response = await fetch('../../php/interface.php?currentUser=1', {
+					const response = await fetch(get_url() + '../../php/interface.php?currentUser=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -479,7 +479,7 @@
 
 					currentUserId = Number(currentUser.id || 0);
 
-					const response = await fetch('../../php/interface.php?dbPlaylists=1', {
+					const response = await fetch(get_url() + '../../php/interface.php?dbPlaylists=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -510,7 +510,7 @@
 
 			async function getCurrentUser() {
 				try {
-					const response = await fetch('../../php/interface.php?currentUser=1', {
+					const response = await fetch(get_url() + '../../php/interface.php?currentUser=1', {
 						credentials: 'same-origin',
 						cache: 'no-store',
 					});
@@ -558,7 +558,7 @@
 						Description: description,
 					});
 
-					const response = await fetch('../../php/interface.php', {
+					const response = await fetch(get_url() + '../../php/interface.php', {
 						method: 'POST',
 						credentials: 'same-origin',
 						cache: 'no-store',
@@ -591,7 +591,7 @@
 					IdMusique: String(musicId),
 				});
 
-				const response = await fetch('../../php/interface.php', {
+				const response = await fetch(get_url() + '../../php/interface.php', {
 					method: 'POST',
 					credentials: 'same-origin',
 					cache: 'no-store',
@@ -672,7 +672,7 @@
 					playlistId: String(playlistId),
 				});
 
-				const response = await fetch('../../php/interface.php', {
+				const response = await fetch(get_url() + '../../php/interface.php', {
 					method: 'POST',
 					credentials: 'same-origin',
 					cache: 'no-store',

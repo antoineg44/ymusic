@@ -164,7 +164,7 @@ async function loadDescription() {
     });
 
     const response = await fetch(
-      `description.php?${requestParams.toString()}`,
+      get_url() + `../../popup/description/description.php?${requestParams.toString()}`,
       {
         credentials: "same-origin",
         cache: "no-store",
@@ -229,7 +229,7 @@ downloadButton.addEventListener("click", async () => {
     setStatus("Preparation du telechargement...");
 
     const response = await fetch(
-      `description.php?Download=${encodeURIComponent(id)}`,
+      get_url() + `.././/popup/description/description.php?Download=${encodeURIComponent(id)}`,
       {
         credentials: "same-origin",
         cache: "no-store",

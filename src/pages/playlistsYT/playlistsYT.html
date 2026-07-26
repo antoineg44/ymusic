@@ -302,7 +302,7 @@
         }
 
         try {
-          const response = await fetch(`../../php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
+          const response = await fetch(get_url() + `../../php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
           const payload = await response.json();
           renderSuggestions(payload.suggestions || []);
         } catch (error) {
@@ -325,7 +325,7 @@
         setStatus(`Recherche de playlists pour "${query}"...`);
 
         try {
-          const response = await fetch(`../../php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
+          const response = await fetch(get_url() + `../../php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
           const payload = await response.json();
 
           if (!payload.success) {
@@ -414,7 +414,7 @@
           ),
         });
 
-        const response = await fetch('../../php/interface.php', {
+        const response = await fetch(get_url() + '../../php/interface.php', {
           method: 'POST',
           credentials: 'same-origin',
           body: params,
@@ -443,7 +443,7 @@
           showPlaylistView(result);
           playlistTitle.textContent = String(result.title || 'Playlist inconnue');
 
-          const response = await fetch(`../../php/interface.php?playlistItems=1&id=${encodeURIComponent(playlistId)}`, {
+          const response = await fetch(get_url() + `../../php/interface.php?playlistItems=1&id=${encodeURIComponent(playlistId)}`, {
             credentials: 'same-origin',
             cache: 'no-store',
           });
@@ -586,7 +586,7 @@
           Description: descriptionParts.join(' | '),
         });
 
-        const response = await fetch('../../php/interface.php', {
+        const response = await fetch(get_url() + '../../php/interface.php', {
           method: 'POST',
           credentials: 'same-origin',
           cache: 'no-store',
@@ -634,7 +634,7 @@
       }
 
       async function fetchYoutubeTrackMetadata(videoId) {
-        const response = await fetch(`../../php/interface.php?musicMetadata=1&id=${encodeURIComponent(videoId)}`, {
+        const response = await fetch(get_url() + `../../php/interface.php?musicMetadata=1&id=${encodeURIComponent(videoId)}`, {
           credentials: 'same-origin',
           cache: 'no-store',
         });
@@ -658,7 +658,7 @@
           throw new Error('Track sans videoId.');
         }
 
-        const musicResponse = await fetch(`../../php/interface.php?musicId=${encodeURIComponent(videoId)}`, {
+        const musicResponse = await fetch(get_url() + `../../php/interface.php?musicId=${encodeURIComponent(videoId)}`, {
           credentials: 'same-origin',
           cache: 'no-store',
         });
@@ -704,7 +704,7 @@
           DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
         });
 
-        const addMusicResponse = await fetch('../../php/interface.php', {
+        const addMusicResponse = await fetch(get_url() + '../../php/interface.php', {
           method: 'POST',
           credentials: 'same-origin',
           cache: 'no-store',
@@ -731,7 +731,7 @@
           IdMusique: String(musicId),
         });
 
-        const response = await fetch('../../php/interface.php', {
+        const response = await fetch(get_url() + '../../php/interface.php', {
           method: 'POST',
           credentials: 'same-origin',
           cache: 'no-store',
