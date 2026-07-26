@@ -1,20 +1,699 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>
-      Blank
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
+<!doctype html>
+<html lang="fr">
+  <head>
+    <style>
+      :root {
+  color-scheme: dark;
+  font-family: Inter, Arial, sans-serif;
+  background: var(--background);
+  color: #e2e8f0;
+}
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
+body {
+  margin: 0;
+  /*background: linear-gradient(135deg, #111827, #1e293b);*/
+  background: var(--background);
+  min-height: 100vh;
+}
 
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
-  </div>
-</ion-content>
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100vh - var(--player-height));
+}
+
+.menu-frame-shell {
+  min-width: 0;
+  height: calc(100vh - var(--player-height));
+}
+
+.menu-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+
+.content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--player-height));
+  overflow-y: auto;
+}
+
+
+.app {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.hero-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.logout-button {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.45);
+  color: #fecaca;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: rgba(153, 27, 27, 0.7);
+}
+
+.hero p {
+  margin: 0;
+  color: #cbd5e1;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.search-row input {
+  flex: 1;
+  border: 1px solid #475569;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-size: 1rem;
+  background: #111827;
+  color: #f8fafc;
+}
+
+.search-row button,
+.track-action,
+.queue-action {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: #38bdf8;
+  color: #082f49;
+  font-weight: 700;
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.suggestion-chip {
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  background: rgba(8, 47, 73, 0.4);
+  color: #bae6fd;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 15px 0 0 15px;
+}
+
+.panel {
+  width: 100%;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.panel.is-hidden {
+  display: none;
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.track-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.track-info strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-info small {
+  color: #94a3b8;
+}
+
+.settings-link {
+  display: inline-block;
+  margin-top: 10px;
+  text-decoration: none;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  background: rgba(8, 47, 73, 0.4);
+  color: #bae6fd;
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.users-layout {
+  max-width: 1280px;
+}
+
+.users-panel {
+  margin-top: 24px;
+}
+
+.users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.users-back {
+  color: #bae6fd;
+}
+
+.users-form {
+  margin-top: 16px;
+}
+
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.users-grid input,
+.users-grid select {
+  border: 1px solid #475569;
+  border-radius: 10px;
+  background: #111827;
+  color: #f8fafc;
+  padding: 10px 12px;
+}
+
+.users-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.users-btn {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: #38bdf8;
+  color: #082f49;
+  font-weight: 700;
+}
+
+.users-btn-small {
+  margin-top: 0;
+  padding: 6px 10px;
+}
+
+.users-btn-danger {
+  background: #ef4444;
+  color: #fee2e2;
+}
+
+.users-table-wrap {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 8px;
+}
+
+.users-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.search-frame {
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+}
+
+#searchPanel {
+  flex-direction: column;
+  min-height: 0;
+}
+
+#searchPanel .search-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.playlist-menu-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+}
+
+.playlist-menu-modal.is-hidden {
+  display: none;
+}
+
+.playlist-menu-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
+}
+
+.playlist-menu-modal-content {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(100% - 24px), 400px);
+  height: min(calc(100% - 48px), 380px);
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.55);
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.playlist-menu-close-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #ef4444;
+  color: #fee2e2;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.playlist-menu-frame {
+  width: 100%;
+  height: calc(100% - 42px);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+}
+
+input[type='range'] {
+  flex: 1;
+  min-width: 180px;
+}
+
+@media (max-width: 1000px) {
+  .app-shell {
+    grid-template-columns: 40px 1fr;
+  }
+
+  .sidebar h2 {
+    display: none;
+  }
+
+  .sidebar-link {
+    justify-content: center;
+    gap: 0;
+    padding: 10px;
+  }
+
+  .menu-label {
+    display: none;
+  }
+}
+
+@media (max-width: 470px) {
+  .logout-button {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+    line-height: 1;
+  }
+
+  .logout-button::before {
+    content: '⎋';
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+}
+
+/*****************  Player part  *****************/
+.player-frame-shell {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  z-index: 1200;
+}
+
+.player-frame {
+  width: 100%;
+  height: var(--player-height);
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  background: transparent;
+}
+
+
+/*****************  Description modal  *****************/
+.description-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+}
+
+.description-modal.is-hidden {
+  display: none;
+}
+
+.description-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.72);
+}
+
+.description-modal-content {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(100% - 24px), 920px);
+  height: min(calc(100% - 48px), 640px);
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.55);
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.description-close-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #ef4444;
+  color: #fee2e2;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.description-frame {
+  width: 100%;
+  height: calc(100% - 42px);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+}
+    </style>
+    <link rel="stylesheet" href="/components/colors/colors.css" />
+  </head>
+  <body>
+<div class="app">
+      <div class="app-shell" id="webapp">  
+<script src="js/musique_suivante.js"></script>
+<script src="js/lecteur.js"></script>
+<script src="js/recherche.js"></script>
+<script src="components/auth/auth.js"></script>
+<script src="js/app.js"></script>
+<script src="js/config.js"></script>
+
+<section id="menu_liste" class="menu-frame-shell" aria-label="Menu principal">
+    <iframe
+    id="menuFrame"
+    class="menu-frame"
+    src="pages/menu/menu.html"
+    title="Menu"
+    loading="eager"
+    ></iframe>
+</section>
+
+<main class="content">
+    <section class="hero">
+    <div class="hero-topbar">
+        <h1>Lecteur musical</h1>
+        <button id="logoutButton" type="button" class="logout-button">Se deconnecter</button>
+    </div>
+    <p>Parcourez votre bibliothèque locale et recherchez des titres via YouTube Music.</p>
+    <div id="status" class="status">Chargement de la bibliothèque…</div>
+    </section>
+
+    <div class="layout">
+    <section id="homePanel" class="panel is-hidden">
+        <iframe
+        id="homeFrame"
+        class="search-frame"
+        data-src="pages/home/home.html"
+        title="Accueil"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="libraryPanel" class="panel is-hidden">
+        <h2>Liste des musiques</h2>
+        <iframe
+        id="listFrame"
+        class="search-frame"
+        data-src="pages/list/list.html"
+        title="Liste des musiques"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="queuePanel" class="panel is-hidden">
+        <iframe
+        id="queueFrame"
+        class="search-frame"
+        data-src="pages/queue/queue.html"
+        title="Queue"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="searchPanel" class="panel is-hidden">
+        <h2>Recherche YouTube Music</h2>
+        <iframe
+        id="searchFrame"
+        class="search-frame"
+        data-src="pages/search/search.html"
+        title="Recherche"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="artistsPanel" class="panel is-hidden">
+        <h2>Artistes</h2>
+        <iframe
+        id="artistsFrame"
+        class="search-frame"
+        data-src="pages/artist/artist.html"
+        title="Artistes"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="albumsPanel" class="panel is-hidden">
+        <h2>Albums</h2>
+        <iframe
+        id="albumsFrame"
+        class="search-frame"
+        data-src="pages/albums/albums.html"
+        title="Albums"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="playlistsPanel" class="panel is-hidden">
+        <h2>Playlists YouTube</h2>
+        <iframe
+        id="playlistsFrame"
+        class="search-frame"
+        data-src="pages/playlistsYT/playlistsYT.html"
+        title="Playlists"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="myPlaylistsPanel" class="panel is-hidden">
+        <h2>Mes playlists</h2>
+        <iframe
+        id="myPlaylistsFrame"
+        class="search-frame"
+        data-src="pages/playlistsUser/playlistsUser.html"
+        title="Mes playlists"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="communityPlaylistsPanel" class="panel is-hidden">
+        <h2>Playlists de la communauté</h2>
+        <iframe
+        id="communityPlaylistsFrame"
+        class="search-frame"
+        data-src="pages/playlistsDatabase/playlistsDatabase.html"
+        title="Playlists de la communauté"
+        loading="lazy"
+        ></iframe>
+    </section>
+
+    <section id="settingsPanel" class="panel is-hidden">
+        <h2>Parametres</h2>
+        <iframe
+        id="settingsFrame"
+        class="search-frame"
+        data-src="pages/parameters/parameters.html"
+        title="Parametres"
+        loading="lazy"
+        ></iframe>
+    </section>
+    </div>
+
+    <section id="descriptionModal" class="description-modal is-hidden" aria-hidden="true">
+    <div id="descriptionModalBackdrop" class="description-modal-backdrop"></div>
+    <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Description musique">
+        <button id="descriptionCloseButton" type="button" class="description-close-button">Fermer</button>
+        <iframe
+        id="descriptionFrame"
+        class="description-frame"
+        src="popup/description/description.html"
+        title="Description de la musique"
+        loading="eager"
+        ></iframe>
+    </div>
+    </section>
+
+    <section id="usersModal" class="description-modal is-hidden" aria-hidden="true">
+    <div id="usersModalBackdrop" class="description-modal-backdrop"></div>
+    <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Gestion des utilisateurs">
+        <button id="usersCloseButton" type="button" class="description-close-button">Fermer</button>
+        <iframe
+        id="usersFrame"
+        class="description-frame"
+        src="about:blank"
+        title="Gestion des utilisateurs"
+        loading="eager"
+        ></iframe>
+    </div>
+    </section>
+
+    <section id="musicIntegrityModal" class="description-modal is-hidden" aria-hidden="true">
+    <div id="musicIntegrityModalBackdrop" class="description-modal-backdrop"></div>
+    <div class="description-modal-content" role="dialog" aria-modal="true" aria-label="Verification coherence musiques/fichiers">
+        <button id="musicIntegrityCloseButton" type="button" class="description-close-button">Fermer</button>
+        <iframe
+        id="musicIntegrityFrame"
+        class="description-frame"
+        src="about:blank"
+        title="Verification coherence musiques/fichiers"
+        loading="eager"
+        ></iframe>
+    </div>
+    </section>
+
+    <section id="playlistMenuModal" class="playlist-menu-modal is-hidden" aria-hidden="true">
+    <div id="playlistMenuModalBackdrop" class="playlist-menu-modal-backdrop"></div>
+    <div class="playlist-menu-modal-content" role="dialog" aria-modal="true" aria-label="Ajouter à une playlist">
+        <button id="playlistMenuCloseButton" type="button" class="playlist-menu-close-button">Fermer</button>
+        <iframe
+        id="playlistMenuFrame"
+        class="playlist-menu-frame"
+        src="popup/playlistMenu/playlistMenu.html"
+        title="Ajouter à une playlist"
+        loading="eager"
+        ></iframe>
+    </div>
+    </section>
+</main>
+
+<section id="lecteur_musique" class="player-frame-shell">
+    <iframe
+        id="playerFrame"
+        class="player-frame"
+        src="pages/player/player.html"
+        title="Lecteur audio"
+        loading="eager"
+    ></iframe>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+  void initializeApp();
+});
+</script>
+</div>
+    </div>
+
+    </body>
+</html>

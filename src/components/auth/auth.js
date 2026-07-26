@@ -16,7 +16,7 @@
     async function ensureAuthenticated() {
       // Vérifie la session côté serveur avant d'initialiser le reste de l'application.
       try {
-        const response = await fetch('php/auth.php?action=check', {
+        const response = await fetch(get_url_from_base() + 'php/auth.php?action=check', {
           credentials: 'same-origin',
           cache: 'no-store',
         });
@@ -43,7 +43,7 @@
     async function logout() {
       // Termine la session serveur puis redirige vers la page de connexion.
       try {
-        await fetch('php/auth.php?action=logout', {
+        await fetch(get_url_from_base() + 'php/auth.php?action=logout', {
           method: 'POST',
           credentials: 'same-origin',
         });

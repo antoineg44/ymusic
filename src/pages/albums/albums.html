@@ -5,6 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Albums - YMusic</title>
 		<link rel="stylesheet" href="../../styles.css" />
+    	<script src="../../js/config.js"></script>
 		<style>
 			.albums-page {
 				max-width: 1100px;
@@ -85,8 +86,7 @@
 
 			async function loadAlbums() {
 				try {
-					const response = await fetch('../../php/interface.php?albums=1', {
-						credentials: 'same-origin',
+					const response = await fetch(get_url() + '../../php/interface.php?albums=1', {
 						cache: 'no-store',
 					});
 
