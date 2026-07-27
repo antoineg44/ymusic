@@ -81,7 +81,7 @@ async function submitAuth(action) {
       false,
     );
     window.setTimeout(() => {
-      window.top.location.replace("../../index.html");
+      //window.top.location.replace("../../index.html");
     }, 250);
   } catch (error) {
     console.error(error);
@@ -110,7 +110,7 @@ registerButton.addEventListener("click", () => {
     });
     const payload = await response.json();
     if (payload.success) {
-      window.top.location.replace("../../index.html");
+      //window.top.location.replace("../../index.html");
     }
   } catch (error) {
     console.debug(error);
