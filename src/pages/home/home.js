@@ -65,14 +65,11 @@ async function searchMusiques(titleQuery = '') {
         
         const trimmedTitleQuery = String(titleQuery || '').trim();
 
-        const response = await fetch(get_url() + `../../pages/home/home.php?search=${encodeURIComponent(trimmedTitleQuery)}`, {
-            credentials: 'same-origin',
-            cache: 'no-store',
-        });
+        const response;
 
         // Exemple d'utilisation
-        sendMessageAndWait(window.parent, 'Bonjour!').then(response => {
-            console.log('Réponse reçue:', response);
+        sendMessageAndWait(window.parent, 'search=${encodeURIComponent(trimmedTitleQuery)}').then(result => {
+            response = result;
         }).catch(error => {
             console.error(error);
         });

@@ -346,15 +346,23 @@ window.addEventListener('message', (event) => {
   }
 
   const data = event.data;
-  const location = event.source.location.href.split("/");
-  console.log(location[location.length-1].substring(0,4));
-  console.log(data);
-  if (data && data.message && data.messageId) {
-    // Traiter le message reçu
-    const responseMessage = `Réponse à: ${data.message}`;
+  if(data && data.message && data.messageId && message.type === 'db')
+  {
+    const location = event.source.location.href.split("/");
+    console.log(location[location.length-1].substring(0,4));
 
-    // Envoyer la réponse en reply
-    event.source.postMessage({ response: responseMessage, replyTo: data.messageId }, event.origin);
+    switch (location[location.length-1].substring(0,4)) {
+      case "home":
+        const response = await fetch(get_url() + `../../pages/home/home.php?`, {
+            cache: 'no-store',
+        });
+        // Envoyer la réponse en reply
+        event.source.postMessage({ response: response, replyTo: data.messageId }, event.origin);
+        break;
+    
+      default:
+        break;
+    }
   }
 });
 
