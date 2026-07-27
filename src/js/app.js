@@ -49,6 +49,10 @@ let usersModal;
 let usersBackdrop;
 let usersFrame;
 let usersCloseButton;
+let loginModal;
+let loginFrame;
+let loginCloseButton;
+let loginModalBackdrop;
 
 // Fonction pour initialiser les références aux éléments DOM
 function initializeDOMElements() {
@@ -86,6 +90,10 @@ function initializeDOMElements() {
   usersBackdrop = document.getElementById('usersModalBackdrop');
   usersFrame = document.getElementById('usersFrame');
   usersCloseButton = document.getElementById('usersCloseButton');
+  loginModal = document.getElementById('loginModal');
+  loginFrame = document.getElementById('loginFrame');
+  loginCloseButton = document.getElementById('loginCloseButton');
+  loginModalBackdrop = document.getElementById('loginModalBackdrop');
 }
 const musicIntegrityModal = document.getElementById('musicIntegrityModal');
 const musicIntegrityBackdrop = document.getElementById('musicIntegrityModalBackdrop');
@@ -139,6 +147,10 @@ if (musicIntegrityCloseButton) {
   musicIntegrityCloseButton.addEventListener('click', closeMusicIntegrityPopup);
 }
 
+if (loginCloseButton) {
+  loginCloseButton.addEventListener('click', closeLoginModal);
+}
+
 if (descriptionBackdrop) {
   descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
 }
@@ -153,6 +165,10 @@ if (usersBackdrop) {
 
 if (musicIntegrityBackdrop) {
   musicIntegrityBackdrop.addEventListener('click', closeMusicIntegrityPopup);
+}
+
+if (loginModalBackdrop) {
+  loginModalBackdrop.addEventListener('click', closeLoginModal);
 }
 
 window.addEventListener('message', (event) => {
@@ -326,7 +342,8 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.type === 'USER_LOGGED_OUT') {
-    window.location.replace('pages/login/login.html');
+    // Afficher le modal login au lieu de rediriger
+    openLoginModal();
   }
 });
 
@@ -343,6 +360,8 @@ async function initializeApp() {
   
   const authenticated = await authController.ensureAuthenticated();
   if (!authenticated) {
+    // Afficher le modal login au lieu de juste retourner
+    openLoginModal();
     return;
   }
 
@@ -756,6 +775,24 @@ function closeDescriptionPopup() {
   descriptionModal.classList.add('is-hidden');
   descriptionModal.setAttribute('aria-hidden', 'true');
   descriptionFrame.src = 'about:blank';
+}
+
+function openLoginModal() {
+  if (!loginModal || !loginFrame) {
+    return;
+  }
+
+  loginModal.classList.remove('is-hidden');
+  loginModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeLoginModal() {
+  if (!loginModal) {
+    return;
+  }
+
+  loginModal.classList.add('is-hidden');
+  loginModal.setAttribute('aria-hidden', 'true');
 }
 
 function openEditionsPopup(musicId) {
