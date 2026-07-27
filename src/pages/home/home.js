@@ -65,7 +65,7 @@ async function searchMusiques(titleQuery = '') {
         
         const trimmedTitleQuery = String(titleQuery || '').trim();
 
-        const response;
+        var response;
 
         // Exemple d'utilisation
         sendMessageAndWait(window.parent, 'search=${encodeURIComponent(trimmedTitleQuery)}').then(result => {
