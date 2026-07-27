@@ -15,7 +15,7 @@ interface AppMessage {
 
 export class HomePage implements AfterViewInit {
   constructor() {
-    //window.addEventListener("message", this.onMessage);
+    window.addEventListener("message", this.onMessage);
   }
 
   // Pour les message :

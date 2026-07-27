@@ -22,7 +22,7 @@ function setLoginLoading(isLoading) {
 
 async function callAuth(action, body) {
   const response = await fetch(
-    get_url() + `../../php/auth.php?action=${encodeURIComponent(action)}`,
+    get_url_from_base() + `php/auth.php?action=${encodeURIComponent(action)}`,
     {
       method: "POST",
       body: new URLSearchParams(body),
@@ -105,7 +105,7 @@ registerButton.addEventListener("click", () => {
 
 (async () => {
   try {
-    const response = await fetch(get_url() + "../../php/auth.php?action=check", {
+    const response = await fetch(get_url_from_base() + `php/auth.php?action=check`, {
       cache: "no-store",
     });
     const payload = await response.json();

@@ -20,11 +20,10 @@
     <link rel="stylesheet" href="components/colors/colors.css" />
   </head>
   <body>
+    <div id="includes_html"></div>
+    
     <app-root></app-root>
-    <div class="app">
-      <div class="app-shell" id="webapp">  
-      </div>
-    </div>
+ 
     <script src="js/musique_suivante.js"></script>
     <script src="js/lecteur.js"></script>
     <script src="js/recherche.js"></script>
@@ -41,7 +40,7 @@
         fetch("includes.html")
         .then(response => response.text())
         .then(html => {
-          document.getElementById("webapp").innerHTML = html;
+          document.getElementById("includes_html").innerHTML = html;
           // Initialiser l'app après que le HTML soit inséré
           void initializeApp();
         });

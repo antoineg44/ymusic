@@ -777,7 +777,7 @@ function add_music_entry_for_orphan_file(PDO $pdo, YouTubeMusic $yt, string $mus
 
         return (int) (($stmt->fetch(PDO::FETCH_ASSOC)['Total'] ?? 0));
     }
-
+/*
 if (empty($_SESSION['user'])) {
     // Toutes les routes de cette API necessitent une session utilisateur active.
     http_response_code(401);
@@ -786,7 +786,7 @@ if (empty($_SESSION['user'])) {
         'error' => 'Authentification requise',
     ], JSON_UNESCAPED_UNICODE);
     exit;
-}
+}*/
 
 $yt = new YouTubeMusic();
 

@@ -17,7 +17,6 @@
       // Vérifie la session côté serveur avant d'initialiser le reste de l'application.
       try {
         const response = await fetch(get_url_from_base() + 'php/auth.php?action=check', {
-          credentials: 'same-origin',
           cache: 'no-store',
         });
         const payload = await response.json();
@@ -45,7 +44,6 @@
       try {
         await fetch(get_url_from_base() + 'php/auth.php?action=logout', {
           method: 'POST',
-          credentials: 'same-origin',
         });
       } catch (error) {
         console.error(error);

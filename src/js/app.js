@@ -398,6 +398,7 @@ async function initializeApp() {
   if (logoutButton) {
     logoutButton.addEventListener('click', () => {
       void authController.logout();
+      openLoginModal();
     });
   }
   
