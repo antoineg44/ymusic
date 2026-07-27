@@ -339,6 +339,11 @@ window.addEventListener('message', (event) => {
     // Afficher le modal login au lieu de rediriger
     openLoginModal();
   }
+
+  if (message.type === 'USER_LOGGED_IN') {
+    // Cacher le modal login au lieu de rediriger
+    closeLoginModal();
+  }
 });
 
 async function initializeApp() {
