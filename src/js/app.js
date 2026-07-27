@@ -165,7 +165,7 @@ if (loginModalBackdrop) {
   loginModalBackdrop.addEventListener('click', closeLoginModal);
 }
 
-async function sendResponse(source, url) {
+async function sendResponse(source, messageId, url) {
   const response = await fetch(get_url() + url, {
     cache: 'no-store',
   });
@@ -173,7 +173,7 @@ async function sendResponse(source, url) {
 
   source.postMessage({
       response: dataText,
-      replyTo: data.messageId
+      replyTo: messageId
   }, '*');
 }
 
@@ -366,7 +366,7 @@ window.addEventListener('message', (event) => {
     switch (location[location.length-1].substring(0,4)) {
       case "home":
         // Envoyer la réponse en reply
-        sendResponse(event.source, "pages/home/home.php?" + message.message);
+        sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
         break;
     
       default:
