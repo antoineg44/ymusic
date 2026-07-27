@@ -176,8 +176,8 @@ async function sendResponse(source, messageId, url) {
     }
 
     const dataText = await response.json();
-    if (!response.ok || !payload.success) {
-      throw new Error(payload.error || 'Error message');
+    if (!response.ok || !dataText.success) {
+      throw new Error(dataText.error || 'Error message');
     }
 
   source.postMessage({
