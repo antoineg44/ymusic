@@ -353,11 +353,11 @@ window.addEventListener('message', (event) => {
 
     switch (location[location.length-1].substring(0,4)) {
       case "home":
-        const response = fetch(get_url() + `../../pages/home/home.php?`, {
+        const result = fetch(get_url() + `../../pages/home/home.php?`, {
             cache: 'no-store',
         });
         // Envoyer la réponse en reply
-        event.source.postMessage({ response: response, replyTo: data.messageId }, event.origin);
+        event.source.postMessage({ response: result, replyTo: data.messageId }, event.origin);
         break;
     
       default:
