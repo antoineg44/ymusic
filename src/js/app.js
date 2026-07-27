@@ -353,7 +353,7 @@ window.addEventListener('message', (event) => {
 
     switch (location[location.length-1].substring(0,4)) {
       case "home":
-        const response = await fetch(get_url() + `../../pages/home/home.php?`, {
+        const response = fetch(get_url() + `../../pages/home/home.php?`, {
             cache: 'no-store',
         });
         // Envoyer la réponse en reply
