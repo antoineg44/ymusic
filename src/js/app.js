@@ -346,7 +346,7 @@ window.addEventListener('message', (event) => {
   }
 
   const data = event.data;
-  console.log(event);
+  console.log(event.source.location);
   if (data && data.message && data.messageId) {
     // Traiter le message reçu
     const responseMessage = `Réponse à: ${data.message}`;
