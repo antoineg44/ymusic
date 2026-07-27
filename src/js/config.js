@@ -52,7 +52,7 @@ function sendMessageAndWait(targetWindow, message, timeout = 5000) {
     window.addEventListener('message', handleMessage);
 
     // Envoyer le message avec un identifiant
-    targetWindow.postMessage({ message, messageId }, '*');
+    targetWindow.postMessage({ message, messageId, type: "db" }, '*');
 
     // Timeout pour la réponse
     const timer = setTimeout(() => {
