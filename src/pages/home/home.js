@@ -68,37 +68,35 @@ async function searchMusiques(titleQuery = '') {
         var response;
 
         // Exemple d'utilisation
-        sendMessageAndWait(window.parent, 'search=${encodeURIComponent(trimmedTitleQuery)}').then(result => {
-            response = result;
+        sendMessageAndWait(window.parent, 'search=${encodeURIComponent(trimmedTitleQuery)}').then(response => {
+            if (response.status === 401) {
+                window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+                return;
+            }
+
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.error || 'Impossible de charger les musiques');
+            }
+
+            const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+            if (musiques.length === 0) {
+                setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
+                homeEmpty.style.display = 'block';
+                return;
+            }
+
+            musiques.forEach((row, index) => {
+                const preparedSong = normalizeMusicRow(row);
+                preparedSong.showIndex = false;
+                const item = renderElement(preparedSong, index);
+                homeResults.appendChild(item);
+            });
+
+            setStatus(`20 resultats max pour "${trimmedTitleQuery}".`);
         }).catch(error => {
             console.error(error);
         });
-
-        if (response.status === 401) {
-            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-            return;
-        }
-
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
-            throw new Error(payload.error || 'Impossible de charger les musiques');
-        }
-
-        const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
-        if (musiques.length === 0) {
-            setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
-            homeEmpty.style.display = 'block';
-            return;
-        }
-
-        musiques.forEach((row, index) => {
-            const preparedSong = normalizeMusicRow(row);
-            preparedSong.showIndex = false;
-            const item = renderElement(preparedSong, index);
-            homeResults.appendChild(item);
-        });
-
-        setStatus(`20 resultats max pour "${trimmedTitleQuery}".`);
     } catch (error) {
         setStatus(`Erreur: ${error && error.message ? error.message : error}`, true);
     }
