@@ -354,7 +354,7 @@ window.addEventListener('message', (event) => {
     switch (location[location.length-1].substring(0,4)) {
       case "home":
         // Envoyer la réponse en reply
-        event.source.postMessage({ response: fetch(get_url() + `../../pages/home/home.php?`, {
+        event.source.postMessage({ response: fetch(get_url() + `pages/home/home.php?`, {
             cache: 'no-store',
         }), replyTo: data.messageId }, event.origin);
         break;
