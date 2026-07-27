@@ -68,7 +68,7 @@ async function searchMusiques(titleQuery = '') {
         var response;
 
         // Exemple d'utilisation
-        sendMessageAndWait(window.parent, 'search=${encodeURIComponent(trimmedTitleQuery)}').then(response => {
+        sendMessageAndWait(window.parent, `search=${encodeURIComponent(trimmedTitleQuery)}`).then(response => {
 
             const musiques = Array.isArray(response.musiques) ? response.musiques : [];
             if (musiques.length === 0) {
