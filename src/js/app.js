@@ -366,6 +366,12 @@ window.addEventListener('message', (event) => {
     closeLoginModal();
   }
 
+  if (message.type === 'INITIALIZATION_DONE') {
+    // Cacher le modal login au lieu de rediriger
+    void initializeApp();
+        setActiveTab('accueil');
+  }
+
   const data = event.data;
   if(data && message && data.messageId && message.type === 'db')
   {
