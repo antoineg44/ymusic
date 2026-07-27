@@ -51,7 +51,6 @@ let usersFrame;
 let usersCloseButton;
 let loginModal;
 let loginFrame;
-let loginCloseButton;
 let loginModalBackdrop;
 
 // Fonction pour initialiser les références aux éléments DOM
@@ -92,7 +91,6 @@ function initializeDOMElements() {
   usersCloseButton = document.getElementById('usersCloseButton');
   loginModal = document.getElementById('loginModal');
   loginFrame = document.getElementById('loginFrame');
-  loginCloseButton = document.getElementById('loginCloseButton');
   loginModalBackdrop = document.getElementById('loginModalBackdrop');
 }
 const musicIntegrityModal = document.getElementById('musicIntegrityModal');
@@ -145,10 +143,6 @@ if (usersCloseButton) {
 
 if (musicIntegrityCloseButton) {
   musicIntegrityCloseButton.addEventListener('click', closeMusicIntegrityPopup);
-}
-
-if (loginCloseButton) {
-  loginCloseButton.addEventListener('click', closeLoginModal);
 }
 
 if (descriptionBackdrop) {
