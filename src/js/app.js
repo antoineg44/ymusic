@@ -344,6 +344,16 @@ window.addEventListener('message', (event) => {
     // Cacher le modal login au lieu de rediriger
     closeLoginModal();
   }
+
+  const data = event.data;
+  console.log(data);
+  if (data && data.message && data.messageId) {
+    // Traiter le message reçu
+    const responseMessage = `Réponse à: ${data.message}`;
+
+    // Envoyer la réponse en reply
+    event.source.postMessage({ response: responseMessage, replyTo: data.messageId }, event.origin);
+  }
 });
 
 async function initializeApp() {

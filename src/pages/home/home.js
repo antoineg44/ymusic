@@ -70,6 +70,13 @@ async function searchMusiques(titleQuery = '') {
             cache: 'no-store',
         });
 
+        // Exemple d'utilisation
+        sendMessageAndWait(window.parent, 'Bonjour!').then(response => {
+            console.log('Réponse reçue:', response);
+        }).catch(error => {
+            console.error(error);
+        });
+
         if (response.status === 401) {
             window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
             return;
