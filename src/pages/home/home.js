@@ -74,7 +74,7 @@ async function searchMusiques(titleQuery = '') {
                 return;
             }
 
-            const payload = await response.json();
+            const payload = response.json();
             if (!response.ok || !payload.success) {
                 throw new Error(payload.error || 'Impossible de charger les musiques');
             }
