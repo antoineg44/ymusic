@@ -69,17 +69,8 @@ async function searchMusiques(titleQuery = '') {
 
         // Exemple d'utilisation
         sendMessageAndWait(window.parent, 'search=${encodeURIComponent(trimmedTitleQuery)}').then(response => {
-            if (response.status === 401) {
-                window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-                return;
-            }
 
-            const payload = response.json();
-            if (!response.ok || !payload.success) {
-                throw new Error(payload.error || 'Impossible de charger les musiques');
-            }
-
-            const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+            const musiques = Array.isArray(response.musiques) ? response.musiques : [];
             if (musiques.length === 0) {
                 setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
                 homeEmpty.style.display = 'block';

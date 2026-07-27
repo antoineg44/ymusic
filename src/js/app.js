@@ -169,7 +169,16 @@ async function sendResponse(source, messageId, url) {
   const response = await fetch(get_url() + url, {
     cache: 'no-store',
   });
-  const dataText = await response;
+
+  if (response.status === 401) {
+      window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+      return;
+    }
+
+    const dataText = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Error message');
+    }
 
   source.postMessage({
       response: dataText,
