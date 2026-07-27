@@ -52,6 +52,14 @@ let usersCloseButton;
 let loginModal;
 let loginFrame;
 let loginModalBackdrop;
+let musicIntegrityModal;
+let musicIntegrityBackdrop;
+let musicIntegrityFrame;
+let musicIntegrityCloseButton;
+let playlistMenuModal;
+let playlistMenuBackdrop;
+let playlistMenuFrame;
+let playlistMenuCloseButton;
 
 // Fonction pour initialiser les références aux éléments DOM
 function initializeDOMElements() {
@@ -92,77 +100,88 @@ function initializeDOMElements() {
   loginModal = document.getElementById('loginModal');
   loginFrame = document.getElementById('loginFrame');
   loginModalBackdrop = document.getElementById('loginModalBackdrop');
+  musicIntegrityModal = document.getElementById('musicIntegrityModal');
+  musicIntegrityBackdrop = document.getElementById('musicIntegrityModalBackdrop');
+  musicIntegrityFrame = document.getElementById('musicIntegrityFrame');
+  musicIntegrityCloseButton = document.getElementById('musicIntegrityCloseButton');
+  playlistMenuModal = document.getElementById('playlistMenuModal');
+  playlistMenuBackdrop = document.getElementById('playlistMenuModalBackdrop');
+  playlistMenuFrame = document.getElementById('playlistMenuFrame');
+  playlistMenuCloseButton = document.getElementById('playlistMenuCloseButton');
 }
-const musicIntegrityModal = document.getElementById('musicIntegrityModal');
-const musicIntegrityBackdrop = document.getElementById('musicIntegrityModalBackdrop');
-const musicIntegrityFrame = document.getElementById('musicIntegrityFrame');
-const musicIntegrityCloseButton = document.getElementById('musicIntegrityCloseButton');
-const playlistMenuModal = document.getElementById('playlistMenuModal');
-const playlistMenuBackdrop = document.getElementById('playlistMenuModalBackdrop');
-const playlistMenuFrame = document.getElementById('playlistMenuFrame');
-const playlistMenuCloseButton = document.getElementById('playlistMenuCloseButton');
 let pendingQueueRefreshOnLoad = null;
+let playerController = null;
+let rechercheController = null;
+let authController = null;
 
-const playerController = window.createLecteurController({
-  state,
-  playerFrame,
-  setStatus,
-  isValidVideoId,
-  parseViewCount,
-  saveLikedMusic,
-  onTrackChanged: updateQueueDisplay,
-  onOpenDescription: openDescriptionPopup,
-});
+function initializeControllers() {
+  if (playerController || rechercheController || authController) {
+    return;
+  }
 
-const rechercheController = window.createRechercheController({
-  state,
-  setStatus,
-  parseViewCount,
-  normalize,
-  playerController,
-  searchFrame,
-});
+  playerController = window.createLecteurController({
+    state,
+    playerFrame,
+    setStatus,
+    isValidVideoId,
+    parseViewCount,
+    saveLikedMusic,
+    onTrackChanged: updateQueueDisplay,
+    onOpenDescription: openDescriptionPopup,
+  });
 
-const authController = window.createAuthController({
-  state,
-  manageUsersLink,
-  logoutButton,
-});
+  rechercheController = window.createRechercheController({
+    state,
+    setStatus,
+    parseViewCount,
+    normalize,
+    playerController,
+    searchFrame,
+  });
 
-if (descriptionCloseButton) {
-  descriptionCloseButton.addEventListener('click', closeDescriptionPopup);
+  authController = window.createAuthController({
+    state,
+    manageUsersLink,
+    logoutButton,
+  });
 }
 
-if (playlistMenuCloseButton) {
-  playlistMenuCloseButton.addEventListener('click', closePlaylistMenuPopup);
-}
+function attachModalEventListeners() {
+  if (descriptionCloseButton) {
+    descriptionCloseButton.addEventListener('click', closeDescriptionPopup);
+  }
 
-if (usersCloseButton) {
-  usersCloseButton.addEventListener('click', closeUsersPopup);
-}
+  if (playlistMenuCloseButton) {
+    playlistMenuCloseButton.addEventListener('click', closePlaylistMenuPopup);
+  }
 
-if (musicIntegrityCloseButton) {
-  musicIntegrityCloseButton.addEventListener('click', closeMusicIntegrityPopup);
-}
+  if (usersCloseButton) {
+    usersCloseButton.addEventListener('click', closeUsersPopup);
+  }
 
-if (descriptionBackdrop) {
-  descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
-}
+  if (musicIntegrityCloseButton) {
+    musicIntegrityCloseButton.addEventListener('click', closeMusicIntegrityPopup);
+  }
 
-if (playlistMenuBackdrop) {
-  playlistMenuBackdrop.addEventListener('click', closePlaylistMenuPopup);
-}
+  if (descriptionBackdrop) {
+    descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
+  }
 
-if (usersBackdrop) {
-  usersBackdrop.addEventListener('click', closeUsersPopup);
-}
+  if (playlistMenuBackdrop) {
+    playlistMenuBackdrop.addEventListener('click', closePlaylistMenuPopup);
+  }
 
-if (musicIntegrityBackdrop) {
-  musicIntegrityBackdrop.addEventListener('click', closeMusicIntegrityPopup);
-}
+  if (usersBackdrop) {
+    usersBackdrop.addEventListener('click', closeUsersPopup);
+  }
 
-if (loginModalBackdrop) {
-  loginModalBackdrop.addEventListener('click', closeLoginModal);
+  if (musicIntegrityBackdrop) {
+    musicIntegrityBackdrop.addEventListener('click', closeMusicIntegrityPopup);
+  }
+
+  if (loginModalBackdrop) {
+    loginModalBackdrop.addEventListener('click', closeLoginModal);
+  }
 }
 
 async function sendResponse(source, messageId, url) {
@@ -393,9 +412,11 @@ window.addEventListener('message', (event) => {
 async function initializeApp() {
   // Initialiser les références DOM en premier
   initializeDOMElements();
+  initializeControllers();
+  attachModalEventListeners();
   
   // Attacher l'event listener au bouton logout (qui n'existait pas au moment de la création de authController)
-  if (logoutButton) {
+  if (logoutButton && authController) {
     logoutButton.addEventListener('click', () => {
       void authController.logout();
       openLoginModal();

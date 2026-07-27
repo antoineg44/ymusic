@@ -1,6 +1,6 @@
 
 function webapp() {
-    const domain_approv = [
+    /*const domain_approv = [
         "localhost",
         "192.168.1.10",
         "music.partitions.ovh"
@@ -12,7 +12,8 @@ function webapp() {
     } else {
         // Application smartphone
         return false;
-    }
+    }*/
+   return false;
 }
 
 function get_url() {

@@ -272,10 +272,37 @@
 
     async function waitForMediaReady(path, retries = 8, delayMs = 250) {
       // Attend que le fichier téléchargé soit effectivement accessible via HTTP.
+      const mediaPath = String(path || '').trim();
+      if (!mediaPath) {
+        throw new Error('No media path provided.');
+      }
+
+      const buildMediaUrl = () => {
+        if (/^https?:\/\//i.test(mediaPath)) {
+          try {
+            
+            const url = new URL(mediaPath);
+            url.searchParams.set('r', String(Date.now()));
+            return url.toString();
+          } catch (error) {
+            console.debug('Failed to build media URL:', error);
+            return mediaPath;
+          }
+        }
+
+        return `${get_url_from_base()}${encodeURI(mediaPath)}?r=${Date.now()}`;
+      };
+      
       for (let attempt = 0; attempt < retries; attempt += 1) {
         try {
-          const response = await fetch(get_url_from_base() + `${encodeURI(path)}?r=${Date.now()}`, { method: 'HEAD' });
-          if (response.ok) {
+          console.log("buildmedialurl : " + buildMediaUrl());
+          const response = await fetch(buildMediaUrl(), {
+            method: 'HEAD',
+            cache: 'no-store',
+            mode: 'no-cors',
+          });
+
+          if (response.type === 'opaque' || response.ok || response.status === 0) {
             return;
           }
         } catch (error) {
@@ -309,8 +336,28 @@
       state.likedLogged = false;
       state.likedSaved = false;
 
-      const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
-      const source = `${encodeURI(track.path)}${cacheBust}`;
+      const resolveTrackSource = () => {
+        const normalizedPath = String(track.path || '').trim();
+        if (!normalizedPath) {
+          return '';
+        }
+
+        if (/^https?:\/\//i.test(normalizedPath)) {
+          try {
+            const url = new URL(normalizedPath);
+            url.searchParams.set('r', String(Date.now()));
+            return url.toString();
+          } catch (error) {
+            console.debug('Failed to resolve remote track URL:', error);
+            return normalizedPath;
+          }
+        }
+
+        const cacheBust = track.folder === 'temp' ? `?v=${Date.now()}` : '';
+        return `${encodeURI(normalizedPath)}${cacheBust}`;
+      };
+
+      const source = resolveTrackSource();
       sendPlayerMessage('LOAD_TRACK', {
         src: source,
         title: track.title,

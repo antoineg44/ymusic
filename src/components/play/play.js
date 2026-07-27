@@ -408,12 +408,16 @@
 			const halfFadeSeconds = Math.max(0.05, safeFadeInSeconds / 2);
 			const token = crossfadeToken;
 
-			incomingAudio.src = normalizeTrackSrc(src);
+			incomingAudio.src = "https://music.partitions.ovh/" + String(src || '').trim();
 			incomingAudio.currentTime = 0;
 			incomingAudio.volume = canCrossfade ? 0 : 1;
 			incomingAudio.load();
 
 			activeAudio = incomingAudio;
+
+			console.log("incomingAudio");
+			console.log(incomingAudio);
+			console.log(src);
 
 			incomingAudio.play().catch(() => {
 				emitPlaybackError('Lecture bloquee par le navigateur.');
