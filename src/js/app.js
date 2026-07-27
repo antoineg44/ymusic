@@ -334,6 +334,13 @@ async function initializeApp() {
   // Initialiser les références DOM en premier
   initializeDOMElements();
   
+  // Attacher l'event listener au bouton logout (qui n'existait pas au moment de la création de authController)
+  if (logoutButton) {
+    logoutButton.addEventListener('click', () => {
+      void authController.logout();
+    });
+  }
+  
   const authenticated = await authController.ensureAuthenticated();
   if (!authenticated) {
     return;
