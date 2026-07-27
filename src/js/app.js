@@ -169,7 +169,7 @@ async function sendResponse(source, messageId, url) {
   const response = await fetch(get_url() + url, {
     cache: 'no-store',
   });
-  const dataText = await response.json();
+  const dataText = await response;
 
   source.postMessage({
       response: dataText,
