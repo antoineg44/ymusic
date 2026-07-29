@@ -1217,13 +1217,14 @@ function db_listener(event)
             break;
 
         case 'login':
-            const response = await fetch(
+          console.log(get_url_from_base() + `php/auth.php?action=` + message.message.action);
+            /*const response = await fetch(
                 get_url_from_base() + `php/auth.php?action=` + message.message.action,
                 {
                 method: "POST",
                 body: new URLSearchParams(message.message.body),
                 },
-            );
+            );*/
             /*const dataText = await response.text();
             event.source.postMessage({
                 response: dataText,
