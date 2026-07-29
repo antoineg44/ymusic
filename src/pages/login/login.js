@@ -24,13 +24,13 @@ async function callAuth(action, body) {
   console.log("callAuth");
   sendMessageAndWait(window.parent, {action: action, body: new URLSearchParams(body)}).then(response => {
     console.log("callAuth response");
-    let payload = null;
+    var payload = response;
 
-    try {
+    /*try {
       payload = response ? JSON.parse(response) : null;
     } catch (error) {
       throw new Error("Le serveur d'authentification a repondu avec un contenu invalide (HTTP). Le serveur d'authentification n'a pas retourne de JSON valide.");
-    }
+    }*/
 
     if (!payload.success) {
       setMessage(payload.message || "Operation impossible.");

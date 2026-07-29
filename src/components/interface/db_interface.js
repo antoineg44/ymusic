@@ -6,7 +6,7 @@ function get_event_file(event)
 }
 
 async function sendResponse(source, messageId, url) {
-    const response = await fetch(get_url() + url, {
+    const response = await fetch(get_url_from_base() + url, {
     cache: 'no-store',
     });
 
@@ -50,7 +50,8 @@ async function db_listener(event)
             await sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.action);
             break;
 
-        case 'login': {
+        case 'login':
+        {
             const response = await fetch(
             get_url_from_base() + `php/auth.php?action=` + message.action,
             {
@@ -58,7 +59,7 @@ async function db_listener(event)
             body: new URLSearchParams(message.body),
             },
             );
-            const dataText = await response.text();
+            const dataText = await response.json();
             event.source.postMessage({
             response: dataText,
             replyTo: data.messageId
