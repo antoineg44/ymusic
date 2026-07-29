@@ -22,7 +22,7 @@ function setLoginLoading(isLoading) {
 
 async function callAuth(action, body) {
   console.log("callAuth");
-  sendMessageAndWait(window.parent, {action: "check", body: new URLSearchParams(body)}).then(response => {
+  sendMessageAndWait(window.parent, {action: action, body: new URLSearchParams(body)}).then(response => {
     console.log("callAuth response");
     let payload = null;
 
