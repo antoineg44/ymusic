@@ -401,6 +401,9 @@ async function initializeApp() {
   initializeSidebarMenu();
 }
 
+// Expose explicitement le bootstrap pour les scripts inline (index.html).
+window.initializeApp = initializeApp;
+
 function setActiveTab(tab) {
   console.log("change tab to", tab);
 

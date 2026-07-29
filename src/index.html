@@ -44,7 +44,11 @@
         .then(html => {
           document.getElementById("includes_html").innerHTML = html;
           // Initialiser l'app après que le HTML soit inséré
-          void initializeApp();
+          if (typeof window.initializeApp === "function") {
+            void window.initializeApp();
+          } else {
+            console.error("initializeApp indisponible: vérifier le chargement de js/app.js");
+          }
         });
 
       } else {
