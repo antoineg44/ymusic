@@ -1218,13 +1218,13 @@ function db_listener(event)
 
         case 'login':
           console.log(get_url_from_base() + `php/auth.php?action=` + message.message.action);
-            /*const response = await fetch(
+            var response = await fetch(
                 get_url_from_base() + `php/auth.php?action=` + message.message.action,
                 {
                 method: "POST",
                 body: new URLSearchParams(message.message.body),
                 },
-            );*/
+            );
             /*const dataText = await response.text();
             event.source.postMessage({
                 response: dataText,
