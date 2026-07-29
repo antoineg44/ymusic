@@ -27,10 +27,7 @@ async function callAuth(action, body) {
     try {
       payload = response ? JSON.parse(response) : null;
     } catch (error) {
-      throw new Error(
-          `Le serveur d'authentification a repondu avec un contenu invalide (HTTP).`
-          : "Le serveur d'authentification n'a pas retourne de JSON valide.",
-      );
+      throw new Error("Le serveur d'authentification a repondu avec un contenu invalide (HTTP). Le serveur d'authentification n'a pas retourne de JSON valide.");
     }
 
     return payload;
