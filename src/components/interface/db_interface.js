@@ -16,7 +16,7 @@ async function sendResponse(source, messageId, url) {
     }
 
     const dataText = await response.json();
-    if (!response.ok || !dataText.success) {
+    if (!response.ok) {
         throw new Error(dataText.error || 'Error message');
     }
 
