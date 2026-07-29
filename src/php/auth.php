@@ -2,19 +2,39 @@
 
 declare(strict_types=1);
 
-if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
+$requestOrigin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+
+function is_allowed_origin(string $origin): bool
+{
+    if ($origin === 'https://music.partitions.ovh' || $origin === 'null') {
+        return true;
+    }
+
+    return preg_match('#^https?://(localhost|127\.0\.0\.1)(:\d+)?$#', $origin) === 1;
+}
+
+function apply_cors_headers(string $origin): void
+{
+    if ($origin !== '' && is_allowed_origin($origin)) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Credentials: true');
+    } else {
+        header('Access-Control-Allow-Origin: *');
+    }
+
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+    header('Vary: Origin');
+}
+
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    apply_cors_headers($requestOrigin);
     header('Access-Control-Max-Age: 86400');
     http_response_code(204);
     exit;
 }
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-header('Vary: Origin');
+apply_cors_headers($requestOrigin);
 
 // Endpoint d'authentification: login, logout, check session et gestion des utilisateurs admin.
 
@@ -23,15 +43,22 @@ require_once __DIR__ . '/connexion.php';
 const AUTH_SESSION_LIFETIME = 2592000; // 30 jours
 
 if (session_status() === PHP_SESSION_NONE) {
+    $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443
+        || $forwardedProto === 'https';
+
+    $cookieSameSite = 'Lax';
+    if ($requestOrigin === 'null' && $isHttps) {
+        $cookieSameSite = 'None';
+    }
 
     session_set_cookie_params([
         'lifetime' => AUTH_SESSION_LIFETIME,
         'path' => '/',
         'secure' => $isHttps,
         'httponly' => true,
-        'samesite' => 'Lax',
+        'samesite' => $cookieSameSite,
     ]);
     session_start();
 }
