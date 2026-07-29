@@ -1195,7 +1195,7 @@ async function sendResponse(source, messageId, url) {
 
 function db_listener(event)
 {
-   
+    const message = event.data;
 
     switch (get_event_file(event)) {
       case "home":
@@ -1213,11 +1213,11 @@ function db_listener(event)
     switch(message.message.action)
     {
         case 'check':
-            //sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
+            sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
             break;
 
         case 'login':
-            /*const response = await fetch(
+            const response = await fetch(
                 get_url_from_base() + `php/auth.php?action=` + message.message.action,
                 {
                 method: "POST",
@@ -1228,7 +1228,7 @@ function db_listener(event)
             event.source.postMessage({
                 response: dataText,
                 replyTo: data.messageId
-            }, '*');*/
+            }, '*');
             break;
 
         default:
