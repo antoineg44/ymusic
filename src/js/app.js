@@ -1195,12 +1195,12 @@ async function sendResponse(source, messageId, url) {
 
 function db_listener(event)
 {
-    const message = event.data;
+   
 
     switch (get_event_file(event)) {
       case "home":
         // Envoyer la réponse en reply
-        //sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
+        sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
         return;
         break;
     
@@ -1213,23 +1213,22 @@ function db_listener(event)
     switch(message.message.action)
     {
         case 'check':
-            //sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
+            sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
             break;
 
         case 'login':
-            try {
-                /*var db_response = fetch(
-                    "php/auth.php?action=" + message.message.action,
-                    {
-                    method: "POST",
-                    },
-                );*/
-                /*const dataText = await response.text();
-                event.source.postMessage({
-                    response: dataText,
-                    replyTo: data.messageId
-                }, '*');*/
-            }
+            const response = await fetch(
+                get_url_from_base() + `php/auth.php?action=` + message.message.action,
+                {
+                method: "POST",
+                body: new URLSearchParams(message.message.body),
+                },
+            );
+            const dataText = await response.text();
+            event.source.postMessage({
+                response: dataText,
+                replyTo: data.messageId
+            }, '*');
             break;
 
         default:
