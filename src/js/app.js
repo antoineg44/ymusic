@@ -1200,7 +1200,7 @@ function db_listener(event)
     switch (get_event_file(event)) {
       case "home":
         // Envoyer la réponse en reply
-        sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
+        //sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
         return;
         break;
     
