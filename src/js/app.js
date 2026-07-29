@@ -362,6 +362,7 @@ window.addEventListener('message', (event) => {
   if (message.type === 'USER_LOGGED_IN') {
     // Cacher le modal login au lieu de rediriger
     closeLoginModal();
+    initializeApp();
   }
 
   if (message.type === 'INITIALIZATION_DONE') {
