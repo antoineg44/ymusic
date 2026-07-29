@@ -32,7 +32,21 @@ async function callAuth(action, body) {
       throw new Error("Le serveur d'authentification a repondu avec un contenu invalide (HTTP). Le serveur d'authentification n'a pas retourne de JSON valide.");
     }
 
-    return payload;
+    if (!payload.success) {
+      setMessage(payload.message || "Operation impossible.");
+      return;
+    }
+
+    setMessage(
+      action === "login"
+        ? "Connexion reussie."
+        : "Compte cree, connexion reussie.",
+      false,
+    );
+    window.setTimeout(() => {
+      window.parent.postMessage({type: 'USER_LOGGED_IN',}, '*');
+    }, 250);
+
   }).catch(error => {
       console.error(error);
   });
@@ -55,22 +69,7 @@ async function submitAuth(action) {
   setLoginLoading(action === "login");
 
   try {
-    const payload = await callAuth(action, { username, password });
-
-    if (!payload.success) {
-      setMessage(payload.message || "Operation impossible.");
-      return;
-    }
-
-    setMessage(
-      action === "login"
-        ? "Connexion reussie."
-        : "Compte cree, connexion reussie.",
-      false,
-    );
-    window.setTimeout(() => {
-      window.parent.postMessage({type: 'USER_LOGGED_IN',}, '*');
-    }, 250);
+    await callAuth(action, { username, password });
   } catch (error) {
     console.error(error);
     setMessage(
