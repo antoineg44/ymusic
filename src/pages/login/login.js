@@ -21,34 +21,23 @@ function setLoginLoading(isLoading) {
 }
 
 async function callAuth(action, body) {
-  const response = await fetch(
-    get_url_from_base() + `php/auth.php?action=${encodeURIComponent(action)}`,
-    {
-      method: "POST",
-      body: new URLSearchParams(body),
-    },
-  );
+  sendMessageAndWait(window.parent, {action: encodeURIComponent(action), body: new URLSearchParams(body)}).then(response => {
+    let payload = null;
 
-  const rawText = await response.text();
-  let payload = null;
+    try {
+      payload = response ? JSON.parse(response) : null;
+    } catch (error) {
+      throw new Error(
+          `Le serveur d'authentification a repondu avec un contenu invalide (HTTP).`
+          : "Le serveur d'authentification n'a pas retourne de JSON valide.",
+      );
+    }
 
-  try {
-    payload = rawText ? JSON.parse(rawText) : null;
-  } catch (error) {
-    throw new Error(
-      response.status
-        ? `Le serveur d'authentification a repondu avec un contenu invalide (HTTP ${response.status}).`
-        : "Le serveur d'authentification n'a pas retourne de JSON valide.",
-    );
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      (payload && payload.message) || `Erreur serveur HTTP ${response.status}.`,
-    );
-  }
-
-  return payload;
+    return payload;
+  }).catch(error => {
+      console.error(error);
+  });
+  return null;
 }
 
 async function submitAuth(action) {

@@ -184,27 +184,6 @@ function attachModalEventListeners() {
   }
 }
 
-async function sendResponse(source, messageId, url) {
-  const response = await fetch(get_url() + url, {
-    cache: 'no-store',
-  });
-
-  if (response.status === 401) {
-      window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-      return;
-    }
-
-    const dataText = await response.json();
-    if (!response.ok || !dataText.success) {
-      throw new Error(dataText.error || 'Error message');
-    }
-
-  source.postMessage({
-      response: dataText,
-      replyTo: messageId
-  }, '*');
-}
-
 window.addEventListener('message', (event) => {
   // Route les messages cross-iframe vers le contrôleur concerné.
   const message = event.data;
@@ -394,18 +373,7 @@ window.addEventListener('message', (event) => {
   const data = event.data;
   if(data && message && data.messageId && message.type === 'db')
   {
-    const location = event.source.location.href.split("/");
-    console.log(location[location.length-1].substring(0,4));
-
-    switch (location[location.length-1].substring(0,4)) {
-      case "home":
-        // Envoyer la réponse en reply
-        sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
-        break;
-    
-      default:
-        break;
-    }
+    db_listener(event);
   }
 });
 
