@@ -90,15 +90,12 @@ registerButton.addEventListener("click", () => {
 });
 
 (async () => {
-  try {
-    const response = await fetch(get_url_from_base() + `php/auth.php?action=check`, {
-      cache: "no-store",
-    });
-    const payload = await response.json();
+  sendMessageAndWait(window.parent, {action: "check"}).then(response => {
+    const payload = response;
     if (payload.success) {
       window.parent.postMessage({type: 'USER_LOGGED_IN',}, '*');
     }
-  } catch (error) {
-    console.debug(error);
-  }
+  }).catch(error => {
+      console.error(error);
+  });
 })();

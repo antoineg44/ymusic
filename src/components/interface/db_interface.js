@@ -46,6 +46,7 @@ function db_listener(event)
     switch(message.message.action)
     {
         case 'check':
+            sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
             break;
 
         case 'login':
