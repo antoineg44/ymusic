@@ -1217,7 +1217,7 @@ function db_listener(event)
             break;
 
         case 'login':
-            const response = await fetch(
+            /*const response = await fetch(
                 get_url_from_base() + `php/auth.php?action=` + message.message.action,
                 {
                 method: "POST",
@@ -1228,7 +1228,7 @@ function db_listener(event)
             event.source.postMessage({
                 response: dataText,
                 replyTo: data.messageId
-            }, '*');
+            }, '*');*/
             break;
 
         default:
