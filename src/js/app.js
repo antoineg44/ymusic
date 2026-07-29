@@ -1218,12 +1218,12 @@ function db_listener(event)
 
         case 'login':
             try {
-                var db_response = fetch(
+                /*var db_response = fetch(
                     "php/auth.php?action=" + message.message.action,
                     {
                     method: "POST",
                     },
-                );
+                );*/
                 /*const dataText = await response.text();
                 event.source.postMessage({
                     response: dataText,
