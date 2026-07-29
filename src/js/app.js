@@ -1218,17 +1218,19 @@ function db_listener(event)
 
         case 'login':
           console.log(get_url_from_base() + `php/auth.php?action=` + message.message.action);
-            var db_response = await fetch(
-                `php/auth.php?action=` + message.message.action,
-                {
-                method: "POST",
-                },
-            );
-            /*const dataText = await response.text();
-            event.source.postMessage({
-                response: dataText,
-                replyTo: data.messageId
-            }, '*');*/
+          try {
+              var db_response = await fetch(
+                  "php/auth.php?action=" + message.message.action,
+                  {
+                  method: "POST",
+                  },
+              );
+              /*const dataText = await response.text();
+              event.source.postMessage({
+                  response: dataText,
+                  replyTo: data.messageId
+              }, '*');*/
+            }
             break;
 
         default:
