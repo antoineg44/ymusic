@@ -1197,7 +1197,7 @@ function db_listener(event)
 {
    
 
-    /*switch (get_event_file(event)) {
+    switch (get_event_file(event)) {
       case "home":
         // Envoyer la réponse en reply
         sendResponse(event.source, data.messageId, "pages/home/home.php?" + message.message);
@@ -1209,10 +1209,11 @@ function db_listener(event)
     }
 
 
+    
     switch(message.message.action)
     {
         case 'check':
-            sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
+            //sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.message.action);
             break;
 
         case 'login':
@@ -1233,6 +1234,6 @@ function db_listener(event)
         default:
             console.log("event message action unknown : " + message.message.type);
             break;
-    }*/
+    }
 
 }
