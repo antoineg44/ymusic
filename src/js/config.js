@@ -31,6 +31,26 @@ function get_url_from_base() {
     return "https://music.partitions.ovh/";
 }
 
+function toCloneablePayload(value) {
+  if (value instanceof URLSearchParams) {
+    return Object.fromEntries(value.entries());
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => toCloneablePayload(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const clone = {};
+    Object.keys(value).forEach((key) => {
+      clone[key] = toCloneablePayload(value[key]);
+    });
+    return clone;
+  }
+
+  return value;
+}
+
 // Fonction pour envoyer un message et attendre la réponse
 function sendMessageAndWait(targetWindow, message, timeout = 5000) {
   return new Promise((resolve, reject) => {
@@ -52,7 +72,7 @@ function sendMessageAndWait(targetWindow, message, timeout = 5000) {
     window.addEventListener('message', handleMessage);
 
     // Envoyer le message avec un identifiant
-    targetWindow.postMessage({ message, messageId, type: "db" }, '*');
+  targetWindow.postMessage({ message: toCloneablePayload(message), messageId, type: "db" }, '*');
 
     // Timeout pour la réponse
     const timer = setTimeout(() => {
