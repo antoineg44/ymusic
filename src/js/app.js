@@ -1219,7 +1219,7 @@ function db_listener(event)
         case 'login':
           console.log(get_url_from_base() + `php/auth.php?action=` + message.message.action);
             var db_response = await fetch(
-                get_url_from_base() + `php/auth.php?action=` + message.message.action,
+                `php/auth.php?action=` + message.message.action,
                 {
                 method: "POST",
                 },
