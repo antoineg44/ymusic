@@ -1222,7 +1222,6 @@ function db_listener(event)
                 get_url_from_base() + `php/auth.php?action=` + message.message.action,
                 {
                 method: "POST",
-                body: new URLSearchParams(message.message.body),
                 },
             );
             /*const dataText = await response.text();
