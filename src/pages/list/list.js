@@ -145,14 +145,16 @@ async function playMusic(row) {
 }
 
 async function loadMusiques() {
-    const params = {
-        musiques: '1',
+    const query = {
+        table: 'Musiques',
+        select: ['Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
         sortBy: currentSortBy,
-        sortDir: currentSortDir,
+        order: currentSortDir,
         page: String(currentPage),
-        perPage: String(pageSize),
+        limit: String(pageSize),
     };
-    sendMessageAndWait(window.parent, {action: 'getMusiques', params: params}).then(response => {
+
+    sendMessageAndWait(window.parent, {action: 'getMusiques', query: query}).then(response => {
 
         currentSortBy = String(response.sortBy || currentSortBy);
         currentSortDir = String(response.sortDir || currentSortDir).toLowerCase() === 'asc' ? 'asc' : 'desc';

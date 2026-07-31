@@ -80,7 +80,7 @@ async function searchMusiques(titleQuery = '') {
 
             const musiques = Array.isArray(response.musiques) ? response.musiques : [];
             if (musiques.length === 0) {
-                setStatus(`Aucun resultat pour "${trimmedTitleQuery}".`);
+                setStatus(`Aucun resultat pour "${titleQuery}".`);
                 homeEmpty.style.display = 'block';
                 return;
             }
@@ -92,7 +92,7 @@ async function searchMusiques(titleQuery = '') {
                 homeResults.appendChild(item);
             });
 
-            setStatus(`20 resultats max pour "${trimmedTitleQuery}".`);
+            setStatus(`20 resultats max pour "${titleQuery}".`);
         }).catch(error => {
             console.error(error);
         });
