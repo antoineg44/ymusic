@@ -67,32 +67,28 @@ async function loadArtistSongs(artistName) {
     songsList.innerHTML = '';
     setSongsStatus('Chargement...');
 
-    try {
-        const response = await fetch(get_url() + `../../php/interface.php?artistSongs=1&artist=${encodeURIComponent(artist)}`, {
-            credentials: 'same-origin',
-            cache: 'no-store',
-        });
-
-        if (response.status === 401) {
-            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-            return;
+    const query = {
+        table: 'Musiques',
+        select: ['Id', 'Titre', 'Album', 'Duree', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
+        orderBy: 'DateAjout',
+        order: 'DESC',
+        limit: 50,
+        page: 1,
+        equals: {
+            'Artiste': artist,
         }
+    };
 
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
-            throw new Error(payload.error || 'Impossible de recuperer les musiques de cet artiste');
-        }
+    sendMessageAndWait(window.parent, {action: 'getMusiques', query: query}).then(response => {
 
-        const songs = Array.isArray(payload.songs) ? payload.songs : [];
-        songsList.innerHTML = '';
-
-        if (!songs.length) {
+        const musiques = Array.isArray(response.musiques) ? response.musiques : [];
+        if (musiques.length === 0) {
             songsList.innerHTML = '<li>Aucune musique pour cet artiste</li>';
             setSongsStatus('Aucune musique trouvee pour cet artiste.');
             return;
         }
 
-        songs.forEach((song, index) => {
+        musiques.forEach((song, index) => {
             const preparedSong = {
                 Id: String(song.Id || ''),
                 Titre: String(song.Titre || ''),
@@ -122,10 +118,10 @@ async function loadArtistSongs(artistName) {
         });
 
         setSongsStatus(`${songs.length} musique(s) chargee(s).`);
-    } catch (error) {
+
+    }).catch(error => {
         console.error(error);
-        setSongsStatus(error.message || 'Erreur de chargement.', true);
-    }
+    });
 }
 
 async function loadArtists() {
@@ -152,10 +148,10 @@ async function loadArtists() {
         musiques.forEach((artist) => {
             const row = document.createElement('tr');
             row.className = 'artist-row';
-            const artistName = String(artist.Artiste || '').trim(); //${Number(artist.TotalMusiques || 0)}
+            const artistName = String(artist.Artiste || '').trim();
             row.innerHTML = `
                 <td>${escapeHtml(artist.Artiste || '')}</td>
-                <td></td>
+                <td>${Number(artist.TotalMusiques || 0)}</td>
             `;
 
             row.addEventListener('click', () => {
