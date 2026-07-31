@@ -51,14 +51,16 @@ function dMusique_get(array $options)
         $select = implode(', ', $select);
     }
 
-    $sql = "SELECT $select FROM Musiques"; //LEFT JOIN Utilisateurs u ON u.NomUtilisateur = m.Utilisateur
+    $sql = "SELECT $select"; //LEFT JOIN Utilisateurs u ON u.NomUtilisateur = m.Utilisateur
     $queryParams = [];
     $searchWhereClause = '';
 
     // Count
     if (!empty($options['count'])) {
-        $sql .= " COUNT(*) AS TotalMusiques";
+        $sql .= ", COUNT(*) AS TotalMusiques";
     }
+
+    $sql .= " FROM Musiques";
 
     // Recherche textuelle
     if (!empty($options['search'])) {
