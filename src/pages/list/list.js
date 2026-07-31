@@ -145,47 +145,31 @@ async function playMusic(row) {
 }
 
 async function loadMusiques() {
-    try {
-        console.log("List.html : loadMusiques");
-        const params = new URLSearchParams({
-            musiques: '1',
-            sortBy: currentSortBy,
-            sortDir: currentSortDir,
-            page: String(currentPage),
-            perPage: String(pageSize),
-        });
+    const params = {
+        musiques: '1',
+        sortBy: currentSortBy,
+        sortDir: currentSortDir,
+        page: String(currentPage),
+        perPage: String(pageSize),
+    };
+    sendMessageAndWait(window.parent, {action: 'getMusiques', params: params}).then(response => {
 
-        const response = await fetch(get_url() + `../../pages/list/list.php?${params.toString()}`, {
-            credentials: 'same-origin',
-            cache: 'no-store',
-        });
+        currentSortBy = String(response.sortBy || currentSortBy);
+        currentSortDir = String(response.sortDir || currentSortDir).toLowerCase() === 'asc' ? 'asc' : 'desc';
+        currentPage = Math.max(1, Number(response.page || currentPage));
+        totalPages = Math.max(1, Number(response.totalPages || 1));
+        totalRows = Math.max(0, Number(response.totalRows || 0));
 
-        if (response.status === 401) {
-            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-            return;
-        }
-
-        const payload = await response.json();
-
-        if (!response.ok || !payload.success) {
-            throw new Error(payload.error || 'Impossible de recuperer la liste des musiques');
-        }
-
-        currentSortBy = String(payload.sortBy || currentSortBy);
-        currentSortDir = String(payload.sortDir || currentSortDir).toLowerCase() === 'asc' ? 'asc' : 'desc';
-        currentPage = Math.max(1, Number(payload.page || currentPage));
-        totalPages = Math.max(1, Number(payload.totalPages || 1));
-        totalRows = Math.max(0, Number(payload.totalRows || 0));
-
-        const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+        const musiques = Array.isArray(response.musiques) ? response.musiques : [];
         renderMusiques(musiques);
         updateSortIndicators();
         updatePaginationControls();
         setStatus(`${musiques.length} musique(s) chargee(s) sur ${totalRows} - page ${currentPage}/${totalPages} - tri ${currentSortBy} ${currentSortDir.toUpperCase()}.`);
-    } catch (error) {
+
+    }).catch(error => {
         console.error(error);
         setStatus(error.message || 'Erreur de chargement.', true);
-    }
+    });
 }
 
 sortableHeaders.forEach((header) => {

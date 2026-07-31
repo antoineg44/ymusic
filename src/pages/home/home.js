@@ -67,8 +67,7 @@ async function searchMusiques(titleQuery = '') {
 
         var response;
 
-        // Exemple d'utilisation
-        sendMessageAndWait(window.parent, `search=${encodeURIComponent(trimmedTitleQuery)}`).then(response => {
+        sendMessageAndWait(window.parent, {action: 'search', query: trimmedTitleQuery}).then(response => {
 
             const musiques = Array.isArray(response.musiques) ? response.musiques : [];
             if (musiques.length === 0) {
@@ -98,25 +97,11 @@ async function loadLatestMusiques() {
     homeResults.innerHTML = '';
     homeEmpty.style.display = 'none';
 
-    try {
-        const response = await fetch(get_url() + `../../pages/home/home.php?latest_musiques=1`, {
-            credentials: 'same-origin',
-            cache: 'no-store',
-        });
+    sendMessageAndWait(window.parent, {action: 'latest_musiques'}).then(response => {
 
-        if (response.status === 401) {
-            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-            return;
-        }
-
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
-            throw new Error(payload.error || 'Impossible de charger les musiques');
-        }
-
-        const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+        const musiques = Array.isArray(response.musiques) ? response.musiques : [];
         if (musiques.length === 0) {
-            setStatus('Aucune musique trouvee.');
+            setStatus('Aucun resultat pour les dernieres musiques.');
             homeEmpty.style.display = 'block';
             return;
         }
@@ -129,9 +114,9 @@ async function loadLatestMusiques() {
         });
 
         setStatus('5 dernieres musiques chargees.');
-    } catch (error) {
-        setStatus(`Erreur: ${error && error.message ? error.message : error}`, true);
-    }
+    }).catch(error => {
+        console.error(error);
+    });
 }
 
 function searchByTitle() {

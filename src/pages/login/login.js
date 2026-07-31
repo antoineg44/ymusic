@@ -22,19 +22,14 @@ function setLoginLoading(isLoading) {
 
 async function callAuth(action, body) {
   console.log("callAuth");
-  sendMessageAndWait(window.parent, {action: action, body: new URLSearchParams(body)}).then(response => {
+  try {
+    const response = await sendMessageAndWait(window.parent, { action, body });
     console.log("callAuth response");
-    var payload = response;
-
-    /*try {
-      payload = response ? JSON.parse(response) : null;
-    } catch (error) {
-      throw new Error("Le serveur d'authentification a repondu avec un contenu invalide (HTTP). Le serveur d'authentification n'a pas retourne de JSON valide.");
-    }*/
+    const payload = response;
 
     if (!payload.success) {
       setMessage(payload.message || "Operation impossible.");
-      return;
+      return payload;
     }
 
     setMessage(
@@ -44,13 +39,14 @@ async function callAuth(action, body) {
       false,
     );
     window.setTimeout(() => {
-      window.parent.postMessage({type: 'USER_LOGGED_IN',}, '*');
+      window.parent.postMessage({ type: 'USER_LOGGED_IN' }, '*');
     }, 250);
 
-  }).catch(error => {
-      console.error(error);
-  });
-  return null;
+    return payload;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
 }
 
 async function submitAuth(action) {

@@ -35,17 +35,6 @@ async function db_listener(event)
     const data = event && event.data ? event.data : {};
     const message = data && data.message ? data.message : {};
 
-    switch (get_event_file(event)) {
-        case "home":
-            // Envoyer la réponse en reply
-            await sendResponse(event.source, data.messageId, "pages/home/home.php?" + String(message));
-            return;
-
-        default:
-            break;
-    }
-
-
     /**
      * List action
      * 
@@ -53,6 +42,13 @@ async function db_listener(event)
      *  - check (ensure connected)
      *  - login
      *  - logout
+     * 
+     * For home
+     *  - search
+     *  - latest_musiques
+     * 
+     * For list
+     *  - getMusiques
      */
 
     switch(message.action)
@@ -69,6 +65,7 @@ async function db_listener(event)
             {
                 method: "POST",
                 body: new URLSearchParams(message.body),
+                credentials: 'include',
             },
             );
             const dataText = await response.json();
@@ -85,6 +82,7 @@ async function db_listener(event)
             get_url_from_base() + `php/auth.php?action=` + message.action,
             {
                 method: "POST",
+                credentials: 'include',
             },
             );
             const dataText = await response.json();
@@ -94,6 +92,17 @@ async function db_listener(event)
             }, '*');
             break;
         }
+
+        // Home part :
+        case 'search':
+            await sendResponse(event.source, data.messageId, "pages/home/home.php?" + String(message.action) + "=" + encodeURIComponent(String(message.query)));
+            break;
+        case 'latest_musiques':
+            await sendResponse(event.source, data.messageId, "pages/home/home.php?" + String(message.action) + "=1");
+            break;
+        case 'getMusiques':
+            await sendResponse(event.source, data.messageId, "pages/list/list.php?" + new URLSearchParams(message.params).toString());
+            break;
 
 
         default:
