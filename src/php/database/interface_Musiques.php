@@ -57,7 +57,7 @@ function dMusique_get(array $options)
 
     // Count
     if (!empty($options['count'])) {
-        $sql .= ", COUNT(*) AS TotalMusiques";
+        $sql .= " COUNT(*) AS TotalMusiques";
     }
 
     // Recherche textuelle
