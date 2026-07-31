@@ -129,38 +129,32 @@ async function loadArtistSongs(artistName) {
 }
 
 async function loadArtists() {
-    try {
-        const response = await fetch(get_url() + '../../php/interface.php?artists=1', {
-            credentials: 'same-origin',
-            cache: 'no-store',
-        });
+    const query = {
+        table: 'Musiques',
+        select: ['Artiste'],
+        groupBy: 'Artiste',
+        orderBy: 'Artiste',
+        order: "ASC",
+        page: 1,
+        limit: 50,
+    };
 
-        if (response.status === 401) {
-            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-            return;
-        }
+    sendMessageAndWait(window.parent, {action: 'getMusiques', query: query}).then(response => {
 
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
-            throw new Error(payload.error || 'Impossible de recuperer la liste des artistes');
-        }
-
-        const artists = Array.isArray(payload.artists) ? payload.artists : [];
-
-        artistsBody.innerHTML = '';
-        if (!artists.length) {
+        const musiques = Array.isArray(response.musiques) ? response.musiques : [];
+        if (musiques.length === 0) {
             artistsBody.innerHTML = '<tr><td colspan="2">Aucun artiste en base</td></tr>';
             setStatus('Aucun artiste trouve.');
             return;
         }
 
-        artists.forEach((artist) => {
+        musiques.forEach((artist) => {
             const row = document.createElement('tr');
             row.className = 'artist-row';
-            const artistName = String(artist.Artiste || '').trim();
+            const artistName = String(artist.Artiste || '').trim(); //${Number(artist.TotalMusiques || 0)}
             row.innerHTML = `
                 <td>${escapeHtml(artist.Artiste || '')}</td>
-                <td>${Number(artist.TotalMusiques || 0)}</td>
+                <td></td>
             `;
 
             row.addEventListener('click', () => {
@@ -169,11 +163,11 @@ async function loadArtists() {
             artistsBody.appendChild(row);
         });
 
-        setStatus(`${artists.length} artiste(s) charge(s).`);
-    } catch (error) {
+        setStatus(`${musiques.length} artiste(s) charge(s).`);
+
+    }).catch(error => {
         console.error(error);
-        setStatus(error.message || 'Erreur de chargement.', true);
-    }
+    });
 }
 
 void loadArtists();

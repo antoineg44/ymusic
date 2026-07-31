@@ -148,7 +148,7 @@ async function loadMusiques() {
     const query = {
         table: 'Musiques',
         select: ['Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
-        sortBy: currentSortBy,
+        orderBy: currentSortBy,
         order: currentSortDir,
         page: String(currentPage),
         limit: String(pageSize),

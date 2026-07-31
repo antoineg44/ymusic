@@ -4,6 +4,7 @@
  * Interface pour interagir avec la table Musiques de la base de données.
  * $options = [
     'select' => ['Titre', 'Artiste'],   // Champs à retourner
+    'groupBy' => 'Artiste',             // Champ de group
     'orderBy' => 'NombreVue',           // Champ de tri
     'order' => 'DESC',                  // ASC ou DESC
     'limit' => 20,                      // Nombre maximum de résultats
@@ -88,6 +89,15 @@ function dMusique_get(array $options)
             $sql .= ($searchWhereClause === '' ? ' WHERE ' : ' AND ');
             $sql .= implode(' AND ', $conditions);
         }
+    }
+
+    // Group
+    if (!empty($options['groupBy'])) {
+        if (!in_array($options['groupBy'], $champsAutorises, true)) {
+            throw new InvalidArgumentException('Champ de tri invalide.');
+        }
+
+        $sql .= " GROUP BY {$options['groupBy']}";
     }
 
     // Tri
