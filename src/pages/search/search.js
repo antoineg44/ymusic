@@ -93,20 +93,16 @@ function hideSearchSpinner() {
 }
 
 async function requestSuggestions(query) {
-  try {
     showSuggestionsSpinner();
-    const response = await fetch(
-      get_url() + `../../pages/search/search.php?suggestions=${encodeURIComponent(query)}`,
-    );
-    const payload = await response.json();
-    if (query === searchInput.value.trim()) {
-      renderSuggestions(payload.suggestions || []);
-    }
-  } catch (error) {
-    console.error(error);
-  } finally {
-    hideSuggestionsSpinner();
-  }
+    sendMessageAndWait(window.parent, {action: 'yt_suggestions', query: query}).then(response => {
+        if (query === searchInput.value.trim()) {
+            renderSuggestions(response.suggestions || []);
+        }
+        hideSuggestionsSpinner();
+    }).catch(error => {
+        console.error(error);
+        hideSuggestionsSpinner();
+    });
 }
 
 async function processSuggestionQueue() {
@@ -157,26 +153,21 @@ async function searchMusic() {
   suggestionsBox.innerHTML = "";
   showSearchSpinner();
 
-  try {
-    const response = await fetch(
-      get_url() + `../../pages/search/search.php?query=${encodeURIComponent(query)}`,
-    );
-    const payload = await response.json();
+    sendMessageAndWait(window.parent, {action: 'yt_search', query: query}).then(response => {
+        if (!response.success) {
+          setStatus(response.error || "Recherche impossible.");
+          searchResults.innerHTML = "<li>Aucun resultat disponible.</li>";
+          hideSearchSpinner();
+          return;
+        }
 
-    if (!payload.success) {
-      setStatus(payload.error || "Recherche impossible.");
-      searchResults.innerHTML = "<li>Aucun resultat disponible.</li>";
-      return;
-    }
-
-    const results = payload.results || [];
-    await renderSearchResults(results, searchToken);
-  } catch (error) {
-    console.error(error);
-    setStatus("La recherche YouTube Music a echoue.");
-  } finally {
-    hideSearchSpinner();
-  }
+        const results = response.results || [];
+        await renderSearchResults(results, searchToken);
+        hideSearchSpinner();
+    }).catch(error => {
+        console.error(error);
+        hideSuggestionsSpinner();
+    });
 }
 
 function renderSuggestions(suggestions) {

@@ -100,7 +100,14 @@ async function db_listener(event)
             const jsonStr = JSON.stringify(message.query);
             await sendResponse(event.source, data.messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
             break;
-
+        
+        // yt interface
+        case 'yt_suggestions':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?suggestions=" + encodeURIComponent(message.query));
+            break;
+        case 'yt_search':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?query=" + encodeURIComponent(message.query));
+            break;
 
         default:
             console.log("event message action unknown : " + message.action);
