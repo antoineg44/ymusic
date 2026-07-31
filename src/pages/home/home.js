@@ -63,18 +63,18 @@ async function searchMusiques(titleQuery = '') {
             return;
         }
         
-        const query = [
+        const query = {
             table: 'Musiques',
             select: ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
             orderBy: 'Titre',
             order: 'ASC',
             limit: 20,
             page: 1,
-            search: [
+            search: {
                 field: 'Titre',
                 value: String(titleQuery || '').trim()
-            ]
-        ];
+            }
+        };
 
         sendMessageAndWait(window.parent, {action: 'search', query: query}).then(response => {
 
