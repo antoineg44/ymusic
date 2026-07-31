@@ -80,7 +80,6 @@ async function loadArtistSongs(artistName) {
     };
 
     sendMessageAndWait(window.parent, {action: 'getMusiques', query: query}).then(response => {
-
         const musiques = Array.isArray(response.musiques) ? response.musiques : [];
         if (musiques.length === 0) {
             songsList.innerHTML = '<li>Aucune musique pour cet artiste</li>';
@@ -117,7 +116,7 @@ async function loadArtistSongs(artistName) {
             songsList.appendChild(item);
         });
 
-        setSongsStatus(`${songs.length} musique(s) chargee(s).`);
+        setSongsStatus(`${musiques.length} musique(s) chargee(s).`);
 
     }).catch(error => {
         console.error(error);
@@ -137,7 +136,6 @@ async function loadArtists() {
     };
 
     sendMessageAndWait(window.parent, {action: 'getMusiques', query: query}).then(response => {
-
         const musiques = Array.isArray(response.musiques) ? response.musiques : [];
         if (musiques.length === 0) {
             artistsBody.innerHTML = '<tr><td colspan="2">Aucun artiste en base</td></tr>';
