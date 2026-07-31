@@ -8,6 +8,9 @@ function GetConnexionType() {
     if(window.location.href.includes("file://")) {
         return CONNEXION_TYPE.CLIENT;
     }
+    else if(window.location.href.includes("https://localhost/")) {
+        return CONNEXION_TYPE.MOBILE;
+    }
     else
     {
         const domain_approv = [

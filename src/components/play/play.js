@@ -408,7 +408,11 @@
 			const halfFadeSeconds = Math.max(0.05, safeFadeInSeconds / 2);
 			const token = crossfadeToken;
 
-			incomingAudio.src = "https://music.partitions.ovh/" + String(src || '').trim();
+			var base_url = get_url_from_base();
+
+			if(base_url == "")base_url = "../../";
+
+			incomingAudio.src = base_url + String(src || '').trim();
 			incomingAudio.currentTime = 0;
 			incomingAudio.volume = canCrossfade ? 0 : 1;
 			incomingAudio.load();
