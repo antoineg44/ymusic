@@ -95,7 +95,8 @@ async function db_listener(event)
 
         // Home part :
         case 'search':
-            await sendResponse(event.source, data.messageId, "pages/home/home.php?" + String(message.action) + "=" + encodeURIComponent(String(message.query)));
+            const jsonStr = JSON.stringify(message.query);
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
             break;
         case 'latest_musiques':
             await sendResponse(event.source, data.messageId, "pages/home/home.php?" + String(message.action) + "=1");

@@ -1,0 +1,89 @@
+.artists-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.artists-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.artists-back {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: rgba(56, 189, 248, 0.2);
+    color: #7dd3fc;
+    font-weight: 700;
+}
+
+.artists-table-wrap {
+    overflow-x: auto;
+}
+
+.artists-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.artists-table th,
+.artists-table td {
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 10px;
+}
+
+.artist-row {
+    cursor: pointer;
+}
+
+.artist-row:hover {
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.artist-songs-panel {
+    margin-top: 16px;
+}
+
+.artist-songs-panel.is-hidden {
+    display: none;
+}
+
+.artists-head.is-hidden,
+.artists-table-wrap.is-hidden {
+    display: none;
+}
+
+.song-play-button {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: #38bdf8;
+    color: #082f49;
+    font-weight: 700;
+}
+
+.artist-songs-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.artist-songs-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 8px 10px;
+}

@@ -63,11 +63,20 @@ async function searchMusiques(titleQuery = '') {
             return;
         }
         
-        const trimmedTitleQuery = String(titleQuery || '').trim();
+        const query = [
+            table: 'Musiques'
+            select: ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
+            orderBy: 'Titre',
+            order: 'ASC',
+            limit: 20,
+            page: 1,
+            search: [
+                field: 'Titre',
+                value: String(titleQuery || '').trim()
+            ]
+        ]
 
-        var response;
-
-        sendMessageAndWait(window.parent, {action: 'search', query: trimmedTitleQuery}).then(response => {
+        sendMessageAndWait(window.parent, {action: 'search', query: query}).then(response => {
 
             const musiques = Array.isArray(response.musiques) ? response.musiques : [];
             if (musiques.length === 0) {
