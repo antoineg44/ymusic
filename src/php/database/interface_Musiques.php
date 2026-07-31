@@ -4,6 +4,7 @@
  * Interface pour interagir avec la table Musiques de la base de données.
  * $options = [
     'select' => ['Titre', 'Artiste'],   // Champs à retourner
+    'count' => 1,                       // compter le nombre de chaque résultat
     'groupBy' => 'Artiste',             // Champ de group
     'orderBy' => 'NombreVue',           // Champ de tri
     'order' => 'DESC',                  // ASC ou DESC

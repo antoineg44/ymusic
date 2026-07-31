@@ -131,6 +131,7 @@ async function loadArtistSongs(artistName) {
 async function loadArtists() {
     const query = {
         table: 'Musiques',
+        count: 1,
         select: ['Artiste'],
         groupBy: 'Artiste',
         orderBy: 'Artiste',
