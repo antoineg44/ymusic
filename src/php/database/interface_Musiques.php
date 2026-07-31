@@ -54,6 +54,11 @@ function dMusique_get(array $options)
     $queryParams = [];
     $searchWhereClause = '';
 
+    // Count
+    if (!empty($options['count'])) {
+        $sql .= ", COUNT(*) AS TotalMusiques";
+    }
+
     // Recherche textuelle
     if (!empty($options['search'])) {
         $field = $options['search']['field'] ?? '';
