@@ -392,13 +392,8 @@ async function initializeApp() {
     });
   }
   
-  const authenticated = await authController.ensureAuthenticated();
-  if (!authenticated) {
-    // Afficher le modal login au lieu de juste retourner
-    openLoginModal();
-    return;
-  }
-
+  authController.ensureAuthenticated();
+  
   initializeSidebarMenu();
 }
 

@@ -15,41 +15,29 @@
 
     async function ensureAuthenticated() {
       // Vérifie la session côté serveur avant d'initialiser le reste de l'application.
-      try {
-        const response = await fetch(get_url_from_base() + 'php/auth.php?action=check', {
-          cache: 'no-store',
-        });
-        const payload = await response.json();
-
+      sendMessageAndWait(window.parent, {action: "check"}).then(response => {
+        const payload = response;
         if (!payload.success) {
           window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          return false;
+          openLoginModal();
         }
-
         state.currentUser = payload.user || null;
-
         if (manageUsersLink && state.currentUser && state.currentUser.role !== 'admin') {
           manageUsersLink.style.display = 'none';
         }
-        return true;
-      } catch (error) {
-        console.error(error);
-        window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return false;
-      }
+      }).catch(error => {
+          console.error(error);
+          openLoginModal();
+      });
     }
 
     async function logout() {
       // Termine la session serveur puis redirige vers la page de connexion.
-      try {
-        await fetch(get_url_from_base() + 'php/auth.php?action=logout', {
-          method: 'POST',
-        });
-      } catch (error) {
-        console.error(error);
-      } finally {
+      sendMessageAndWait(window.parent, {action: "logout"}).then(response => {
         window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-      }
+      }).catch(error => {
+          console.error(error);
+      });
     }
 
     return {
