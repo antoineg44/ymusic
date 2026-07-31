@@ -64,7 +64,7 @@ async function searchMusiques(titleQuery = '') {
         }
         
         const query = [
-            table: 'Musiques'
+            table: 'Musiques',
             select: ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
             orderBy: 'Titre',
             order: 'ASC',
@@ -74,7 +74,7 @@ async function searchMusiques(titleQuery = '') {
                 field: 'Titre',
                 value: String(titleQuery || '').trim()
             ]
-        ]
+        ];
 
         sendMessageAndWait(window.parent, {action: 'search', query: query}).then(response => {
 
