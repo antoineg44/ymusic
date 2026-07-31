@@ -162,7 +162,7 @@ async function searchMusic() {
         }
 
         const results = response.results || [];
-        await renderSearchResults(results, searchToken);
+        renderSearchResults(results, searchToken);
         hideSearchSpinner();
     }).catch(error => {
         console.error(error);
