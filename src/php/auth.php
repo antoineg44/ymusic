@@ -6,11 +6,15 @@ $requestOrigin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
 
 function is_allowed_origin(string $origin): bool
 {
-    if ($origin === 'https://music.partitions.ovh' || $origin === 'null') {
+    if ($origin === 'null') {
         return true;
     }
 
-    return preg_match('#^https?://(localhost|127\.0\.0\.1)(:\d+)?$#', $origin) === 1;
+    if (preg_match('#^https?://(music\.partitions\.ovh|www\.music\.partitions\.ovh|localhost|127\.0\.0\.1|192\.168\.1\.10)(:\d+)?$#', $origin) === 1) {
+        return true;
+    }
+
+    return preg_match('#^(capacitor|ionic)://localhost$#', $origin) === 1;
 }
 
 function apply_cors_headers(string $origin): void
@@ -43,15 +47,19 @@ require_once __DIR__ . '/connexion.php';
 const AUTH_SESSION_LIFETIME = 2592000; // 30 jours
 
 if (session_status() === PHP_SESSION_NONE) {
+    $requestScheme = strtolower((string) ($_SERVER['REQUEST_SCHEME'] ?? ''));
     $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    $cfVisitor = strtolower((string) ($_SERVER['HTTP_CF_VISITOR'] ?? ''));
+    $originIsHttps = str_starts_with(strtolower($requestOrigin), 'https://');
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443
-        || $forwardedProto === 'https';
+        || $forwardedProto === 'https'
+        || $requestScheme === 'https'
+        || str_contains($cfVisitor, '"scheme":"https"')
+        || $originIsHttps;
 
-    $cookieSameSite = 'Lax';
-    if ($requestOrigin === 'null' && $isHttps) {
-        $cookieSameSite = 'None';
-    }
+    // SameSite=None is required for cross-site/webview auth flows; keep Lax fallback on plain HTTP.
+    $cookieSameSite = $isHttps ? 'None' : 'Lax';
 
     session_set_cookie_params([
         'lifetime' => AUTH_SESSION_LIFETIME,
