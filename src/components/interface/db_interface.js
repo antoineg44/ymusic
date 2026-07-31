@@ -8,6 +8,7 @@ function get_event_file(event)
 async function sendResponse(source, messageId, url) {
     const response = await fetch(get_url_from_base() + url, {
     cache: 'no-store',
+    credentials: 'include',
     });
 
     if (response.status === 401) {
@@ -44,8 +45,19 @@ async function db_listener(event)
             break;
     }
 
+
+    /**
+     * List action
+     * 
+     * For login
+     *  - check (ensure connected)
+     *  - login
+     *  - logout
+     */
+
     switch(message.action)
     {
+        // Login part :
         case 'check':
             await sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.action);
             break;

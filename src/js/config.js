@@ -1,22 +1,33 @@
 
-function webapp() {
-    const domain_approv = [
-        "localhost",
-        "192.168.1.10",
-        "music.partitions.ovh"
-    ];
-    if (domain_approv.includes(window.location.host)) {
-        // application web
-        return true;
+const CONNEXION_TYPE = Object.freeze({
+    SERVER: "Server", CLIENT: "Client", MOBILE: "Mobile"
+});
 
-    } else {
-        // Application smartphone
-        return false;
+
+function GetConnexionType() {
+    if(window.location.href.includes("file://")) {
+        return CONNEXION_TYPE.CLIENT;
+    }
+    else
+    {
+        const domain_approv = [
+            "localhost",
+            "192.168.1.10",
+            "music.partitions.ovh"
+        ];
+        if (domain_approv.includes(window.location.host)) {
+            // application web
+            return CONNEXION_TYPE.SERVER;
+
+        } else {
+            // Application smartphone
+            return CONNEXION_TYPE.MOBILE;
+        }
     }
 }
 
 function get_url() {
-    if (webapp()) {
+    if (connexionType === CONNEXION_TYPE.SERVER) {
         return "";
     }
 
@@ -24,7 +35,7 @@ function get_url() {
 }
 
 function get_url_from_base() {
-    if (webapp()) {
+    if (connexionType === CONNEXION_TYPE.SERVER) {
         return "";
     }
 
@@ -81,3 +92,6 @@ function sendMessageAndWait(targetWindow, message, timeout = 5000) {
     }, timeout);
   });
 }
+
+
+const connexionType = GetConnexionType();
