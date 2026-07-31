@@ -21,7 +21,6 @@ if (isset($_GET['requete'])) {
     try {
         $jsonStr = urldecode($_GET['requete']);
         $structure = json_decode($jsonStr, true);
-        print_r($structure);
 
         echo json_encode(dMusique_get($structure),JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {

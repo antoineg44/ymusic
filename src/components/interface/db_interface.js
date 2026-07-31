@@ -94,12 +94,10 @@ async function db_listener(event)
         }
 
         // Home part :
+        case 'latest_musiques':
         case 'search':
             const jsonStr = JSON.stringify(message.query);
             await sendResponse(event.source, data.messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
-            break;
-        case 'latest_musiques':
-            await sendResponse(event.source, data.messageId, "pages/home/home.php?" + String(message.action) + "=1");
             break;
         case 'getMusiques':
             await sendResponse(event.source, data.messageId, "pages/list/list.php?" + new URLSearchParams(message.params).toString());

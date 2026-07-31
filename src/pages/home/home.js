@@ -106,7 +106,16 @@ async function loadLatestMusiques() {
     homeResults.innerHTML = '';
     homeEmpty.style.display = 'none';
 
-    sendMessageAndWait(window.parent, {action: 'latest_musiques'}).then(response => {
+    const query = {
+        table: 'Musiques',
+        select: ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
+        orderBy: 'DateAjout',
+        order: 'DESC',
+        limit: 5,
+        page: 1
+    };
+
+    sendMessageAndWait(window.parent, {action: 'latest_musiques', query: query}).then(response => {
 
         const musiques = Array.isArray(response.musiques) ? response.musiques : [];
         if (musiques.length === 0) {
