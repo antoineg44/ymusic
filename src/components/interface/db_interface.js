@@ -97,6 +97,7 @@ async function db_listener(event)
         case 'latest_musiques':
         case 'search':
         case 'getMusiques':
+        case 'description':
             const jsonStr = JSON.stringify(message.query);
             await sendResponse(event.source, data.messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
             break;
@@ -107,6 +108,12 @@ async function db_listener(event)
             break;
         case 'yt_search':
             await sendResponse(event.source, data.messageId, "php/yt/interface.php?query=" + encodeURIComponent(message.query));
+            break;
+        case 'yt_description':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?description=" + encodeURIComponent(message.query));
+            break;
+        case 'yt_download':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?download=" + encodeURIComponent(message.query));
             break;
 
         default:

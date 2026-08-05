@@ -10,6 +10,7 @@ require 'YouTubeMusic.php';
 require_once '../database_interface.php';
 require_once '../tools/recherche.php';
 require_once '../database/interface_Musiques.php';
+require_once '../files/manager.php';
 
 header('Content-Type: application/json');
 
@@ -82,6 +83,96 @@ if (!empty($_GET['search']) && !empty($_GET['Id'])) {
             ]
         ]), JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+}
+
+if(!empty($_GET['description'])) {
+    try {
+        $yt = new YouTubeMusic();
+        $res = $yt->songDetails($_GET['description']);
+
+        $payload = [
+            'Id' => $res['metadata']['videoId'],
+            'Titre' => $res['metadata']['title'],
+            'Artiste' => $res['metadata']['artist'] ?? '',
+            'Album' => $res['metadata']['album'] ?? '',
+            'Duree' => $res['metadata']['durationSeconds'] ?? 0,
+            'AnneeParution' => $res['metadata']['year'] ?? 0,
+            'Genre' => $res['metadata']['genre'] ?? '',
+            'NombreVue' => $res['metadata']['views'] ?? 0,
+            'NombreVueInterne' => 1,
+            'DateAjout' => date('Y-m-d H:i:s'),
+        ];
+        $db['musiques'][0] = $payload;
+
+        echo json_encode($db, JSON_UNESCAPED_UNICODE);
+
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+}
+
+if (!empty($_GET['download'])) {
+    try {
+        $musicId = trim((string) $_GET['download']);
+        if ($musicId === '') {
+            throw new RuntimeException('musicId requis');
+        }
+
+        // Vérifie si la musique est déjà présente dans la base de données
+        $db = dMusique_get([
+            'select' => ['Id', 'Titre'],
+            'equals' => [
+                'Id' => $musicId,
+            ],
+            'limit' => 1
+        ]);
+
+        $yt = new YouTubeMusic();
+
+        if (!empty($db['musiques'])) {
+            $existingFile = find_downloaded_file_for_music_id($musicId);
+
+            if ($existingFile === null) {
+                $result = $yt->download($musicId);
+
+                echo json_encode([
+                    'success' => true,
+                    'download' => $result,
+                    'music' => $db,
+                    'recoveredMissingAudio' => true,
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'download' => [
+                    'success' => true,
+                    'alreadyInDatabase' => true,
+                    'file' => $existingFile['file'],
+                    'path' => "../../" . $existingFile['path'],
+                ],
+                'music' => $db,
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $result = $yt->download($musicId);
+
+        echo json_encode([
+            'success' => true,
+            'download' => $result,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+
         echo json_encode([
             'success' => false,
             'error' => $exception->getMessage(),

@@ -158,47 +158,39 @@ async function loadDescription() {
 
   setStatus(`Chargement des details pour ${id}...`);
 
+  //suite
+  const query = {
+      table: 'Musiques',
+      select: ['Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
+      equals: [
+        Id: id
+      ]
+      limit: 1,
+      page: 1
+  };
+
   try {
-    const requestParams = new URLSearchParams({
-      Id: id
-    });
+    const response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
 
-    const response = await fetch(
-      get_url() + `../../popup/description/description.php?${requestParams.toString()}`,
-      {
-        credentials: "same-origin",
-        cache: "no-store",
-      },
-    );
+    var musiques = Array.isArray(response.musiques) ? response.musiques : [];
+    if (musiques.length === 0) {
+        setStatus("Musique non trouvee en base pour le moment. Les informations affichees sont partielles.");
 
-    if (response.status === 401) {
-      window.parent.postMessage({ type: "USER_LOGGED_OUT" }, "*");
-      return;
+        const response = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
+        musiques = Array.isArray(response.musiques) ? response.musiques : [];
     }
 
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
-      throw new Error(
-        payload.error || "Impossible de recuperer la description de la musique",
-      );
-    }
+    console.log(musiques);
 
-    currentMusic = payload.musiques[0] || null;
+    currentMusic = musiques[0] || null;
 
-    console.log((currentMusic));
+    console.log(currentMusic);
 
     renderMusicDetails(currentMusic);
     renderMusicPlaylists(payload.playlists);
 
-    if (payload.found === false) {
-      setStatus(
-        "Musique non trouvee en base pour le moment. Les informations affichees sont partielles.",
-        true,
-      );
-      return;
-    }
-
     setStatus("Details charges.");
+
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Erreur de chargement.", true);
@@ -228,34 +220,16 @@ downloadButton.addEventListener("click", async () => {
   try {
     setStatus("Preparation du telechargement...");
 
-    const response = await fetch(
-      get_url() + `.././/popup/description/description.php?Download=${encodeURIComponent(id)}`,
-      {
-        credentials: "same-origin",
-        cache: "no-store",
-      },
-    );
+    const response = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
 
-    if (response.status === 401) {
-      window.parent.postMessage({ type: "USER_LOGGED_OUT" }, "*");
-      return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success || !payload.download) {
-      throw new Error(
-        payload.error || "Impossible de preparer le telechargement",
-      );
-    }
-
-    const sourcePath = resolveDownloadPath(payload.download);
+    const sourcePath = resolveDownloadPath(response);
     if (!sourcePath) {
       throw new Error("Le serveur n'a retourne aucun fichier telechargeable.");
     }
 
     const musicTitle =
       sanitizeFileName((currentMusic && currentMusic.Titre) || id) || id;
-    const extension = getDownloadExtension(payload.download);
+    const extension = getDownloadExtension(response);
     const downloadName = `${musicTitle}${extension}`;
 
     const link = document.createElement("a");
