@@ -169,13 +169,13 @@ async function loadDescription() {
       page: 1
     };
 
-    const response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
+    var response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
 
     var musiques = Array.isArray(response.musiques) ? response.musiques : [];
     if (musiques.length === 0) {
         setStatus("Musique non trouvee en base pour le moment. Les informations affichees sont partielles.");
 
-        const response = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
+        response = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
         musiques = Array.isArray(response.musiques) ? response.musiques : [];
     }
 
