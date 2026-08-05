@@ -162,9 +162,9 @@ async function loadDescription() {
   const query = {
       table: 'Musiques',
       select: ['Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
-      equals: [
+      equals: {
         Id: id
-      ]
+      },
       limit: 1,
       page: 1
   };
