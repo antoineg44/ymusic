@@ -24,29 +24,27 @@
         return;
       }
 
-      try {
-        const response = await fetch(get_url_from_base() + `components/nextMusic/nextMusic.php?next=${encodeURIComponent(videoId)}`);
-        const payload = await response.json();
+      sendMessageAndWait(window, {action: 'nextMusic', query: {next: videoId}}).then(response => {
+          const musiques = Array.isArray(response.playlist) ? response.playlist : [];
+          if (musiques.length === 0) {
+              resetPlaylistQueue();
+              return;
+          }
 
-        if (!payload.success || !Array.isArray(payload.playlist)) {
+          const playlist = musiques.filter((entry) => entry && isValidVideoId(entry.videoId));
+          if (!playlist.length) {
+            resetPlaylistQueue();
+            return;
+          }
+
+          state.queue = playlist;
+          const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
+          state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
+          state.currentVideoId = videoId;
+        }).catch(error => {
+          console.error(error);
           resetPlaylistQueue();
-          return;
-        }
-
-        const playlist = payload.playlist.filter((entry) => entry && isValidVideoId(entry.videoId));
-        if (!playlist.length) {
-          resetPlaylistQueue();
-          return;
-        }
-
-        state.queue = playlist;
-        const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
-        state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
-        state.currentVideoId = videoId;
-      } catch (error) {
-        console.error(error);
-        resetPlaylistQueue();
-      }
+      });
     }
 
     async function playNext(options) {

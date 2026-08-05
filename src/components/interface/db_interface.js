@@ -178,6 +178,13 @@ async function db_listener(event)
         case 'deleteFile':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?deleteFile=" + encodeURIComponent(message.query));
             break;
+        case 'play':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?" + encodeURIComponent(message.query));
+            break;
+        case 'nextMusic':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?" + encodeURIComponent(message.query));
+            break;
+
 
         // Legacy database POST actions now handled by php/database/interface.php
         case 'clearTempFiles':

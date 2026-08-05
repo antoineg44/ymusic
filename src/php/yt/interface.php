@@ -7,7 +7,7 @@ header("Access-Control-Allow-Headers: Content-Type");
 // API principale: recherche, playlist, telechargement, metadonnees et routes artistes/albums.
 
 require 'YouTubeMusic.php';
-require_once '../database_interface.php';
+require_once '../database/database_interface.php';
 require_once '../tools/recherche.php';
 require_once '../database/interface_Musiques.php';
 require_once '../files/manager.php';

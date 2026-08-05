@@ -702,23 +702,15 @@ async function saveLikedMusic(track) {
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
 
-  const params = new URLSearchParams({
+  const params = {
     add: persistedId
+  };
+
+  sendMessageAndWait(window, {action: 'play', query: params}).then(response => {
+      console.log('Musique ajoutee en base:', payload.music || track.title);
+  }).catch(error => {
+      console.error(error);
   });
-
-  try {
-    const response = await fetch(get_url_from_base() + `components/play/play.php?${params.toString()}`);
-    const payload = await response.json();
-
-    if (!payload.success) {
-      console.error('Impossible d\'ajouter la musique en base:', payload.error || payload);
-      return;
-    }
-
-    console.log('Musique ajoutee en base:', payload.music || track.title);
-  } catch (error) {
-    console.error('Erreur lors de l\'ajout en base:', error);
-  }
 }
 
 function resolveCurrentTrackId() {
