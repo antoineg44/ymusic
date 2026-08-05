@@ -10,6 +10,8 @@ require '../yt/YouTubeMusic.php';
 require_once '../database_interface.php';
 require_once '../tools/recherche.php';
 require_once 'interface_Musiques.php';
+require_once 'interface_Playlist.php';
+require_once 'interface_MyPlaylistMusiques.php';
 
 header('Content-Type: application/json');
 
@@ -25,6 +27,14 @@ if (isset($_GET['requete'])) {
         if($structure['table'] == "Musiques")
         {
             echo json_encode(dMusique_get($structure),JSON_UNESCAPED_UNICODE);
+        }
+        else if($structure['table'] == "Playlist")
+        {
+            echo json_encode(dPlaylist_get($structure),JSON_UNESCAPED_UNICODE);
+        }
+        else if($structure['table'] == "MyPlaylistMusiques")
+        {
+            echo json_encode(dMyPlaylistMusiques_get($structure),JSON_UNESCAPED_UNICODE);
         }
         else
         {
