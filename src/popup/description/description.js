@@ -206,7 +206,7 @@ async function loadDescription() {
       limit: 1,
       page: 1
     };
-    const response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
+    response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
     var playlists = Array.isArray(response.myPlaylistMusiques) ? response.myPlaylistMusiques : [];
     renderMusicPlaylists(playlists);
 
