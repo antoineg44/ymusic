@@ -2,7 +2,7 @@
 // Couche d'acces DB pour la table Musiques: creation schema, insert/update et synchronisation fichiers.
 declare(strict_types=1);
 
-require_once __DIR__ . '/connexion.php';
+require_once __DIR__ . '/../connexion.php';
 
 if (session_status() === PHP_SESSION_NONE) {
 	session_start();
