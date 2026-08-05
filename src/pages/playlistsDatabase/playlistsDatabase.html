@@ -387,18 +387,11 @@
 			async function loadPlaylistSongs(playlistId, playlistName) {
 				try {
 					songsTitle.textContent = `Musiques - ${playlistName}`;
-					const response = await fetch(get_url() + `../../php/interface.php?playlistSongs=1&id=${encodeURIComponent(playlistId)}`, {
-						credentials: 'same-origin',
-						cache: 'no-store',
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'playlistSongs',
+						query: String(playlistId || ''),
 					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de recuperer les musiques de la playlist.');
 					}
 
@@ -425,20 +418,12 @@
 					Description: String(description || ''),
 				});
 
-				const response = await fetch(get_url() + '../../php/interface.php', {
-					method: 'POST',
-					credentials: 'same-origin',
-					cache: 'no-store',
-					body,
+				const payload = await sendMessageAndWait(window.parent, {
+					action: 'createPlaylist',
+					body: Object.fromEntries(body.entries()),
 				});
 
-				if (response.status === 401) {
-					window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-					return 0;
-				}
-
-				const payload = await response.json();
-				if (!response.ok || !payload.success) {
+				if (!payload || !payload.success) {
 					throw new Error(payload.error || 'Impossible de creer la playlist.');
 				}
 
@@ -446,26 +431,15 @@
 			}
 
 			async function addMusicToPlaylist(playlistId, musicId) {
-				const body = new URLSearchParams({
-					addPlaylistMusic: '1',
-					IdPlaylist: String(playlistId),
-					IdMusique: String(musicId),
+				const payload = await sendMessageAndWait(window.parent, {
+					action: 'addPlaylistMusic',
+					body: {
+						IdPlaylist: String(playlistId),
+						IdMusique: String(musicId),
+					},
 				});
 
-				const response = await fetch(get_url() + '../../php/interface.php', {
-					method: 'POST',
-					credentials: 'same-origin',
-					cache: 'no-store',
-					body,
-				});
-
-				if (response.status === 401) {
-					window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-					return;
-				}
-
-				const payload = await response.json();
-				if (!response.ok || !payload.success) {
+				if (!payload || !payload.success) {
 					throw new Error(payload.error || 'Impossible d\'ajouter une musique a la playlist.');
 				}
 			}
@@ -527,25 +501,14 @@
 			}
 
 			async function incrementPlaylistView(playlistId) {
-				const body = new URLSearchParams({
-					incrementPlaylistView: '1',
-					playlistId: String(playlistId),
+				const payload = await sendMessageAndWait(window.parent, {
+					action: 'incrementPlaylistView',
+					body: {
+						playlistId: String(playlistId),
+					},
 				});
 
-				const response = await fetch(get_url() + '../../php/interface.php', {
-					method: 'POST',
-					credentials: 'same-origin',
-					cache: 'no-store',
-					body,
-				});
-
-				if (response.status === 401) {
-					window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-					return;
-				}
-
-				const payload = await response.json();
-				if (!response.ok || !payload.success) {
+				if (!payload || !payload.success) {
 					throw new Error(payload.error || 'Impossible d\'incrementer les vues de la playlist.');
 				}
 			}
@@ -583,18 +546,8 @@
 
 			async function loadPlaylists() {
 				try {
-					const response = await fetch(get_url() + '../../php/interface.php?dbPlaylists=1', {
-						credentials: 'same-origin',
-						cache: 'no-store',
-					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					const payload = await sendMessageAndWait(window.parent, { action: 'dbPlaylists' });
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de recuperer la liste des playlists.');
 					}
 

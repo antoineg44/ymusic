@@ -205,8 +205,10 @@
           }
 
           const next = nextQueue.entry;
-          const response = await fetch(get_url_from_base() + `php/interface.php?musicId=${encodeURIComponent(next.videoId)}`);
-          const payload = await response.json();
+          const payload = await sendMessageAndWait(window, {
+            action: 'musicId',
+            query: String(next.videoId || ''),
+          });
 
           if (!payload.success) {
             return;
@@ -414,8 +416,10 @@
           await loadPlaylistQueue(videoId);
         }
 
-        const response = await fetch(get_url_from_base() + `php/interface.php?musicId=${encodeURIComponent(videoId)}`);
-        const payload = await response.json();
+        const payload = await sendMessageAndWait(window, {
+          action: 'musicId',
+          query: String(videoId || ''),
+        });
 
         if (!payload.success) {
           setStatus(payload.error || 'Le téléchargement a échoué.');
@@ -534,11 +538,10 @@
       }
 
       try {
-        const params = new URLSearchParams({ deleteFile: filePath });
-        const response = await fetch(get_url_from_base() + `php/interface.php?${params.toString()}`, {
-          credentials: 'same-origin',
+        const payload = await sendMessageAndWait(window, {
+          action: 'deleteFile',
+          query: String(filePath || ''),
         });
-        const payload = await response.json();
         
         if (payload.success) {
           console.debug('Fichier temporaire supprimé:', filePath);

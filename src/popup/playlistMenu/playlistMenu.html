@@ -130,18 +130,8 @@
 
 				try {
 					setStatus('Chargement des playlists...');
-					const response = await fetch(get_url() + '../../php/interface.php?myPlaylists=1', {
-						credentials: 'same-origin',
-						cache: 'no-store',
-					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					const payload = await sendMessageAndWait(window.parent, { action: 'myPlaylists' });
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de charger vos playlists.');
 					}
 

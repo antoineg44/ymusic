@@ -302,8 +302,10 @@
         }
 
         try {
-          const response = await fetch(get_url() + `../../php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
-          const payload = await response.json();
+          const payload = await sendMessageAndWait(window.parent, {
+            action: 'playlistQuery',
+            query: String(query || ''),
+          });
           renderSuggestions(payload.suggestions || []);
         } catch (error) {
           console.error(error);
@@ -325,8 +327,10 @@
         setStatus(`Recherche de playlists pour "${query}"...`);
 
         try {
-          const response = await fetch(get_url() + `../../php/interface.php?playlistQuery=${encodeURIComponent(query)}`);
-          const payload = await response.json();
+          const payload = await sendMessageAndWait(window.parent, {
+            action: 'playlistQuery',
+            query: String(query || ''),
+          });
 
           if (!payload.success) {
             setStatus(payload.error || 'Recherche impossible.');
@@ -414,19 +418,12 @@
           ),
         });
 
-        const response = await fetch(get_url() + '../../php/interface.php', {
-          method: 'POST',
-          credentials: 'same-origin',
-          body: params,
+        const payload = await sendMessageAndWait(window.parent, {
+          action: 'savePlayedPlaylist',
+          body: Object.fromEntries(params.entries()),
         });
 
-        if (response.status === 401) {
-          window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          return;
-        }
-
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
+        if (!payload || !payload.success) {
           throw new Error(payload.error || 'Impossible d\'enregistrer la playlist en base.');
         }
       }
@@ -443,18 +440,11 @@
           showPlaylistView(result);
           playlistTitle.textContent = String(result.title || 'Playlist inconnue');
 
-          const response = await fetch(get_url() + `../../php/interface.php?playlistItems=1&id=${encodeURIComponent(playlistId)}`, {
-            credentials: 'same-origin',
-            cache: 'no-store',
+          const payload = await sendMessageAndWait(window.parent, {
+            action: 'playlistItems',
+            query: String(playlistId || ''),
           });
-
-          if (response.status === 401) {
-            window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-            return;
-          }
-
-          const payload = await response.json();
-          if (!response.ok || !payload.success || !payload.playlist) {
+          if (!payload || !payload.success || !payload.playlist) {
             throw new Error(payload.error || 'Impossible de charger la playlist.');
           }
 
@@ -586,20 +576,12 @@
           Description: descriptionParts.join(' | '),
         });
 
-        const response = await fetch(get_url() + '../../php/interface.php', {
-          method: 'POST',
-          credentials: 'same-origin',
-          cache: 'no-store',
-          body,
+        const payload = await sendMessageAndWait(window.parent, {
+          action: 'createPlaylist',
+          body: Object.fromEntries(body.entries()),
         });
 
-        if (response.status === 401) {
-          window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          return 0;
-        }
-
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
+        if (!payload || !payload.success) {
           throw new Error(payload.error || 'Impossible de creer la playlist locale.');
         }
 
@@ -634,18 +616,11 @@
       }
 
       async function fetchYoutubeTrackMetadata(videoId) {
-        const response = await fetch(get_url() + `../../php/interface.php?musicMetadata=1&id=${encodeURIComponent(videoId)}`, {
-          credentials: 'same-origin',
-          cache: 'no-store',
+        const payload = await sendMessageAndWait(window.parent, {
+          action: 'musicMetadata',
+          query: String(videoId || ''),
         });
-
-        if (response.status === 401) {
-          window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          throw new Error('Authentification requise.');
-        }
-
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
+        if (!payload || !payload.success) {
           throw new Error(payload.error || `Impossible de recuperer les metadonnees de ${videoId}.`);
         }
 
@@ -658,18 +633,11 @@
           throw new Error('Track sans videoId.');
         }
 
-        const musicResponse = await fetch(get_url() + `../../php/interface.php?musicId=${encodeURIComponent(videoId)}`, {
-          credentials: 'same-origin',
-          cache: 'no-store',
+        const musicPayload = await sendMessageAndWait(window.parent, {
+          action: 'musicId',
+          query: String(videoId || ''),
         });
-
-        if (musicResponse.status === 401) {
-          window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          throw new Error('Authentification requise.');
-        }
-
-        const musicPayload = await musicResponse.json();
-        if (!musicResponse.ok || !musicPayload.success) {
+        if (!musicPayload || !musicPayload.success) {
           throw new Error(musicPayload.error || `Impossible de telecharger ${videoId}.`);
         }
 
@@ -704,20 +672,11 @@
           DateAjout: new Date().toISOString().slice(0, 19).replace('T', ' '),
         });
 
-        const addMusicResponse = await fetch(get_url() + '../../php/interface.php', {
-          method: 'POST',
-          credentials: 'same-origin',
-          cache: 'no-store',
-          body: addMusicBody,
+        const addMusicPayload = await sendMessageAndWait(window.parent, {
+          action: 'addMusic',
+          body: Object.fromEntries(addMusicBody.entries()),
         });
-
-        if (addMusicResponse.status === 401) {
-          window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          throw new Error('Authentification requise.');
-        }
-
-        const addMusicPayload = await addMusicResponse.json();
-        if (!addMusicResponse.ok || !addMusicPayload.success) {
+        if (!addMusicPayload || !addMusicPayload.success) {
           throw new Error(addMusicPayload.error || `Impossible d'ajouter ${videoId} en base.`);
         }
 
@@ -731,20 +690,11 @@
           IdMusique: String(musicId),
         });
 
-        const response = await fetch(get_url() + '../../php/interface.php', {
-          method: 'POST',
-          credentials: 'same-origin',
-          cache: 'no-store',
-          body,
+        const payload = await sendMessageAndWait(window.parent, {
+          action: 'addPlaylistMusic',
+          body: Object.fromEntries(body.entries()),
         });
-
-        if (response.status === 401) {
-          window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-          throw new Error('Authentification requise.');
-        }
-
-        const payload = await response.json();
-        if (!response.ok || !payload.success) {
+        if (!payload || !payload.success) {
           throw new Error(payload.error || `Impossible d'associer ${musicId} a la playlist.`);
         }
       }

@@ -283,18 +283,12 @@
 
 				try {
 					setStatus('Chargement de la playlist...');
-					const response = await fetch(get_url() + `../../php/interface.php?playlistEdition=1&id=${encodeURIComponent(String(playlistId))}`, {
-						credentials: 'same-origin',
-						cache: 'no-store',
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'playlistEdition',
+						query: String(playlistId || ''),
 					});
 
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de charger la playlist.');
 					}
 
@@ -324,25 +318,14 @@
 				}
 
 				try {
-					const body = new URLSearchParams({
-						togglePlaylistShare: '1',
-						playlistId: String(playlistId),
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'togglePlaylistShare',
+						body: {
+							playlistId: String(playlistId),
+						},
 					});
 
-					const response = await fetch(get_url() + '../../php/interface.php', {
-						method: 'POST',
-						credentials: 'same-origin',
-						cache: 'no-store',
-						body,
-					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de mettre a jour le partage.');
 					}
 
@@ -431,26 +414,15 @@
 					.map((song) => String((song && song.Id) || '').trim())
 					.filter(Boolean);
 
-				const body = new URLSearchParams({
-					reorderPlaylistSongs: '1',
-					IdPlaylist: String(playlistId),
-					orderedMusicIds: JSON.stringify(orderedMusicIds),
+				const payload = await sendMessageAndWait(window.parent, {
+					action: 'reorderPlaylistSongs',
+					body: {
+						IdPlaylist: String(playlistId),
+						orderedMusicIds: JSON.stringify(orderedMusicIds),
+					},
 				});
 
-				const response = await fetch(get_url() + '../../php/interface.php', {
-					method: 'POST',
-					credentials: 'same-origin',
-					cache: 'no-store',
-					body,
-				});
-
-				if (response.status === 401) {
-					window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-					return;
-				}
-
-				const payload = await response.json();
-				if (!response.ok || !payload.success) {
+				if (!payload || !payload.success) {
 					throw new Error(payload.error || 'Impossible d\'enregistrer le nouvel ordre.');
 				}
 			}
@@ -485,26 +457,15 @@
 				}
 
 				try {
-					const body = new URLSearchParams({
-						removePlaylistMusic: '1',
-						IdPlaylist: String(playlistId),
-						IdMusique: String(musicId),
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'removePlaylistMusic',
+						body: {
+							IdPlaylist: String(playlistId),
+							IdMusique: String(musicId),
+						},
 					});
 
-					const response = await fetch(get_url() + '../../php/interface.php', {
-						method: 'POST',
-						credentials: 'same-origin',
-						cache: 'no-store',
-						body,
-					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de retirer la musique.');
 					}
 
@@ -532,27 +493,16 @@
 
 				try {
 					setStatus('Enregistrement...');
-					const body = new URLSearchParams({
-						updatePlaylist: '1',
-						playlistId: String(playlistId),
-						NomPlaylist: name,
-						Description: description,
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'updatePlaylist',
+						body: {
+							playlistId: String(playlistId),
+							NomPlaylist: name,
+							Description: description,
+						},
 					});
 
-					const response = await fetch(get_url() + '../../php/interface.php', {
-						method: 'POST',
-						credentials: 'same-origin',
-						cache: 'no-store',
-						body,
-					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de mettre a jour la playlist.');
 					}
 
@@ -583,25 +533,14 @@
 
 				try {
 					setStatus('Suppression de la playlist...');
-					const body = new URLSearchParams({
-						deletePlaylist: '1',
-						playlistId: String(playlistId),
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'deletePlaylist',
+						body: {
+							playlistId: String(playlistId),
+						},
 					});
 
-					const response = await fetch(get_url() + '../../php/interface.php', {
-						method: 'POST',
-						credentials: 'same-origin',
-						cache: 'no-store',
-						body,
-					});
-
-					if (response.status === 401) {
-						window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-						return;
-					}
-
-					const payload = await response.json();
-					if (!response.ok || !payload.success) {
+					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de supprimer la playlist.');
 					}
 

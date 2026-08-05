@@ -932,26 +932,15 @@ async function addCurrentMusicToPlaylistFromMenu(message) {
       throw new Error('Musique courante introuvable.');
     }
 
-    const body = new URLSearchParams({
-      addPlaylistMusic: '1',
-      IdPlaylist: String(playlistId),
-      IdMusique: musicId,
+    const payload = await sendMessageAndWait(window, {
+      action: 'addPlaylistMusic',
+      body: {
+        IdPlaylist: String(playlistId),
+        IdMusique: musicId,
+      },
     });
 
-    const response = await fetch(get_url_from_base() + 'php/interface.php', {
-      method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      body,
-    });
-
-    if (response.status === 401) {
-      window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-      return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    if (!payload || !payload.success) {
       throw new Error(payload.error || 'Impossible d\'ajouter la musique.');
     }
 

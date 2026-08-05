@@ -5,6 +5,13 @@ function get_event_file(event)
     return location[location.length-1].substring(0,4);
 }
 
+function replyToSource(source, messageId, response) {
+    source.postMessage({
+        response,
+        replyTo: messageId
+    }, '*');
+}
+
 async function sendResponse(source, messageId, url) {
     const response = await fetch(get_url_from_base() + url, {
     cache: 'no-store',
@@ -13,6 +20,10 @@ async function sendResponse(source, messageId, url) {
 
     if (response.status === 401) {
         window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        replyToSource(source, messageId, {
+            success: false,
+            error: 'Authentification requise',
+        });
         return;
     }
 
@@ -21,10 +32,32 @@ async function sendResponse(source, messageId, url) {
         throw new Error(dataText.error || 'Error message');
     }
 
-    source.postMessage({
-        response: dataText,
-        replyTo: messageId
-    }, '*');
+    replyToSource(source, messageId, dataText);
+}
+
+async function postResponse(source, messageId, url, body) {
+    const response = await fetch(get_url_from_base() + url, {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'include',
+        body: new URLSearchParams(body || {}),
+    });
+
+    if (response.status === 401) {
+        window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        replyToSource(source, messageId, {
+            success: false,
+            error: 'Authentification requise',
+        });
+        return;
+    }
+
+    const dataText = await response.json();
+    if (!response.ok) {
+        throw new Error(dataText.error || 'Error message');
+    }
+
+    replyToSource(source, messageId, dataText);
 }
 
 
@@ -51,6 +84,7 @@ async function db_listener(event)
      *  - getMusiques
      */
 
+    try {
     switch(message.action)
     {
         // Login part :
@@ -101,6 +135,93 @@ async function db_listener(event)
             const jsonStr = JSON.stringify(message.query);
             await sendResponse(event.source, data.messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
             break;
+
+        // Legacy database GET actions now handled by php/database/interface.php
+        case 'albums':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?albums=1");
+            break;
+        case 'tempFilesCount':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?tempFilesCount=1");
+            break;
+        case 'playlistSongs':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?playlistSongs=1&id=" + encodeURIComponent(message.query));
+            break;
+        case 'dbPlaylists':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?dbPlaylists=1");
+            break;
+        case 'myPlaylists':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?myPlaylists=1");
+            break;
+        case 'currentUser':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?currentUser=1");
+            break;
+        case 'playlistEdition':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?playlistEdition=1&id=" + encodeURIComponent(message.query));
+            break;
+        case 'musicDetails':
+        {
+            const params = new URLSearchParams({
+                musicDetails: '1',
+                id: String((message.query && message.query.id) || ''),
+            });
+            if (message.query && message.query.title) {
+                params.set('title', String(message.query.title));
+            }
+            if (message.query && message.query.artist) {
+                params.set('artist', String(message.query.artist));
+            }
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?" + params.toString());
+            break;
+        }
+        case 'musiques':
+        {
+            const params = new URLSearchParams({ musiques: '1' });
+            const query = message.query || {};
+            Object.keys(query).forEach((key) => {
+                if (query[key] !== undefined && query[key] !== null && query[key] !== '') {
+                    params.set(key, String(query[key]));
+                }
+            });
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?" + params.toString());
+            break;
+        }
+        case 'musicFilesIntegrity':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?musicFilesIntegrity=1");
+            break;
+        case 'deleteFile':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?deleteFile=" + encodeURIComponent(message.query));
+            break;
+
+        // Legacy database POST actions now handled by php/database/interface.php
+        case 'clearTempFiles':
+            await postResponse(event.source, data.messageId, "php/database/interface.php", { clearTempFiles: '1' });
+            break;
+        case 'musicFilesIntegrityAction':
+            await postResponse(event.source, data.messageId, "php/database/interface.php", {
+                musicFilesIntegrityAction: '1',
+                action: String((message.body && message.body.action) || ''),
+                musicId: String((message.body && message.body.musicId) || ''),
+                filePath: String((message.body && message.body.filePath) || ''),
+            });
+            break;
+        case 'createPlaylist':
+        case 'addPlaylistMusic':
+        case 'incrementPlaylistView':
+        case 'togglePlaylistShare':
+        case 'reorderPlaylistSongs':
+        case 'removePlaylistMusic':
+        case 'updatePlaylist':
+        case 'deletePlaylist':
+        case 'updateMusic':
+        case 'deleteMusic':
+        case 'addMusic':
+        case 'savePlayedPlaylist':
+        {
+            const body = Object.assign({}, message.body || {});
+            body[message.action] = '1';
+            await postResponse(event.source, data.messageId, "php/database/interface.php", body);
+            break;
+        }
         
         // yt interface
         case 'yt_suggestions':
@@ -115,10 +236,33 @@ async function db_listener(event)
         case 'yt_download':
             await sendResponse(event.source, data.messageId, "php/yt/interface.php?download=" + encodeURIComponent(message.query));
             break;
+        case 'playlistQuery':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?playlistQuery=" + encodeURIComponent(message.query));
+            break;
+        case 'playlistItems':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?playlistItems=1&id=" + encodeURIComponent(message.query));
+            break;
+        case 'musicMetadata':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?musicMetadata=1&id=" + encodeURIComponent(message.query));
+            break;
+        case 'musicId':
+            await sendResponse(event.source, data.messageId, "php/yt/interface.php?musicId=" + encodeURIComponent(message.query));
+            break;
 
         default:
             console.log("event message action unknown : " + message.action);
+            replyToSource(event.source, data.messageId, {
+                success: false,
+                error: "Action inconnue: " + message.action,
+            });
             break;
+    }
+    } catch (error) {
+        console.error('db_listener error:', error);
+        replyToSource(event.source, data.messageId, {
+            success: false,
+            error: String((error && error.message) || error || 'Erreur serveur'),
+        });
     }
 
 }

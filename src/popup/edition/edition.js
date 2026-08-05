@@ -147,18 +147,8 @@ playlists.forEach((playlist) => {
 
 async function loadCurrentUser() {
 try {
-    const response = await fetch(get_url() + '../../php/interface.php?currentUser=1', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-    });
-
-    if (response.status === 401) {
-        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    const payload = await sendMessageAndWait(window.parent, { action: 'currentUser' });
+    if (!payload || !payload.success) {
         return;
     }
 
@@ -189,18 +179,15 @@ if (artist) {
 }
 
 try {
-    const response = await fetch(get_url() + `../../php/interface.php?${params.toString()}`, {
-        credentials: 'same-origin',
-        cache: 'no-store',
+    const payload = await sendMessageAndWait(window.parent, {
+        action: 'musicDetails',
+        query: {
+            id: musicId,
+            title,
+            artist,
+        },
     });
-
-    if (response.status === 401) {
-        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    if (!payload || !payload.success) {
         throw new Error(payload.error || 'Impossible de charger les playlists liees');
     }
 
@@ -216,18 +203,11 @@ async function loadRows() {
 try {
     await loadCurrentUser();
 
-    const response = await fetch(get_url() + '../../php/interface.php?musiques=1', {
-        credentials: 'same-origin',
-        cache: 'no-store',
+    const payload = await sendMessageAndWait(window.parent, {
+        action: 'musiques',
+        query: {},
     });
-
-    if (response.status === 401) {
-        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    if (!payload || !payload.success) {
         throw new Error(payload.error || 'Impossible de charger les musiques');
     }
 
@@ -278,26 +258,15 @@ button.disabled = true;
 button.textContent = '...';
 
 try {
-    const body = new URLSearchParams({
-        removePlaylistMusic: '1',
-        IdPlaylist: String(playlistId),
-        IdMusique: musicId,
+    const payload = await sendMessageAndWait(window.parent, {
+        action: 'removePlaylistMusic',
+        body: {
+            IdPlaylist: String(playlistId),
+            IdMusique: musicId,
+        },
     });
 
-    const response = await fetch(get_url() + '../../php/interface.php', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        body,
-    });
-
-    if (response.status === 401) {
-        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    if (!payload || !payload.success) {
         throw new Error(payload.error || 'Impossible de retirer le lien playlist-musique');
     }
 
@@ -354,14 +323,12 @@ if (button) {
 }
 
 try {
-    const response = await fetch(get_url() + '../../php/interface.php', {
-        method: 'POST',
-        credentials: 'same-origin',
-        body,
+    const payload = await sendMessageAndWait(window.parent, {
+        action: 'updateMusic',
+        body: Object.fromEntries(body.entries()),
     });
-    const payload = await response.json();
 
-    if (!response.ok || !payload.success) {
+    if (!payload || !payload.success) {
         throw new Error(payload.error || 'Echec de la mise a jour');
     }
 
@@ -403,25 +370,14 @@ if (deleteButton) {
 }
 
 try {
-    const body = new URLSearchParams({
-        deleteMusic: '1',
-        Id: id,
+    const payload = await sendMessageAndWait(window.parent, {
+        action: 'deleteMusic',
+        body: {
+            Id: id,
+        },
     });
 
-    const response = await fetch(get_url() + '../../php/interface.php', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        body,
-    });
-
-    if (response.status === 401) {
-        window.parent.postMessage({type: 'USER_LOGGED_OUT' }, '*');
-        return;
-    }
-
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    if (!payload || !payload.success) {
         throw new Error(payload.error || 'Suppression impossible');
     }
 
