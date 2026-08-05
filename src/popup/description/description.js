@@ -158,8 +158,8 @@ async function loadDescription() {
 
   setStatus(`Chargement des details pour ${id}...`);
 
-  //suite
-  const query = {
+  try {
+    var query = {
       table: 'Musiques',
       select: ['Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
       equals: {
@@ -167,9 +167,8 @@ async function loadDescription() {
       },
       limit: 1,
       page: 1
-  };
+    };
 
-  try {
     const response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
 
     var musiques = Array.isArray(response.musiques) ? response.musiques : [];
@@ -187,7 +186,29 @@ async function loadDescription() {
     console.log(currentMusic);
 
     renderMusicDetails(currentMusic);
-    renderMusicPlaylists(payload.playlists);
+
+    query = {
+      table: 'MyPlaylistMusiques',
+      withPlaylistDetails: true,
+      select: [
+          'PlaylistId',
+          'NomPlaylist',
+          'Description',
+          'Utilisateur',
+          'UtilisateurNom',
+          'PositionLecture'
+      ],
+      equals: {
+          IdMusique: id
+      },
+      orderBy: 'NomPlaylist',
+      order: 'ASC',
+      limit: 1,
+      page: 1
+    };
+    const response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
+    var playlists = Array.isArray(response.myPlaylistMusiques) ? response.myPlaylistMusiques : [];
+    renderMusicPlaylists(playlists);
 
     setStatus("Details charges.");
 

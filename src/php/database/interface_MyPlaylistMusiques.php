@@ -17,7 +17,8 @@
     'equals' => [
         'IdPlaylist' => 42,
         'IdMusique' => 'abc123'
-    ]
+    ],
+    'withPlaylistDetails' => true // ajoute les jointures Playlist + Utilisateurs
 ];
  */
 function dMyPlaylistMusiques_get(array $options)
@@ -26,32 +27,72 @@ function dMyPlaylistMusiques_get(array $options)
     $pdo = get_database_pdo();
     ensure_playlists_tables($pdo);
 
-    $champsAutorises = [
-        'IdPlaylist',
-        'IdMusique',
-        'PositionLecture'
-    ];
+    $withPlaylistDetails = !empty($options['withPlaylistDetails']);
+
+    $fromSql = $withPlaylistDetails
+        ? 'MyPlaylistMusiques pm INNER JOIN Playlist p ON p.idPlaylist = pm.IdPlaylist LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur'
+        : 'MyPlaylistMusiques';
+
+    $selectMap = $withPlaylistDetails
+        ? [
+            'IdPlaylist' => 'pm.IdPlaylist',
+            'IdMusique' => 'pm.IdMusique',
+            'PositionLecture' => 'pm.PositionLecture',
+            'PlaylistId' => 'p.idPlaylist AS PlaylistId',
+            'NomPlaylist' => 'p.NomPlaylist',
+            'Description' => 'p.Description',
+            'Utilisateur' => 'p.Utilisateur',
+            'UtilisateurNom' => 'COALESCE(u.NomUtilisateur, "") AS UtilisateurNom',
+        ]
+        : [
+            'IdPlaylist' => 'IdPlaylist',
+            'IdMusique' => 'IdMusique',
+            'PositionLecture' => 'PositionLecture',
+        ];
+
+    $filterMap = $withPlaylistDetails
+        ? [
+            'IdPlaylist' => 'pm.IdPlaylist',
+            'IdMusique' => 'pm.IdMusique',
+            'PositionLecture' => 'pm.PositionLecture',
+            'PlaylistId' => 'p.idPlaylist',
+            'NomPlaylist' => 'p.NomPlaylist',
+            'Description' => 'p.Description',
+            'Utilisateur' => 'p.Utilisateur',
+            'UtilisateurNom' => 'u.NomUtilisateur',
+        ]
+        : [
+            'IdPlaylist' => 'IdPlaylist',
+            'IdMusique' => 'IdMusique',
+            'PositionLecture' => 'PositionLecture',
+        ];
+
+    $champsAutorises = array_keys($filterMap);
 
     // Champs à sélectionner
     $select = '*';
     if (!empty($options['select'])) {
-        $select = array_intersect($options['select'], $champsAutorises);
-        if (empty($select)) {
+        $selectFields = array_intersect($options['select'], array_keys($selectMap));
+        if (empty($selectFields)) {
             throw new InvalidArgumentException('Aucun champ valide à sélectionner.');
         }
-        $select = implode(', ', $select);
+        $selectParts = [];
+        foreach ($selectFields as $field) {
+            $selectParts[] = $selectMap[$field];
+        }
+        $select = implode(', ', $selectParts);
     }
 
     $sql = "SELECT $select";
     $queryParams = [];
-    $searchWhereClause = '';
+    $whereParts = [];
 
     // Count
     if (!empty($options['count'])) {
         $sql .= ", COUNT(*) AS TotalMyPlaylistMusiques";
     }
 
-    $sql .= " FROM MyPlaylistMusiques";
+    $sql .= " FROM $fromSql";
 
     // Recherche textuelle
     if (!empty($options['search'])) {
@@ -61,11 +102,26 @@ function dMyPlaylistMusiques_get(array $options)
             throw new InvalidArgumentException('Champ de recherche invalide.');
         }
 
-        $research_param = remove_accent_and_ponctuation((string) ($options['search']['value'] ?? ''));
+        $searchValue = (string) ($options['search']['value'] ?? '');
+        $normalizedSearch = function_exists('mb_strtolower')
+            ? mb_strtolower($searchValue, 'UTF-8')
+            : strtolower($searchValue);
+        $normalizedSearch = strtr($normalizedSearch, [
+            'à' => 'a', 'â' => 'a', 'ä' => 'a', 'á' => 'a', 'ã' => 'a', 'å' => 'a',
+            'æ' => 'ae', 'ç' => 'c', 'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i', 'ñ' => 'n',
+            'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'ö' => 'o', 'õ' => 'o', 'œ' => 'oe',
+            'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u', 'ý' => 'y', 'ÿ' => 'y',
+        ]);
+        $normalizedSearch = (string) preg_replace('/[[:punct:]\s]+/u', '', $normalizedSearch);
 
-        $searchWhereClause = $research_param['whereClause'];
-        $sql .= ' ' . $searchWhereClause;
-        $queryParams[':search'] = '%' . $research_param['queryParams'] . '%';
+        if ($normalizedSearch === '') {
+            $whereParts[] = '1 = 0';
+        } else {
+            $columnExpression = build_title_search_sql($filterMap[$field]);
+            $whereParts[] = "$columnExpression LIKE :search";
+            $queryParams[':search'] = '%' . $normalizedSearch . '%';
+        }
     }
 
     // Recherche par égalité
@@ -80,35 +136,40 @@ function dMyPlaylistMusiques_get(array $options)
             }
 
             $param = ':eq_' . $field;
-            $conditions[] = "$field = $param";
+            $conditions[] = "{$filterMap[$field]} = $param";
             $queryParams[$param] = $value;
         }
 
         if (!empty($conditions)) {
-            $sql .= ($searchWhereClause === '' ? ' WHERE ' : ' AND ');
-            $sql .= implode(' AND ', $conditions);
+            $whereParts = array_merge($whereParts, $conditions);
         }
+    }
+
+    if (!empty($whereParts)) {
+        $sql .= ' WHERE ' . implode(' AND ', $whereParts);
     }
 
     // Group
     if (!empty($options['groupBy'])) {
-        if (!in_array($options['groupBy'], $champsAutorises, true)) {
+        $groupByField = (string) $options['groupBy'];
+        if (!array_key_exists($groupByField, $filterMap)) {
             throw new InvalidArgumentException('Champ de tri invalide.');
         }
 
-        $sql .= " GROUP BY {$options['groupBy']}";
+        $sql .= " GROUP BY {$filterMap[$groupByField]}";
     }
 
     // Tri
     if (!empty($options['orderBy'])) {
-        if (!in_array($options['orderBy'], $champsAutorises, true)) {
+        $orderByField = (string) $options['orderBy'];
+        if (!array_key_exists($orderByField, $filterMap)) {
             throw new InvalidArgumentException('Champ de tri invalide.');
         }
 
         $order = strtoupper($options['order'] ?? 'ASC');
         $order = ($order === 'DESC') ? 'DESC' : 'ASC';
 
-        $sql .= " ORDER BY {$options['orderBy']} $order";
+        $sql .= " ORDER BY {$filterMap[$orderByField]} $order";
     }
 
     // Limite + offset
@@ -131,22 +192,9 @@ function dMyPlaylistMusiques_get(array $options)
     $stmt->execute();
     $myPlaylistMusiques = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $countSql = "SELECT COUNT(*) AS Total FROM MyPlaylistMusiques";
-
-    $where = [];
-
-    if (!empty($options['search'])) {
-        $where[] = substr($searchWhereClause, strlen('WHERE '));
-    }
-
-    if (!empty($options['equals'])) {
-        foreach ($options['equals'] as $field => $value) {
-            $where[] = "$field = :eq_$field";
-        }
-    }
-
-    if (!empty($where)) {
-        $countSql .= " WHERE " . implode(' AND ', $where);
+    $countSql = "SELECT COUNT(*) AS Total FROM $fromSql";
+    if (!empty($whereParts)) {
+        $countSql .= " WHERE " . implode(' AND ', $whereParts);
     }
 
     $countStmt = $pdo->prepare($countSql);
@@ -170,5 +218,8 @@ function dMyPlaylistMusiques_get(array $options)
         'titleQuery' => $options['search']['value'] ?? null,
         'totalRows' => $totalRows,
         'totalPages' => $totalPages,
+        'query' => [
+            'withPlaylistDetails' => $withPlaylistDetails,
+        ],
     ];
 }
