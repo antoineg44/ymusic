@@ -22,7 +22,19 @@ if (isset($_GET['requete'])) {
         $jsonStr = urldecode($_GET['requete']);
         $structure = json_decode($jsonStr, true);
 
-        echo json_encode(dMusique_get($structure),JSON_UNESCAPED_UNICODE);
+        if($structure['table'] == "Musiques")
+        {
+            echo json_encode(dMusique_get($structure),JSON_UNESCAPED_UNICODE);
+        }
+        else
+        {
+             echo json_encode([
+                'success' => false,
+                'error' => "Unknow table",
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        
     } catch (Throwable $exception) {
         echo json_encode([
             'success' => false,
