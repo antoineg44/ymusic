@@ -387,15 +387,30 @@
 			async function loadPlaylistSongs(playlistId, playlistName) {
 				try {
 					songsTitle.textContent = `Musiques - ${playlistName}`;
+					const query = {
+						table: 'MyPlaylistMusiques',
+						select: ['IdMusique', 'PositionLecture'],
+						withMusicDetails: true,
+						equals: {
+							IdPlaylist: String(playlistId || ''),
+						},
+						orderBy: 'PositionLecture',
+						order: 'ASC',
+						limit: 2000,
+						page: 1,
+					};
+
 					const payload = await sendMessageAndWait(window.parent, {
 						action: 'playlistSongs',
-						query: String(playlistId || ''),
+						query,
 					});
-					if (!payload || !payload.success) {
+					if (!payload || payload.success === false) {
 						throw new Error(payload.error || 'Impossible de recuperer les musiques de la playlist.');
 					}
 
-					const rows = Array.isArray(payload.songs) ? payload.songs : [];
+					const rows = Array.isArray(payload.myPlaylistMusiques)
+						? payload.myPlaylistMusiques
+						: (Array.isArray(payload.songs) ? payload.songs : []);
 					openedPlaylistSongs = rows;
 					renderSongs(rows);
 					setStatus(`Playlist "${playlistName}" chargee (${rows.length} musique(s)).`);
@@ -546,12 +561,30 @@
 
 			async function loadPlaylists() {
 				try {
-					const payload = await sendMessageAndWait(window.parent, { action: 'dbPlaylists' });
-					if (!payload || !payload.success) {
+					const query = {
+						table: 'Playlist',
+						select: ['idPlaylist', 'NomPlaylist', 'Description', 'DateDerniereModification', 'Partage', 'NombreVue', 'Utilisateur'],
+						orderBy: 'DateDerniereModification',
+						order: 'DESC',
+						limit: 500,
+						page: 1,
+					};
+
+					const payload = await sendMessageAndWait(window.parent, { action: 'dbPlaylists', query });
+					if (!payload || payload.success === false) {
 						throw new Error(payload.error || 'Impossible de recuperer la liste des playlists.');
 					}
 
-					const playlists = Array.isArray(payload.playlists) ? payload.playlists : [];
+					const rawPlaylists = Array.isArray(payload.playlists) ? payload.playlists : [];
+					const playlists = rawPlaylists.map((row) => ({
+						PlaylistId: Number((row && (row.PlaylistId ?? row.idPlaylist)) || 0),
+						NomPlaylist: String((row && row.NomPlaylist) || ''),
+						Description: String((row && row.Description) || ''),
+						DateDerniereModification: String((row && row.DateDerniereModification) || ''),
+						Partage: Number((row && row.Partage) || 0),
+						NombreVue: Number((row && row.NombreVue) || 0),
+						Utilisateur: Number((row && row.Utilisateur) || 0),
+					}));
 					const sharedPlaylists = playlists.filter((playlist) => Number((playlist && playlist.Partage) || 0) === 1);
 					renderPlaylists(sharedPlaylists);
 					showPlaylistsView();

@@ -165,33 +165,39 @@ if (!musicId) {
     return;
 }
 
-const title = String((row && row.Titre) || '').trim();
-const artist = String((row && row.Artiste) || '').trim();
-const params = new URLSearchParams({
-    musicDetails: '1',
-    id: musicId,
-});
-if (title) {
-    params.set('title', title);
-}
-if (artist) {
-    params.set('artist', artist);
-}
+const query = {
+    table: 'MyPlaylistMusiques',
+    withPlaylistDetails: true,
+    select: [
+        'PlaylistId',
+        'NomPlaylist',
+        'Description',
+        'Utilisateur',
+        'UtilisateurNom',
+        'PositionLecture',
+    ],
+    equals: {
+        IdMusique: musicId,
+    },
+    orderBy: 'NomPlaylist',
+    order: 'ASC',
+    limit: 100,
+    page: 1,
+};
 
 try {
     const payload = await sendMessageAndWait(window.parent, {
-        action: 'musicDetails',
-        query: {
-            id: musicId,
-            title,
-            artist,
-        },
+        action: 'description',
+        query,
     });
-    if (!payload || !payload.success) {
+    if (!payload || payload.success === false) {
         throw new Error(payload.error || 'Impossible de charger les playlists liees');
     }
 
-    renderLinkedPlaylists(container, musicId, payload.playlists);
+    const playlists = Array.isArray(payload.myPlaylistMusiques)
+        ? payload.myPlaylistMusiques
+        : (Array.isArray(payload.playlists) ? payload.playlists : []);
+    renderLinkedPlaylists(container, musicId, playlists);
 } catch (error) {
     console.error(error);
     renderLinkedPlaylists(container, musicId, []);
@@ -203,11 +209,20 @@ async function loadRows() {
 try {
     await loadCurrentUser();
 
+    const query = {
+        table: 'Musiques',
+        select: ['Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
+        orderBy: 'DateAjout',
+        order: 'DESC',
+        limit: 500,
+        page: 1,
+    };
+
     const payload = await sendMessageAndWait(window.parent, {
         action: 'musiques',
-        query: {},
+        query,
     });
-    if (!payload || !payload.success) {
+    if (!payload || payload.success === false) {
         throw new Error(payload.error || 'Impossible de charger les musiques');
     }
 

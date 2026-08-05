@@ -60,6 +60,22 @@ async function postResponse(source, messageId, url, body) {
     replyToSource(source, messageId, dataText);
 }
 
+function hasStructuredDbQuery(message) {
+    return Boolean(
+        message
+        && message.query
+        && typeof message.query === 'object'
+        && !Array.isArray(message.query)
+        && typeof message.query.table === 'string'
+        && String(message.query.table).trim() !== ''
+    );
+}
+
+async function sendStructuredDbQuery(source, messageId, query) {
+    const jsonStr = JSON.stringify(query || {});
+    await sendResponse(source, messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
+}
+
 
 async function db_listener(event)
 {
@@ -132,22 +148,20 @@ async function db_listener(event)
         case 'search':
         case 'getMusiques':
         case 'description':
-            const jsonStr = JSON.stringify(message.query);
-            await sendResponse(event.source, data.messageId, "php/database/interface.php?requete=" + encodeURIComponent(jsonStr));
+        case 'playlistSongs':
+        case 'dbPlaylists':
+        case 'albums':
+        case 'musicDetails':
+        case 'musiques':
+            if (!hasStructuredDbQuery(message)) {
+                throw new Error('Requete de lecture invalide');
+            }
+            await sendStructuredDbQuery(event.source, data.messageId, message.query);
             break;
 
         // Legacy database GET actions now handled by php/database/interface.php
-        case 'albums':
-            await sendResponse(event.source, data.messageId, "php/database/interface.php?albums=1");
-            break;
         case 'tempFilesCount':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?tempFilesCount=1");
-            break;
-        case 'playlistSongs':
-            await sendResponse(event.source, data.messageId, "php/database/interface.php?playlistSongs=1&id=" + encodeURIComponent(message.query));
-            break;
-        case 'dbPlaylists':
-            await sendResponse(event.source, data.messageId, "php/database/interface.php?dbPlaylists=1");
             break;
         case 'myPlaylists':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?myPlaylists=1");
@@ -158,33 +172,6 @@ async function db_listener(event)
         case 'playlistEdition':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?playlistEdition=1&id=" + encodeURIComponent(message.query));
             break;
-        case 'musicDetails':
-        {
-            const params = new URLSearchParams({
-                musicDetails: '1',
-                id: String((message.query && message.query.id) || ''),
-            });
-            if (message.query && message.query.title) {
-                params.set('title', String(message.query.title));
-            }
-            if (message.query && message.query.artist) {
-                params.set('artist', String(message.query.artist));
-            }
-            await sendResponse(event.source, data.messageId, "php/database/interface.php?" + params.toString());
-            break;
-        }
-        case 'musiques':
-        {
-            const params = new URLSearchParams({ musiques: '1' });
-            const query = message.query || {};
-            Object.keys(query).forEach((key) => {
-                if (query[key] !== undefined && query[key] !== null && query[key] !== '') {
-                    params.set(key, String(query[key]));
-                }
-            });
-            await sendResponse(event.source, data.messageId, "php/database/interface.php?" + params.toString());
-            break;
-        }
         case 'musicFilesIntegrity':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?musicFilesIntegrity=1");
             break;

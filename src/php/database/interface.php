@@ -8,10 +8,12 @@ header("Access-Control-Allow-Headers: Content-Type");
 
 require '../yt/YouTubeMusic.php';
 require_once __DIR__ . '/../database_interface.php';
+require_once __DIR__ . '/../files/manager.php';
 require_once __DIR__ . '/../tools/recherche.php';
 require_once __DIR__ . '/interface_Musiques.php';
 require_once __DIR__ . '/interface_Playlist.php';
 require_once __DIR__ . '/interface_MyPlaylistMusiques.php';
+
 
 header('Content-Type: application/json');
 
@@ -49,190 +51,17 @@ if (isset($_GET['requete'])) {
     exit;
 }
 
-function sanitize_folder_name(string $value): string
-{
-    // Nettoie un nom de dossier pour eviter caracteres invalides sur le systeme de fichiers.
-    $cleaned = trim($value);
-    $cleaned = preg_replace('/[\\\\\/:*?"<>|]+/', '-', $cleaned);
-    $cleaned = preg_replace('/\s+/', ' ', (string) $cleaned);
-    $cleaned = trim((string) $cleaned, " .-");
-
-    return $cleaned !== '' ? $cleaned : 'Artiste inconnu';
-}
-
-function build_unique_destination_path(string $directory, string $filename): string
-{
-    $target = $directory . '/' . $filename;
-    if (!file_exists($target)) {
-        return $target;
-    }
-
-    $name = pathinfo($filename, PATHINFO_FILENAME);
-    $ext = pathinfo($filename, PATHINFO_EXTENSION);
-    $suffix = $ext !== '' ? '.' . $ext : '';
-
-    for ($index = 1; $index <= 1000; $index += 1) {
-        $candidate = $directory . '/' . $name . '-' . $index . $suffix;
-        if (!file_exists($candidate)) {
-            return $candidate;
-        }
-    }
-
-    return $directory . '/' . $name . '-' . time() . $suffix;
-}
-
-function move_downloaded_webm_for_music(array $payload): ?array
-{
-    $id = trim((string) ($payload['Id'] ?? ''));
-    if ($id === '') {
-        return null;
-    }
-
-    $artist = sanitize_folder_name((string) ($payload['Artiste'] ?? ''));
-    $webRoot = dirname(dirname(__DIR__));
-    $baseDir = $webRoot . '/data';
-
-    $tempDir = $baseDir . '/temp';
-    if (!is_dir($tempDir)) {
-        return null;
-    }
-
-    $allowedExtensions = ['webm', 'm4a', 'mp3', 'ogg', 'wav', 'aac', 'flac'];
-    $source = null;
-
-    $downloadedFile = trim((string) ($payload['DownloadedFile'] ?? ''));
-    if ($downloadedFile !== '') {
-        $preferred = $tempDir . '/' . basename($downloadedFile);
-        if (is_file($preferred)) {
-            $source = $preferred;
-        }
-    }
-
-    if ($source === null) {
-        foreach ($allowedExtensions as $extension) {
-            $candidate = $tempDir . '/' . $id . '.' . $extension;
-            if (is_file($candidate)) {
-                $source = $candidate;
-                break;
-            }
-        }
-    }
-
-    if ($source === null) {
-        $candidates = [];
-        $prefixPattern = '/^' . preg_quote($id, '/') . '([\s\-_\(\)0-9]*)\.(webm|m4a|mp3|ogg|wav|aac|flac)$/i';
-
-        $entries = scandir($tempDir);
-        if (is_array($entries)) {
-            foreach ($entries as $entry) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
-
-                $fullPath = $tempDir . '/' . $entry;
-                if (!is_file($fullPath)) {
-                    continue;
-                }
-
-                if (!preg_match($prefixPattern, $entry)) {
-                    continue;
-                }
-
-                $mtime = @filemtime($fullPath);
-                $candidates[] = [
-                    'path' => $fullPath,
-                    'mtime' => $mtime === false ? 0 : (int) $mtime,
-                ];
-            }
-        }
-
-        if (!empty($candidates)) {
-            usort($candidates, static function (array $left, array $right): int {
-                return $right['mtime'] <=> $left['mtime'];
-            });
-            $source = (string) ($candidates[0]['path'] ?? '');
-            if ($source === '') {
-                $source = null;
-            }
-        }
-    }
-
-    if ($source === null) {
-        return null;
-    }
-
-    $destinationDir = $baseDir . '/' . $artist;
-    if (!is_dir($destinationDir) && !mkdir($destinationDir, 0775, true) && !is_dir($destinationDir)) {
-        throw new RuntimeException('Impossible de creer le dossier artiste');
-    }
-
-    $destination = build_unique_destination_path($destinationDir, basename($source));
-    if (!rename($source, $destination)) {
-        throw new RuntimeException('Impossible de deplacer le fichier audio vers le dossier artiste');
-    }
-
-    return [
-        'from' => 'data/temp/' . basename($source),
-        'to' => str_replace('\\', '/', substr($destination, strlen($webRoot) + 1)),
-    ];
-}
-
 function find_music_by_id(string $id): ?array
 {
-    $pdo = get_database_pdo();
-    ensure_music_table($pdo);
+    $musicPayload = dMusique_get([
+        'select' => ['Id', 'Titre', 'Artiste', 'Album', 'NombreVue', 'NombreVueInterne'],
+        'equals' => ['Id' => $id],
+        'limit' => 1,
+        'page' => 1,
+    ]);
 
-    $stmt = $pdo->prepare(
-        'SELECT Id, Titre, Artiste, Album, NombreVue, NombreVueInterne
-         FROM Musiques
-         WHERE Id = :id
-         LIMIT 1'
-    );
-    $stmt->execute([':id' => $id]);
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $row ?: null;
-}
-
-function find_downloaded_file_for_music_id(string $id): ?array
-{
-    $webRoot = dirname(dirname(__DIR__));
-    $baseDir = $webRoot . '/data';
-    if (!is_dir($baseDir)) {
-        return null;
-    }
-
-    $allowedExtensions = ['mp3', 'm4a', 'aac', 'ogg', 'wav', 'flac', 'webm'];
-
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($baseDir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-
-    foreach ($iterator as $fileInfo) {
-        if (!$fileInfo->isFile()) {
-            continue;
-        }
-
-        $extension = strtolower(pathinfo($fileInfo->getFilename(), PATHINFO_EXTENSION));
-        if (!in_array($extension, $allowedExtensions, true)) {
-            continue;
-        }
-
-        $filenameWithoutExt = pathinfo($fileInfo->getFilename(), PATHINFO_FILENAME);
-        if ($filenameWithoutExt !== $id) {
-            continue;
-        }
-
-        $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), strlen($webRoot) + 1));
-
-        return [
-            'file' => $fileInfo->getFilename(),
-            'path' => $relativePath,
-        ];
-    }
-
-    return null;
+    $music = (array) (($musicPayload['musiques'] ?? [])[0] ?? []);
+    return !empty($music) ? $music : null;
 }
 
 function find_downloaded_files_for_music_id(string $id): array
@@ -376,12 +205,22 @@ function build_music_files_integrity_report(PDO $pdo): array
 {
     ensure_music_table($pdo);
 
-    $stmt = $pdo->query(
-        'SELECT Id, Titre, Artiste, Album
-         FROM Musiques
-         ORDER BY DateAjout DESC, Titre ASC'
-    );
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = [];
+    $page = 1;
+    $totalPages = 1;
+    do {
+        $payload = dMusique_get([
+            'select' => ['Id', 'Titre', 'Artiste', 'Album'],
+            'orderBy' => 'DateAjout',
+            'order' => 'DESC',
+            'limit' => 500,
+            'page' => $page,
+        ]);
+
+        $rows = array_merge($rows, (array) ($payload['musiques'] ?? []));
+        $totalPages = max(1, (int) ($payload['totalPages'] ?? 1));
+        $page += 1;
+    } while ($page <= $totalPages);
 
     $dbMusicById = [];
     foreach ($rows as $row) {
@@ -575,9 +414,13 @@ function delete_music_entry_only(PDO $pdo, string $musicId): array
         throw new RuntimeException('Id musique requis');
     }
 
-    $existsStmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
-    $existsStmt->execute([':id' => $id]);
-    if ($existsStmt->fetch(PDO::FETCH_ASSOC) === false) {
+    $existingMusic = dMusique_get([
+        'select' => ['Id'],
+        'equals' => ['Id' => $id],
+        'limit' => 1,
+        'page' => 1,
+    ]);
+    if (empty($existingMusic['musiques'])) {
         throw new RuntimeException('Musique introuvable');
     }
 
@@ -642,9 +485,13 @@ function add_music_entry_for_orphan_file(PDO $pdo, YouTubeMusic $yt, string $mus
         throw new RuntimeException('Id musique requis');
     }
 
-    $existsStmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
-    $existsStmt->execute([':id' => $id]);
-    if ($existsStmt->fetch(PDO::FETCH_ASSOC) !== false) {
+    $existingMusic = dMusique_get([
+        'select' => ['Id'],
+        'equals' => ['Id' => $id],
+        'limit' => 1,
+        'page' => 1,
+    ]);
+    if (!empty($existingMusic['musiques'])) {
         return [
             'musicId' => $id,
             'alreadyExists' => true,
@@ -757,23 +604,17 @@ function add_music_entry_for_orphan_file(PDO $pdo, YouTubeMusic $yt, string $mus
 
         ensure_playlists_tables($pdo);
 
-        $stmt = $pdo->prepare(
-            'SELECT
-                p.idPlaylist AS PlaylistId,
-                p.NomPlaylist,
-                p.Description,
-                p.Utilisateur,
-                COALESCE(u.NomUtilisateur, "") AS UtilisateurNom,
-                pm.PositionLecture
-             FROM MyPlaylistMusiques pm
-             INNER JOIN Playlist p ON p.idPlaylist = pm.IdPlaylist
-             LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
-             WHERE pm.IdMusique = :musicId
-             ORDER BY p.NomPlaylist ASC'
-        );
-        $stmt->execute([':musicId' => $musicId]);
+        $payload = dMyPlaylistMusiques_get([
+            'select' => ['PlaylistId', 'NomPlaylist', 'Description', 'Utilisateur', 'UtilisateurNom', 'PositionLecture'],
+            'equals' => ['IdMusique' => $musicId],
+            'orderBy' => 'NomPlaylist',
+            'order' => 'ASC',
+            'withPlaylistDetails' => true,
+            'limit' => 2000,
+            'page' => 1,
+        ]);
 
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = (array) ($payload['myPlaylistMusiques'] ?? []);
         if (!is_array($rows)) {
             return [];
         }
@@ -801,14 +642,14 @@ function add_music_entry_for_orphan_file(PDO $pdo, YouTubeMusic $yt, string $mus
 
         ensure_playlists_tables($pdo);
 
-        $stmt = $pdo->prepare(
-            'SELECT COUNT(*) AS Total
-             FROM MyPlaylistMusiques
-             WHERE IdMusique = :musicId'
-        );
-        $stmt->execute([':musicId' => $musicId]);
+        $payload = dMyPlaylistMusiques_get([
+            'select' => ['IdMusique'],
+            'equals' => ['IdMusique' => $musicId],
+            'limit' => 1,
+            'page' => 1,
+        ]);
 
-        return (int) (($stmt->fetch(PDO::FETCH_ASSOC)['Total'] ?? 0));
+        return (int) ($payload['totalRows'] ?? 0);
     }
 /*
 if (empty($_SESSION['user'])) {
@@ -974,119 +815,66 @@ if (!empty($_GET['deleteFile'])) {
             'error' => $exception->getMessage(),
         ], JSON_UNESCAPED_UNICODE);
     }
-} elseif (!empty($_GET['dbPlaylists'])) {
-
-    try {
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
-        $stmt = $pdo->query(
-            "SELECT
-                p.idPlaylist AS PlaylistId,
-                p.NomPlaylist,
-                p.Description,
-                p.Partage,
-                p.DateDerniereModification,
-                p.NombreVue,
-                p.Utilisateur,
-                u.NomUtilisateur AS UtilisateurNom,
-                COUNT(pm.IdMusique) AS TotalMusiques
-             FROM Playlist p
-             LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
-                 LEFT JOIN MyPlaylistMusiques pm ON pm.IdPlaylist = p.idPlaylist
-             GROUP BY p.idPlaylist, p.NomPlaylist, p.Description, p.Partage, p.DateDerniereModification, p.NombreVue, p.Utilisateur, u.NomUtilisateur
-             ORDER BY p.DateDerniereModification DESC, p.NomPlaylist ASC"
-        );
-
-        $playlists = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true,
-            'playlists' => $playlists,
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
 
 } elseif (!empty($_GET['myPlaylists'])) {
 
     try {
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
         $currentUserId = resolve_current_user_id();
 
-        $stmt = $pdo->prepare(
-            "SELECT
-                p.idPlaylist AS PlaylistId,
-                p.NomPlaylist,
-                p.Description,
-                p.Partage,
-                p.DateDerniereModification,
-                p.NombreVue,
-                p.Utilisateur,
-                u.NomUtilisateur AS UtilisateurNom,
-                COUNT(pm.IdMusique) AS TotalMusiques
-             FROM Playlist p
-             LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
-             LEFT JOIN MyPlaylistMusiques pm ON pm.IdPlaylist = p.idPlaylist
-             WHERE p.Utilisateur = :userId
-             GROUP BY p.idPlaylist, p.NomPlaylist, p.Description, p.Partage, p.DateDerniereModification, p.NombreVue, p.Utilisateur, u.NomUtilisateur
-             ORDER BY p.DateDerniereModification DESC, p.NomPlaylist ASC"
-        );
-        $stmt->execute([':userId' => $currentUserId]);
+        $playlistsRaw = [];
+        $page = 1;
+        $totalPages = 1;
+        do {
+            $playlistsPayload = dPlaylist_get([
+                'select' => [
+                    'idPlaylist',
+                    'NomPlaylist',
+                    'Description',
+                    'Partage',
+                    'DateDerniereModification',
+                    'NombreVue',
+                    'Utilisateur',
+                ],
+                'equals' => [
+                    'Utilisateur' => $currentUserId,
+                ],
+                'orderBy' => 'DateDerniereModification',
+                'order' => 'DESC',
+                'limit' => 200,
+                'page' => $page,
+            ]);
 
-        echo json_encode([
-            'success' => true,
-            'playlists' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
+            $playlistsRaw = array_merge($playlistsRaw, (array) ($playlistsPayload['playlists'] ?? []));
+            $totalPages = max(1, (int) ($playlistsPayload['totalPages'] ?? 1));
+            $page += 1;
+        } while ($page <= $totalPages);
 
-} elseif (!empty($_GET['playlistSongs'])) {
+        $playlists = [];
+        foreach ($playlistsRaw as $playlist) {
+            $playlistId = (int) ($playlist['idPlaylist'] ?? 0);
+            $linksPayload = dMyPlaylistMusiques_get([
+                'select' => ['IdMusique'],
+                'equals' => ['IdPlaylist' => $playlistId],
+                'limit' => 1,
+                'page' => 1,
+            ]);
 
-    try {
-        $playlistId = trim((string) ($_GET['id'] ?? ''));
-        if ($playlistId === '') {
-            throw new RuntimeException('Id de playlist requis');
+            $playlists[] = [
+                'PlaylistId' => $playlistId,
+                'NomPlaylist' => (string) ($playlist['NomPlaylist'] ?? ''),
+                'Description' => (string) ($playlist['Description'] ?? ''),
+                'Partage' => (int) ($playlist['Partage'] ?? 0),
+                'DateDerniereModification' => (string) ($playlist['DateDerniereModification'] ?? ''),
+                'NombreVue' => (int) ($playlist['NombreVue'] ?? 0),
+                'Utilisateur' => (int) ($playlist['Utilisateur'] ?? 0),
+                'UtilisateurNom' => '',
+                'TotalMusiques' => (int) ($linksPayload['totalRows'] ?? 0),
+            ];
         }
 
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-        ensure_playlists_tables($pdo);
-
-        $stmt = $pdo->prepare(
-            'SELECT
-                m.Id,
-                m.Titre,
-                m.Artiste,
-                m.Utilisateur,
-                m.Album,
-                m.Duree,
-                m.AnneeParution,
-                m.Genre,
-                m.NombreVue,
-                m.NombreVueInterne,
-                m.DateAjout,
-                pm.PositionLecture
-                 FROM MyPlaylistMusiques pm
-             INNER JOIN Musiques m ON m.Id = pm.IdMusique
-             WHERE pm.IdPlaylist = :playlistId
-             ORDER BY pm.PositionLecture ASC, m.Titre ASC'
-        );
-        $stmt->execute([':playlistId' => $playlistId]);
-        $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
         echo json_encode([
             'success' => true,
-            'playlistId' => $playlistId,
-            'songs' => $songs,
+            'playlists' => $playlists,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
@@ -1135,59 +923,69 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Id de playlist requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
 
-        $playlistStmt = $pdo->prepare(
-            'SELECT
-                p.idPlaylist AS PlaylistId,
-                p.NomPlaylist,
-                p.Description,
-                p.Partage,
-                p.DateDerniereModification,
-                p.NombreVue,
-                p.Utilisateur,
-                u.NomUtilisateur AS UtilisateurNom
-             FROM Playlist p
-             LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur
-             WHERE p.idPlaylist = :playlistId
-             LIMIT 1'
-        );
-        $playlistStmt->execute([':playlistId' => $playlistId]);
-        $playlist = $playlistStmt->fetch(PDO::FETCH_ASSOC);
+        $playlistPayload = dPlaylist_get([
+            'select' => ['idPlaylist', 'NomPlaylist', 'Description', 'Partage', 'DateDerniereModification', 'NombreVue', 'Utilisateur'],
+            'equals' => ['idPlaylist' => $playlistId],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+        $playlistRow = (array) (($playlistPayload['playlists'] ?? [])[0] ?? []);
 
-        if ($playlist === false) {
+        if (empty($playlistRow)) {
             throw new RuntimeException('Playlist introuvable');
         }
 
-        if ((int) $playlist['Utilisateur'] !== $currentUserId) {
+        if ((int) ($playlistRow['Utilisateur'] ?? 0) !== $currentUserId) {
             throw new RuntimeException('Edition non autorisee pour cette playlist');
         }
 
-        $songsStmt = $pdo->prepare(
-            'SELECT
-                m.Id,
-                m.Titre,
-                m.Artiste,
-                m.Album,
-                m.Duree,
-                m.NombreVue,
-                m.NombreVueInterne,
-                pm.PositionLecture
-             FROM MyPlaylistMusiques pm
-             INNER JOIN Musiques m ON m.Id = pm.IdMusique
-             WHERE pm.IdPlaylist = :playlistId
-             ORDER BY pm.PositionLecture ASC, m.Titre ASC'
-        );
-        $songsStmt->execute([':playlistId' => $playlistId]);
+        $playlist = [
+            'PlaylistId' => (int) ($playlistRow['idPlaylist'] ?? 0),
+            'NomPlaylist' => (string) ($playlistRow['NomPlaylist'] ?? ''),
+            'Description' => (string) ($playlistRow['Description'] ?? ''),
+            'Partage' => (int) ($playlistRow['Partage'] ?? 0),
+            'DateDerniereModification' => (string) ($playlistRow['DateDerniereModification'] ?? ''),
+            'NombreVue' => (int) ($playlistRow['NombreVue'] ?? 0),
+            'Utilisateur' => (int) ($playlistRow['Utilisateur'] ?? 0),
+            'UtilisateurNom' => (string) ($playlistRow['UtilisateurNom'] ?? ''),
+        ];
+
+        $linksPayload = dMyPlaylistMusiques_get([
+            'select' => ['IdMusique', 'PositionLecture'],
+            'equals' => ['IdPlaylist' => $playlistId],
+            'orderBy' => 'PositionLecture',
+            'order' => 'ASC',
+            'limit' => 2000,
+            'page' => 1,
+        ]);
+
+        $songs = [];
+        foreach ((array) ($linksPayload['myPlaylistMusiques'] ?? []) as $link) {
+            $linkMusicId = trim((string) ($link['IdMusique'] ?? ''));
+            if ($linkMusicId === '') {
+                continue;
+            }
+
+            $musicPayload = dMusique_get([
+                'equals' => ['Id' => $linkMusicId],
+                'limit' => 1,
+                'page' => 1,
+            ]);
+
+            $music = (array) (($musicPayload['musiques'] ?? [])[0] ?? []);
+            if (empty($music)) {
+                continue;
+            }
+            $music['PositionLecture'] = (int) ($link['PositionLecture'] ?? 0);
+            $songs[] = $music;
+        }
 
         echo json_encode([
             'success' => true,
             'playlist' => $playlist,
-            'songs' => $songsStmt->fetchAll(PDO::FETCH_ASSOC),
+            'songs' => $songs,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $exception) {
         echo json_encode([
@@ -1211,25 +1009,23 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Nom de playlist requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
-        $ownerStmt = $pdo->prepare(
-            'SELECT idPlaylist
-             FROM Playlist
-             WHERE idPlaylist = :playlistId
-               AND Utilisateur = :userId
-             LIMIT 1'
-        );
-        $ownerStmt->execute([
-            ':playlistId' => $playlistId,
-            ':userId' => $currentUserId,
+        $ownerPayload = dPlaylist_get([
+            'select' => ['idPlaylist'],
+            'equals' => [
+                'idPlaylist' => $playlistId,
+                'Utilisateur' => $currentUserId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+        if (empty($ownerPayload['playlists'])) {
             throw new RuntimeException('Playlist introuvable ou non autorisee');
         }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
 
         $updateStmt = $pdo->prepare(
             'UPDATE Playlist
@@ -1269,26 +1065,24 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Id de playlist requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
-        $playlistStmt = $pdo->prepare(
-            'SELECT idPlaylist, Partage
-             FROM Playlist
-             WHERE idPlaylist = :playlistId
-               AND Utilisateur = :userId
-             LIMIT 1'
-        );
-        $playlistStmt->execute([
-            ':playlistId' => $playlistId,
-            ':userId' => $currentUserId,
+        $playlistPayload = dPlaylist_get([
+            'select' => ['idPlaylist', 'Partage', 'Utilisateur'],
+            'equals' => [
+                'idPlaylist' => $playlistId,
+                'Utilisateur' => $currentUserId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        $playlist = $playlistStmt->fetch(PDO::FETCH_ASSOC);
-        if ($playlist === false) {
+        $playlist = (array) (($playlistPayload['playlists'] ?? [])[0] ?? []);
+        if (empty($playlist)) {
             throw new RuntimeException('Playlist introuvable ou non autorisee');
         }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
 
         $targetPartage = null;
         if (isset($payload['Partage'])) {
@@ -1343,25 +1137,23 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('IdMusique requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
-        $ownerStmt = $pdo->prepare(
-            'SELECT idPlaylist
-             FROM Playlist
-             WHERE idPlaylist = :playlistId
-               AND Utilisateur = :userId
-             LIMIT 1'
-        );
-        $ownerStmt->execute([
-            ':playlistId' => $playlistId,
-            ':userId' => $currentUserId,
+        $ownerPayload = dPlaylist_get([
+            'select' => ['idPlaylist'],
+            'equals' => [
+                'idPlaylist' => $playlistId,
+                'Utilisateur' => $currentUserId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+        if (empty($ownerPayload['playlists'])) {
             throw new RuntimeException('Playlist introuvable ou non autorisee');
         }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
 
         $deleteStmt = $pdo->prepare(
             'DELETE FROM MyPlaylistMusiques
@@ -1374,14 +1166,15 @@ if (!empty($_GET['deleteFile'])) {
         ]);
 
         // Recalcul de position simple pour garder un ordre compact.
-        $positionsStmt = $pdo->prepare(
-            'SELECT IdMusique, PositionLecture
-             FROM MyPlaylistMusiques
-             WHERE IdPlaylist = :playlistId
-             ORDER BY PositionLecture ASC, IdMusique ASC'
-        );
-        $positionsStmt->execute([':playlistId' => $playlistId]);
-        $rows = $positionsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $positionsPayload = dMyPlaylistMusiques_get([
+            'select' => ['IdMusique', 'PositionLecture'],
+            'equals' => ['IdPlaylist' => $playlistId],
+            'orderBy' => 'PositionLecture',
+            'order' => 'ASC',
+            'limit' => 2000,
+            'page' => 1,
+        ]);
+        $rows = (array) ($positionsPayload['myPlaylistMusiques'] ?? []);
 
         $updatePositionStmt = $pdo->prepare(
             'UPDATE MyPlaylistMusiques
@@ -1449,35 +1242,35 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('orderedMusicIds contient des doublons');
         }
 
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
-        $ownerStmt = $pdo->prepare(
-            'SELECT idPlaylist
-             FROM Playlist
-             WHERE idPlaylist = :playlistId
-               AND Utilisateur = :userId
-             LIMIT 1'
-        );
-        $ownerStmt->execute([
-            ':playlistId' => $playlistId,
-            ':userId' => $currentUserId,
+        $ownerPayload = dPlaylist_get([
+            'select' => ['idPlaylist'],
+            'equals' => [
+                'idPlaylist' => $playlistId,
+                'Utilisateur' => $currentUserId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+        if (empty($ownerPayload['playlists'])) {
             throw new RuntimeException('Playlist introuvable ou non autorisee');
         }
 
-        $existingStmt = $pdo->prepare(
-            'SELECT IdMusique
-             FROM MyPlaylistMusiques
-             WHERE IdPlaylist = :playlistId'
-        );
-        $existingStmt->execute([':playlistId' => $playlistId]);
+        $existingPayload = dMyPlaylistMusiques_get([
+            'select' => ['IdMusique'],
+            'equals' => ['IdPlaylist' => $playlistId],
+            'limit' => 2000,
+            'page' => 1,
+        ]);
         $existingIds = array_map(static function ($value) {
             return trim((string) $value);
-        }, $existingStmt->fetchAll(PDO::FETCH_COLUMN));
+        }, array_map(static function ($row) {
+            return (string) ($row['IdMusique'] ?? '');
+        }, (array) ($existingPayload['myPlaylistMusiques'] ?? [])));
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
 
         sort($existingIds);
         $sortedPayloadIds = $orderedMusicIds;
@@ -1541,25 +1334,23 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('IdPlaylist requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
-        $ownerStmt = $pdo->prepare(
-            'SELECT idPlaylist
-             FROM Playlist
-             WHERE idPlaylist = :playlistId
-               AND Utilisateur = :userId
-             LIMIT 1'
-        );
-        $ownerStmt->execute([
-            ':playlistId' => $playlistId,
-            ':userId' => $currentUserId,
+        $ownerPayload = dPlaylist_get([
+            'select' => ['idPlaylist'],
+            'equals' => [
+                'idPlaylist' => $playlistId,
+                'Utilisateur' => $currentUserId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        if ($ownerStmt->fetch(PDO::FETCH_ASSOC) === false) {
+        if (empty($ownerPayload['playlists'])) {
             throw new RuntimeException('Playlist introuvable ou non autorisee');
         }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
 
         $pdo->beginTransaction();
 
@@ -1617,39 +1408,34 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('IdMusique requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_playlists_tables($pdo);
-
         $currentUserId = resolve_current_user_id();
-        $ownerStmt = $pdo->prepare(
-            'SELECT idPlaylist, NomPlaylist
-             FROM Playlist
-             WHERE idPlaylist = :playlistId AND Utilisateur = :userId
-             LIMIT 1'
-        );
-        $ownerStmt->execute([
-            ':playlistId' => $playlistId,
-            ':userId' => $currentUserId,
+        $playlistPayload = dPlaylist_get([
+            'select' => ['idPlaylist', 'NomPlaylist', 'Utilisateur'],
+            'equals' => [
+                'idPlaylist' => $playlistId,
+                'Utilisateur' => $currentUserId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        $playlist = $ownerStmt->fetch(PDO::FETCH_ASSOC);
-        if ($playlist === false) {
+        $playlist = (array) (($playlistPayload['playlists'] ?? [])[0] ?? []);
+        if (empty($playlist)) {
             throw new RuntimeException('Playlist introuvable ou non autorisee');
         }
 
-        $existingStmt = $pdo->prepare(
-            'SELECT PositionLecture
-             FROM MyPlaylistMusiques
-             WHERE IdPlaylist = :playlistId AND IdMusique = :musicId
-             LIMIT 1'
-        );
-        $existingStmt->execute([
-            ':playlistId' => $playlistId,
-            ':musicId' => $musicId,
+        $existingPayload = dMyPlaylistMusiques_get([
+            'select' => ['PositionLecture'],
+            'equals' => [
+                'IdPlaylist' => $playlistId,
+                'IdMusique' => $musicId,
+            ],
+            'limit' => 1,
+            'page' => 1,
         ]);
 
-        $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
-        if ($existing !== false) {
+        $existing = (array) (($existingPayload['myPlaylistMusiques'] ?? [])[0] ?? []);
+        if (!empty($existing)) {
             echo json_encode([
                 'success' => true,
                 'message' => 'Musique deja presente dans la playlist',
@@ -1662,13 +1448,22 @@ if (!empty($_GET['deleteFile'])) {
             exit;
         }
 
-        $positionStmt = $pdo->prepare(
-            'SELECT COALESCE(MAX(PositionLecture), 0) + 1 AS NextPosition
-             FROM MyPlaylistMusiques
-             WHERE IdPlaylist = :playlistId'
-        );
-        $positionStmt->execute([':playlistId' => $playlistId]);
-        $nextPosition = (int) ($positionStmt->fetch(PDO::FETCH_ASSOC)['NextPosition'] ?? 1);
+        $allLinksPayload = dMyPlaylistMusiques_get([
+            'select' => ['PositionLecture'],
+            'equals' => ['IdPlaylist' => $playlistId],
+            'limit' => 2000,
+            'page' => 1,
+        ]);
+        $nextPosition = 1;
+        foreach ((array) ($allLinksPayload['myPlaylistMusiques'] ?? []) as $link) {
+            $position = (int) ($link['PositionLecture'] ?? 0);
+            if ($position >= $nextPosition) {
+                $nextPosition = $position + 1;
+            }
+        }
+
+        $pdo = get_database_pdo();
+        ensure_playlists_tables($pdo);
 
         $insert = $pdo->prepare(
             'INSERT INTO MyPlaylistMusiques (IdPlaylist, IdMusique, PositionLecture)
@@ -1749,25 +1544,6 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
-} elseif (!empty($_GET['videoId'])) {
-
-    try {
-        $videoId = trim((string) $_GET['videoId']);
-        if ($videoId === '') {
-            throw new RuntimeException('videoId requis');
-        }
-
-        echo json_encode(
-            $yt->playlist($videoId),
-            JSON_UNESCAPED_UNICODE
-        );
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
 } elseif (!empty($_GET['musicId'])) {
 
     try {
@@ -1840,374 +1616,6 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
-} elseif (!empty($_GET['artists'])) {
-
-    try {
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $stmt = $pdo->query(
-            "SELECT
-                Artiste,
-                COUNT(*) AS TotalMusiques
-             FROM Musiques
-             WHERE TRIM(Artiste) <> ''
-             GROUP BY Artiste
-             ORDER BY Artiste ASC"
-        );
-
-        $artists = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true,
-            'artists' => $artists,
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
-} elseif (!empty($_GET['artistSongs'])) {
-
-    try {
-        $artist = trim((string) ($_GET['artist'] ?? ''));
-        if ($artist === '') {
-            throw new RuntimeException('Artiste requis');
-        }
-
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $stmt = $pdo->prepare(
-            'SELECT
-                Id,
-                Titre,
-                Album,
-                Duree,
-                NombreVue,
-                NombreVueInterne,
-                DateAjout
-             FROM Musiques
-             WHERE Artiste = :artist
-             ORDER BY DateAjout DESC, Titre ASC'
-        );
-        $stmt->execute([':artist' => $artist]);
-
-        $songs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true,
-            'artist' => $artist,
-            'songs' => $songs,
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
-} elseif (!empty($_GET['musicDetails'])) {
-
-    try {
-        $id = trim((string) ($_GET['id'] ?? ''));
-        $title = trim((string) ($_GET['title'] ?? ''));
-        $artist = trim((string) ($_GET['artist'] ?? ''));
-        if ($id === '') {
-            throw new RuntimeException('Id requis');
-        }
-
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $stmt = $pdo->prepare(
-            'SELECT
-                m.Id,
-                m.Titre,
-                m.Artiste,
-                m.Utilisateur,
-                u.Id AS UtilisateurId,
-                m.Album,
-                m.Duree,
-                m.AnneeParution,
-                m.Genre,
-                m.NombreVue,
-                m.NombreVueInterne,
-                m.DateAjout
-             FROM Musiques m
-             LEFT JOIN Utilisateurs u ON u.NomUtilisateur = m.Utilisateur
-             WHERE m.Id = :id
-             LIMIT 1'
-        );
-        $stmt->execute([':id' => $id]);
-
-        $music = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($music === false && $title !== '') {
-            if ($artist !== '') {
-                $fallbackStmt = $pdo->prepare(
-                    'SELECT
-                        m.Id,
-                        m.Titre,
-                        m.Artiste,
-                        m.Utilisateur,
-                        u.Id AS UtilisateurId,
-                        m.Album,
-                        m.Duree,
-                        m.AnneeParution,
-                        m.Genre,
-                        m.NombreVue,
-                        m.NombreVueInterne,
-                        m.DateAjout
-                     FROM Musiques m
-                     LEFT JOIN Utilisateurs u ON u.NomUtilisateur = m.Utilisateur
-                     WHERE m.Titre = :title AND m.Artiste = :artist
-                     ORDER BY m.DateAjout DESC
-                     LIMIT 1'
-                );
-                $fallbackStmt->execute([
-                    ':title' => $title,
-                    ':artist' => $artist,
-                ]);
-            } else {
-                $fallbackStmt = $pdo->prepare(
-                    'SELECT
-                        m.Id,
-                        m.Titre,
-                        m.Artiste,
-                        m.Utilisateur,
-                        u.Id AS UtilisateurId,
-                        m.Album,
-                        m.Duree,
-                        m.AnneeParution,
-                        m.Genre,
-                        m.NombreVue,
-                        m.NombreVueInterne,
-                        m.DateAjout
-                     FROM Musiques m
-                     LEFT JOIN Utilisateurs u ON u.NomUtilisateur = m.Utilisateur
-                     WHERE m.Titre = :title
-                     ORDER BY m.DateAjout DESC
-                     LIMIT 1'
-                );
-                $fallbackStmt->execute([
-                    ':title' => $title,
-                ]);
-            }
-
-            $music = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
-        }
-
-        if ($music === false) {
-            echo json_encode([
-                'success' => true,
-                'found' => false,
-                'music' => [
-                    'Id' => $id,
-                    'Titre' => $title,
-                    'Artiste' => $artist,
-                    'Utilisateur' => null,
-                    'UtilisateurId' => null,
-                    'Album' => null,
-                    'Duree' => null,
-                    'AnneeParution' => null,
-                    'Genre' => null,
-                    'NombreVue' => null,
-                    'NombreVueInterne' => null,
-                    'DateAjout' => null,
-                ],
-                'playlists' => [],
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        $musicPlaylists = get_music_playlists($pdo, (string) ($music['Id'] ?? ''));
-
-        echo json_encode([
-            'success' => true,
-            'found' => true,
-            'music' => $music,
-            'playlists' => $musicPlaylists,
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
-} elseif (!empty($_GET['albums'])) {
-
-    try {
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $stmt = $pdo->query(
-            "SELECT
-                Album,
-                COUNT(*) AS TotalMusiques,
-                COALESCE(SUM(NombreVue), 0) AS TotalVues
-             FROM Musiques
-             WHERE TRIM(Album) <> ''
-             GROUP BY Album
-             ORDER BY Album ASC"
-        );
-
-        $albums = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true,
-            'albums' => $albums,
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
-} elseif (!empty($_GET['musiques'])) {
-
-    try {
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $sortableColumns = [
-            'Id' => 'Id',
-            'Titre' => 'Titre',
-            'Artiste' => 'Artiste',
-            'Utilisateur' => 'Utilisateur',
-            'Album' => 'Album',
-            'Duree' => 'Duree',
-            'AnneeParution' => 'AnneeParution',
-            'Genre' => 'Genre',
-            'NombreVue' => 'NombreVue',
-            'NombreVueInterne' => 'NombreVueInterne',
-            'DateAjout' => 'DateAjout',
-        ];
-
-        $sortByInput = trim((string) ($_GET['sortBy'] ?? 'DateAjout'));
-        $sortDirInput = strtolower(trim((string) ($_GET['sortDir'] ?? 'desc')));
-        $pageInput = (int) ($_GET['page'] ?? 1);
-        $perPageInput = (int) ($_GET['perPage'] ?? 50);
-        $titleQueryInput = trim((string) ($_GET['titleQuery'] ?? ''));
-
-        $sortBy = $sortableColumns[$sortByInput] ?? 'DateAjout';
-        $sortDir = $sortDirInput === 'asc' ? 'ASC' : 'DESC';
-        $page = max(1, $pageInput);
-        $perPage = max(1, min(200, $perPageInput));
-
-        $whereClause = '';
-        $queryParams = [];
-        if ($titleQueryInput !== '') {
-            $normalizedTitleQueryInput = function_exists('mb_strtolower')
-                ? mb_strtolower($titleQueryInput, 'UTF-8')
-                : strtolower($titleQueryInput);
-            $normalizedTitleQueryInput = strtr($normalizedTitleQueryInput, [
-                'à' => 'a',
-                'â' => 'a',
-                'ä' => 'a',
-                'á' => 'a',
-                'ã' => 'a',
-                'å' => 'a',
-                'æ' => 'ae',
-                'ç' => 'c',
-                'è' => 'e',
-                'é' => 'e',
-                'ê' => 'e',
-                'ë' => 'e',
-                'ì' => 'i',
-                'í' => 'i',
-                'î' => 'i',
-                'ï' => 'i',
-                'ñ' => 'n',
-                'ò' => 'o',
-                'ó' => 'o',
-                'ô' => 'o',
-                'ö' => 'o',
-                'õ' => 'o',
-                'œ' => 'oe',
-                'ù' => 'u',
-                'ú' => 'u',
-                'û' => 'u',
-                'ü' => 'u',
-                'ý' => 'y',
-                'ÿ' => 'y',
-            ]);
-            $normalizedTitleQueryInput = (string) preg_replace('/[[:punct:]\s]+/u', '', $normalizedTitleQueryInput);
-
-            $normalizedTitleSql = build_title_search_sql('m.Titre');
-
-            if ($normalizedTitleQueryInput === '') {
-                $whereClause = 'WHERE 1 = 0';
-            } else {
-                $whereClause = "WHERE {$normalizedTitleSql} LIKE :titleQueryNormalized";
-                $queryParams[':titleQueryNormalized'] = '%' . $normalizedTitleQueryInput . '%';
-            }
-        }
-
-        $countQuery = "SELECT COUNT(*) AS Total FROM Musiques m {$whereClause}";
-        $countStmt = $pdo->prepare($countQuery);
-        foreach ($queryParams as $paramName => $paramValue) {
-            $countStmt->bindValue($paramName, $paramValue, PDO::PARAM_STR);
-        }
-        $countStmt->execute();
-        $totalRows = (int) ($countStmt->fetch(PDO::FETCH_ASSOC)['Total'] ?? 0);
-        $totalPages = $totalRows > 0 ? (int) ceil($totalRows / $perPage) : 1;
-        if ($page > $totalPages) {
-            $page = $totalPages;
-        }
-        $offset = ($page - 1) * $perPage;
-
-        $query = "SELECT
-                     m.Id,
-                     m.Titre,
-                     m.Artiste,
-                     m.Utilisateur,
-                     u.Id AS UtilisateurId,
-                     m.Album,
-                     m.Duree,
-                     m.AnneeParution,
-                     m.Genre,
-                     m.NombreVue,
-                     m.NombreVueInterne,
-                     m.DateAjout
-                 FROM Musiques m
-                 LEFT JOIN Utilisateurs u ON u.NomUtilisateur = m.Utilisateur
-                 {$whereClause}
-                 ORDER BY m.{$sortBy} {$sortDir}, m.Titre ASC
-             LIMIT :limit OFFSET :offset";
-
-        $stmt = $pdo->prepare($query);
-        foreach ($queryParams as $paramName => $paramValue) {
-            $stmt->bindValue($paramName, $paramValue, PDO::PARAM_STR);
-        }
-        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-
-        $musiques = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        echo json_encode([
-            'success' => true,
-            'musiques' => $musiques,
-            'sortBy' => $sortBy,
-            'sortDir' => strtolower($sortDir),
-            'page' => $page,
-            'perPage' => $perPage,
-            'titleQuery' => $titleQueryInput,
-            'totalRows' => $totalRows,
-            'totalPages' => $totalPages,
-        ], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $exception) {
-        echo json_encode([
-            'success' => false,
-            'error' => $exception->getMessage(),
-        ], JSON_UNESCAPED_UNICODE);
-    }
-
 } elseif (!empty($_GET['updateMusic']) || !empty($_POST['updateMusic'])) {
 
     try {
@@ -2217,14 +1625,18 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Id requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $stmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
-        $stmt->execute([':id' => $id]);
-        if ($stmt->fetch(PDO::FETCH_ASSOC) === false) {
+        $existsPayload = dMusique_get([
+            'select' => ['Id'],
+            'equals' => ['Id' => $id],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+        if (empty($existsPayload['musiques'])) {
             throw new RuntimeException('Musique introuvable');
         }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
 
         $titre = trim((string) ($payload['Titre'] ?? ''));
         $artiste = trim((string) ($payload['Artiste'] ?? ''));
@@ -2301,12 +1713,13 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Id requis');
         }
 
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $existsStmt = $pdo->prepare('SELECT Id FROM Musiques WHERE Id = :id LIMIT 1');
-        $existsStmt->execute([':id' => $id]);
-        if ($existsStmt->fetch(PDO::FETCH_ASSOC) === false) {
+        $existsPayload = dMusique_get([
+            'select' => ['Id'],
+            'equals' => ['Id' => $id],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+        if (empty($existsPayload['musiques'])) {
             throw new RuntimeException('Musique introuvable');
         }
 
@@ -2314,6 +1727,9 @@ if (!empty($_GET['deleteFile'])) {
         if ($playlistLinksCount > 0) {
             throw new RuntimeException('Suppression impossible: retirez d\'abord la musique de toutes les playlists');
         }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
 
         $pdo->beginTransaction();
 

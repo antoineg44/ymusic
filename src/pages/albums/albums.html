@@ -86,12 +86,37 @@
 
 			async function loadAlbums() {
 				try {
-					const payload = await sendMessageAndWait(window.parent, { action: 'albums' });
-					if (!payload || !payload.success) {
+					const query = {
+						table: 'Musiques',
+						select: ['Album', 'NombreVue'],
+						orderBy: 'Album',
+						order: 'ASC',
+						limit: 5000,
+						page: 1,
+					};
+
+					const payload = await sendMessageAndWait(window.parent, { action: 'albums', query });
+					if (!payload || payload.success === false) {
 						throw new Error(payload.error || 'Impossible de recuperer la liste des albums');
 					}
 
-					const albums = Array.isArray(payload.albums) ? payload.albums : [];
+					const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
+					const albumsMap = new Map();
+					musiques.forEach((row) => {
+						const album = String((row && row.Album) || '').trim();
+						if (!album) {
+							return;
+						}
+
+						const previous = albumsMap.get(album) || { Album: album, TotalMusiques: 0, TotalVues: 0 };
+						previous.TotalMusiques += 1;
+						previous.TotalVues += Number((row && row.NombreVue) || 0);
+						albumsMap.set(album, previous);
+					});
+
+					const albums = Array.from(albumsMap.values()).sort((left, right) => {
+						return String(left.Album).localeCompare(String(right.Album), 'fr', { sensitivity: 'base' });
+					});
 
 					albumsBody.innerHTML = '';
 					if (!albums.length) {

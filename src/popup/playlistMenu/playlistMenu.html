@@ -130,7 +130,16 @@
 
 				try {
 					setStatus('Chargement des playlists...');
-					const payload = await sendMessageAndWait(window.parent, { action: 'myPlaylists' });
+					const query = {
+						table: 'Playlist',
+						select: ['idPlaylist', 'NomPlaylist', 'Description', 'DateDerniereModification', 'Partage', 'NombreVue', 'Utilisateur'],
+						orderBy: 'DateDerniereModification',
+						order: 'DESC',
+						limit: 500,
+						page: 1,
+					};
+
+					const payload = await sendMessageAndWait(window.parent, { action: 'myPlaylists', query });
 					if (!payload || !payload.success) {
 						throw new Error(payload.error || 'Impossible de charger vos playlists.');
 					}
