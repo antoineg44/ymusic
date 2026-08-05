@@ -24,7 +24,7 @@
         return;
       }
 
-      sendMessageAndWait(window, {action: 'nextMusic', query: "next=" + videoId}).then(response => {
+      sendMessageAndWait(window, {action: 'nextMusic', query: videoId}).then(response => {
           const musiques = Array.isArray(response.playlist) ? response.playlist : [];
           if (musiques.length === 0) {
               resetPlaylistQueue();

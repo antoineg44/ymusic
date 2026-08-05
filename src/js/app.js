@@ -702,11 +702,7 @@ async function saveLikedMusic(track) {
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
 
-  const params = {
-    add: persistedId
-  };
-
-  sendMessageAndWait(window, {action: 'play', query: params}).then(response => {
+  sendMessageAndWait(window, {action: 'play', query: persistedId}).then(response => {
       console.log('Musique ajoutee en base:', payload.music || track.title);
   }).catch(error => {
       console.error(error);
