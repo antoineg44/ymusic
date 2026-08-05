@@ -1,8 +1,23 @@
 <?php
 
-header("Access-Control-Allow-Origin: *");
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+$allowed = [
+    'https://localhost',
+    'https://music.partitions.ovh'
+];
+
+if (in_array($origin, $allowed)) {
+    header("Access-Control-Allow-Origin: $origin");
+    header("Access-Control-Allow-Credentials: true");
+}
+
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit();
+}
 
 // API principale: recherche, playlist, telechargement, metadonnees et routes artistes/albums.
 
