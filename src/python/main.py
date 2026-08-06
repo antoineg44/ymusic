@@ -6,8 +6,7 @@ ytmusic = YTMusic()
 
 search_results = ytmusic.search(
         query="Les démons de minuit",
-        filter="songs",
-        limit=5
+        filter="songs"
     )
 
 print(search_results)
