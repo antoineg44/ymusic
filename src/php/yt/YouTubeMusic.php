@@ -16,6 +16,7 @@ class YouTubeMusic
         $this->python = '../../python/.venv/bin/python';
 
         $this->script = '../../python/ytapi.py';
+        $this->scriptTest = '../../python/main.py';
 
         $this->scriptDownload = '../../python/stream.py';
     }
@@ -91,6 +92,19 @@ class YouTubeMusic
             'song_details',
             $videoId
         ]);
+    }
+
+    public function test()
+    {
+        // Execute ytapi.py et convertit sa sortie JSON en tableau PHP.
+        $command =
+            escapeshellcmd($this->python)
+            . ' '
+            . escapeshellarg($this->scriptTest);
+
+        exec($command . ' 2>&1', $output, $code);
+
+        print_r($output);
     }
 
     public function download(string $musicId): array

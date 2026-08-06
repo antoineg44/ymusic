@@ -318,3 +318,9 @@ if (!empty($_GET['musicId'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 }
+
+
+if (!empty($_GET['test'])) {
+    $yt = new YouTubeMusic();
+    $yt->test();
+}
