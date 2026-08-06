@@ -34,7 +34,7 @@ class YouTubeMusic
 
         exec($command . ' 2>&1', $output, $code);
 
-        echo $output;
+        print_r($output);
 
         $json = implode("\n", $output);
 
