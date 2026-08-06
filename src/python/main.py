@@ -4,7 +4,11 @@ ytmusic = YTMusic()
 
 #song = ytmusic.get_search_suggestions(search_results[0]['videoId'])
 
-search_results = ytmusic.search("Les démons de minuit")
+search_results = ytmusic.search(
+        query="Les démons de minuit",
+        filter="songs",
+        limit=5
+    )
 
 print(search_results)
 
