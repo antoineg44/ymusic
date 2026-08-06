@@ -86,8 +86,21 @@ def get_suggestions(query, limit=8):
 def playlist(video_id):
     watch = ytmusic.get_watch_playlist(videoId=video_id)
 
+    tracks = []
 
-    return watch
+    for track in watch.get("tracks", []):
+        tracks.append({
+            "title": track.get("title"),
+            "videoId": track.get("videoId"),
+            "duration": track.get("length"),
+            "views": track.get("views"),
+            "artists": [
+                artist.get("name")
+                for artist in track.get("artists", [])
+            ]
+        })
+
+    return tracks
 
 
 def playlist_items(playlist_id, limit=200):
@@ -239,7 +252,10 @@ try:
 
         video_id = sys.argv[2]
 
-        print(playlist(video_id))
+        print(json.dumps({
+            "success": True,
+            "playlist": playlist(video_id)
+        }))
 
     elif action == "playlist_items":
 
