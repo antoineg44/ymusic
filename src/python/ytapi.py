@@ -100,7 +100,7 @@ def playlist(video_id):
             ]
         })
 
-    return tracks
+    return watch
 
 
 def playlist_items(playlist_id, limit=200):
