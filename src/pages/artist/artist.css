@@ -12,6 +12,12 @@
     margin-bottom: 16px;
 }
 
+.artists-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .artists-back {
     border: 0;
     border-radius: 999px;
@@ -19,6 +25,16 @@
     cursor: pointer;
     background: rgba(56, 189, 248, 0.2);
     color: #7dd3fc;
+    font-weight: 700;
+}
+
+.play-all-btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: #38bdf8;
+    color: #082f49;
     font-weight: 700;
 }
 
