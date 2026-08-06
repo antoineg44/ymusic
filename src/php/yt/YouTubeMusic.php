@@ -5,9 +5,8 @@
 class YouTubeMusic
 {
     private string $python;
-
     private string $script;
-
+    private string $scriptTest;
     private string $scriptDownload;
 
     public function __construct()
