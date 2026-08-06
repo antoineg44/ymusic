@@ -10,7 +10,7 @@ print(search_results)
 
 print(search_results[0]['videoId'])
 
-songs = ytmusic.get_watch_playlist(videoId=search_results[0]['videoId'])
+songs = ytmusic.get_watch_playlist(videoId=search_results[0]['videoId'],limit=5)
 
 print(songs)
 
