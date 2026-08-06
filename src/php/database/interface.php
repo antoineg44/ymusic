@@ -1955,6 +1955,8 @@ if (!empty($_GET['deleteFile'])) {
 
         $res = $yt->playlist($videoId);
 
+        print_r($res);
+
         // Vérifie si chaque musique de la recherche est déjà présente dans la base de données
         foreach ($res['playlist'] as &$element) {
 
