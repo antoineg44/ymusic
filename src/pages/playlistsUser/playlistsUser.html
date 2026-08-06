@@ -422,15 +422,15 @@
 					songsTitle.textContent = `Musiques - ${playlistName}`;
 					const query = {
 						table: 'MyPlaylistMusiques',
-						select: ['IdMusique', 'PositionLecture'],
+						select: ['Id', 'Titre', 'Artiste', 'MusicUtilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout', 'PositionLecture',],
 						withMusicDetails: true,
 						equals: {
 							IdPlaylist: String(playlistId || ''),
 						},
-						orderBy: 'PositionLecture',
-						order: 'ASC',
+						orderBy: ['PositionLecture', 'Titre'],
+						order: ['ASC', 'ASC'],
 						limit: 2000,
-						page: 1,
+						page: 1
 					};
 
 					const payload = await sendMessageAndWait(window.parent, {

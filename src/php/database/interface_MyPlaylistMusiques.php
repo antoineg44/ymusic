@@ -3,23 +3,27 @@
 /**
  * Interface pour interagir avec la table MyPlaylistMusiques de la base de données.
  * $options = [
-    'select' => ['IdPlaylist', 'IdMusique'], // Champs à retourner
-    'count' => 1,                             // compter le nombre de chaque résultat
-    'groupBy' => 'IdPlaylist',                // Champ de group
-    'orderBy' => 'PositionLecture',           // Champ de tri
-    'order' => 'ASC',                         // ASC ou DESC
-    'limit' => 20,                            // Nombre maximum de résultats
-    'page' => 1,                              // Page à récupérer
-    'search' => [                             // Facultatif
-        'field' => 'IdMusique',
-        'value' => 'abc123'
-    ],
-    'equals' => [
-        'IdPlaylist' => 42,
-        'IdMusique' => 'abc123'
-    ],
-    'withPlaylistDetails' => true // ajoute les jointures Playlist + Utilisateurs
-];
+ *     'select' => ['IdPlaylist', 'IdMusique'], // Champs à retourner
+ *     'count' => 1,                             // compter le nombre de chaque résultat
+ *     'groupBy' => 'IdPlaylist',                // Champ de group
+ *     'orderBy' => 'PositionLecture',           // Champ de tri simple
+ *     'order' => 'ASC',                         // ASC ou DESC
+ *     // ou tri multiple:
+ *     // 'orderBy' => ['PositionLecture', 'Titre'],
+ *     // 'order' => ['ASC', 'ASC'],
+ *     'limit' => 20,                            // Nombre maximum de résultats
+ *     'page' => 1,                              // Page à récupérer
+ *     'search' => [                             // Facultatif
+ *         'field' => 'IdMusique',
+ *         'value' => 'abc123'
+ *     ],
+ *     'equals' => [
+ *         'IdPlaylist' => 42,
+ *         'IdMusique' => 'abc123'
+ *     ],
+ *     'withPlaylistDetails' => true, // ajoute les jointures Playlist + Utilisateurs
+ *     'withMusicDetails' => true // ajoute la jointure Musiques
+ * ];
  */
 function dMyPlaylistMusiques_get(array $options)
 {
@@ -28,44 +32,78 @@ function dMyPlaylistMusiques_get(array $options)
     ensure_playlists_tables($pdo);
 
     $withPlaylistDetails = !empty($options['withPlaylistDetails']);
+    $withMusicDetails = !empty($options['withMusicDetails']);
 
-    $fromSql = $withPlaylistDetails
-        ? 'MyPlaylistMusiques pm INNER JOIN Playlist p ON p.idPlaylist = pm.IdPlaylist LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur'
-        : 'MyPlaylistMusiques';
+    $fromSql = 'MyPlaylistMusiques pm';
+    if ($withPlaylistDetails) {
+        $fromSql .= ' INNER JOIN Playlist p ON p.idPlaylist = pm.IdPlaylist'
+            . ' LEFT JOIN Utilisateurs u ON u.Id = p.Utilisateur';
+    }
+    if ($withMusicDetails) {
+        $fromSql .= ' INNER JOIN Musiques m ON m.Id = pm.IdMusique';
+    }
 
-    $selectMap = $withPlaylistDetails
-        ? [
-            'IdPlaylist' => 'pm.IdPlaylist',
-            'IdMusique' => 'pm.IdMusique',
-            'PositionLecture' => 'pm.PositionLecture',
+    $selectMap = [
+        'IdPlaylist' => 'pm.IdPlaylist',
+        'IdMusique' => 'pm.IdMusique',
+        'PositionLecture' => 'pm.PositionLecture',
+    ];
+
+    $filterMap = [
+        'IdPlaylist' => 'pm.IdPlaylist',
+        'IdMusique' => 'pm.IdMusique',
+        'PositionLecture' => 'pm.PositionLecture',
+    ];
+
+    if ($withPlaylistDetails) {
+        $selectMap = array_merge($selectMap, [
             'PlaylistId' => 'p.idPlaylist AS PlaylistId',
             'NomPlaylist' => 'p.NomPlaylist',
             'Description' => 'p.Description',
             'Utilisateur' => 'p.Utilisateur',
             'UtilisateurNom' => 'COALESCE(u.NomUtilisateur, "") AS UtilisateurNom',
-        ]
-        : [
-            'IdPlaylist' => 'IdPlaylist',
-            'IdMusique' => 'IdMusique',
-            'PositionLecture' => 'PositionLecture',
-        ];
+        ]);
 
-    $filterMap = $withPlaylistDetails
-        ? [
-            'IdPlaylist' => 'pm.IdPlaylist',
-            'IdMusique' => 'pm.IdMusique',
-            'PositionLecture' => 'pm.PositionLecture',
+        $filterMap = array_merge($filterMap, [
             'PlaylistId' => 'p.idPlaylist',
             'NomPlaylist' => 'p.NomPlaylist',
             'Description' => 'p.Description',
             'Utilisateur' => 'p.Utilisateur',
             'UtilisateurNom' => 'u.NomUtilisateur',
-        ]
-        : [
-            'IdPlaylist' => 'IdPlaylist',
-            'IdMusique' => 'IdMusique',
-            'PositionLecture' => 'PositionLecture',
-        ];
+        ]);
+    }
+
+    if ($withMusicDetails) {
+        $selectMap = array_merge($selectMap, [
+            'Id' => 'm.Id AS Id',
+            'Titre' => 'm.Titre',
+            'Artiste' => 'm.Artiste',
+            'MusicUtilisateur' => 'm.Utilisateur AS MusicUtilisateur',
+            'UtilisateurMusique' => 'm.Utilisateur AS UtilisateurMusique',
+            'Album' => 'm.Album',
+            'Duree' => 'm.Duree',
+            'AnneeParution' => 'm.AnneeParution',
+            'Genre' => 'm.Genre',
+            'NombreVue' => 'm.NombreVue',
+            'NombreVueInterne' => 'm.NombreVueInterne',
+            'DateAjout' => 'm.DateAjout',
+        ]);
+
+        $filterMap = array_merge($filterMap, [
+            'Id' => 'm.Id',
+            'Titre' => 'm.Titre',
+            'Artiste' => 'm.Artiste',
+            'MusicUtilisateur' => 'm.Utilisateur',
+            'UtilisateurMusique' => 'm.Utilisateur',
+            'Album' => 'm.Album',
+            'Duree' => 'm.Duree',
+            'AnneeParution' => 'm.AnneeParution',
+            'Genre' => 'm.Genre',
+            'NombreVue' => 'm.NombreVue',
+            'NombreVueInterne' => 'm.NombreVueInterne',
+            'DateAjout' => 'm.DateAjout',
+        ]);
+    }
 
     $champsAutorises = array_keys($filterMap);
 
@@ -159,17 +197,31 @@ function dMyPlaylistMusiques_get(array $options)
         $sql .= " GROUP BY {$filterMap[$groupByField]}";
     }
 
-    // Tri
+    // Tri (simple ou multiple)
     if (!empty($options['orderBy'])) {
-        $orderByField = (string) $options['orderBy'];
-        if (!array_key_exists($orderByField, $filterMap)) {
-            throw new InvalidArgumentException('Champ de tri invalide.');
+        $orderByOptions = is_array($options['orderBy'])
+            ? array_values($options['orderBy'])
+            : [(string) $options['orderBy']];
+
+        $orderOptions = is_array($options['order'] ?? null)
+            ? array_values($options['order'])
+            : [(string) ($options['order'] ?? 'ASC')];
+
+        $orderParts = [];
+        foreach ($orderByOptions as $index => $orderByFieldRaw) {
+            $orderByField = (string) $orderByFieldRaw;
+            if (!array_key_exists($orderByField, $filterMap)) {
+                throw new InvalidArgumentException('Champ de tri invalide.');
+            }
+
+            $rawDirection = (string) ($orderOptions[$index] ?? $orderOptions[0] ?? 'ASC');
+            $direction = strtoupper($rawDirection) === 'DESC' ? 'DESC' : 'ASC';
+            $orderParts[] = "{$filterMap[$orderByField]} $direction";
         }
 
-        $order = strtoupper($options['order'] ?? 'ASC');
-        $order = ($order === 'DESC') ? 'DESC' : 'ASC';
-
-        $sql .= " ORDER BY {$filterMap[$orderByField]} $order";
+        if (!empty($orderParts)) {
+            $sql .= ' ORDER BY ' . implode(', ', $orderParts);
+        }
     }
 
     // Limite + offset
@@ -220,6 +272,7 @@ function dMyPlaylistMusiques_get(array $options)
         'totalPages' => $totalPages,
         'query' => [
             'withPlaylistDetails' => $withPlaylistDetails,
+            'withMusicDetails' => $withMusicDetails,
         ],
     ];
 }
