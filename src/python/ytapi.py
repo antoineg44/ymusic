@@ -239,10 +239,7 @@ try:
 
         video_id = sys.argv[2]
 
-        print(json.dumps({
-            "success": True,
-            "playlist": playlist(video_id)
-        }))
+        print(playlist(video_id))
 
     elif action == "playlist_items":
 
