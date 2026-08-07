@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { IonHeader, IonToolbar, IonTitle, IonContent } from '@ionic/angular/standalone';
 import { AfterViewInit } from '@angular/core';
+import { DataService } from 'data.service';
 interface AppMessage {
   type: string;
   payload?: unknown;
@@ -14,7 +15,9 @@ interface AppMessage {
 })
 
 export class HomePage implements AfterViewInit {
-  constructor() {
+  dataParameters: any;
+
+  constructor(private dataService: DataService) {
     window.addEventListener("message", this.onMessage);
   }
 
@@ -32,7 +35,14 @@ export class HomePage implements AfterViewInit {
   // Pour l'initialisation
   ngAfterViewInit() {
     console.log('Vue initialisée');
+    this.dataParameters = this.dataService.getData();
     window.postMessage({type:"INITIALIZATION_DONE"}, "*");
+  }
+
+  // For example for save parameters:
+  saveData() {
+    const data = { name: 'John', age: 30 };
+    this.dataService.setData(data);
   }
 
   // Interfaces pour typer l'événement et ses propriétés
