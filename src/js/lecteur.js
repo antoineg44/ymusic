@@ -208,7 +208,7 @@
           const payload = await sendMessageAndWait(window, {
             action: 'musicId',
             query: String(next.videoId || ''),
-          });
+          }, 15000);
 
           if (!payload.success) {
             return;
@@ -419,7 +419,7 @@
         const payload = await sendMessageAndWait(window, {
           action: 'musicId',
           query: String(videoId || ''),
-        });
+        }, 15000);
 
         if (!payload.success) {
           setStatus(payload.error || 'Le téléchargement a échoué.');

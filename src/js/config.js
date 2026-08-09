@@ -66,7 +66,7 @@ function toCloneablePayload(value) {
 }
 
 // Fonction pour envoyer un message et attendre la réponse
-function sendMessageAndWait(targetWindow, message, timeout = 5000) {
+function sendMessageAndWait(targetWindow, message, timeout = 10000) {
   return new Promise((resolve, reject) => {
     // Générer un ID unique pour cette requête
     const messageId = Date.now() + Math.random();

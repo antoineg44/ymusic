@@ -330,7 +330,7 @@
           const payload = await sendMessageAndWait(window.parent, {
             action: 'playlistQuery',
             query: String(query || ''),
-          });
+          }, 15000);
 
           if (!payload.success) {
             setStatus(payload.error || 'Recherche impossible.');

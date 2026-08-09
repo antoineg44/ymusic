@@ -412,6 +412,7 @@
 
 			if(base_url == "")base_url = "../../";
 
+			incomingAudio.crossOrigin = "anonymous";
 			incomingAudio.src = base_url + String(src || '').trim();
 			incomingAudio.currentTime = 0;
 			incomingAudio.volume = canCrossfade ? 0 : 1;
