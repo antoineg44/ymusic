@@ -79,13 +79,13 @@ async function sendStructuredDbQuery(source, messageId, query) {
 
 async function db_listener(event)
 {
-    console.log("db_listener");
-    console.log(event);
     if(connexionType == CONNEXION_TYPE.MOBILE)
     {
         console.log("Mobile connexion type: stop");
         return;
     }
+    console.log("db_listener");
+    console.log(event);
     const data = event && event.data ? event.data : {};
     const message = data && data.message ? data.message : {};
 
