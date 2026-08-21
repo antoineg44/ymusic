@@ -1,19 +1,11 @@
 <?php
 
-$domain = "perso.partitions.ovh";
+$ipv6 = "2a02:8424:894c:a901:211:32ff:fe99:630b";
 
-// Vérification basique du domaine
-if (!filter_var("https://" . $domain, FILTER_VALIDATE_URL)) {
-    die("Nom de domaine invalide.");
+$hostname = gethostbyaddr($ipv6);
+
+if ($hostname === false || $hostname === $ipv6) {
+    echo "Aucun nom de domaine associé à cette IPv6.";
+} else {
+    echo "Nom d'hôte : " . $hostname;
 }
-
-// Récupération des enregistrements DNS
-$records = dns_get_record($domain, DNS_ALL);
-
-if ($records === false) {
-    die("Impossible de récupérer les informations DNS.");
-}
-
-echo "<pre>";
-print_r($records);
-echo "</pre>";
