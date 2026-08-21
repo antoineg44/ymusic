@@ -2,14 +2,11 @@
 
 echo '<pre>';
 
-echo shell_exec(
-    '/usr/bin/python3 -m site --user-base 2>&1'
+passthru(
+    '/home/partith/.local/bin/yt-dlp --version 2>&1',
+    $return
 );
 
-echo "\n";
-
-echo shell_exec(
-    'find /home/partith/.local -name "yt-dlp*" -type f 2>&1'
-);
+echo "\nCode retour : $return\n";
 
 echo '</pre>';
