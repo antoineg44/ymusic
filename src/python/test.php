@@ -1,6 +1,6 @@
 <?php
 
-$domain = "example.com";
+$domain = "perso.partitions.ovh";
 
 // Vérification basique du domaine
 if (!filter_var("https://" . $domain, FILTER_VALIDATE_URL)) {
