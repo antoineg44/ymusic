@@ -11,13 +11,19 @@ class YouTubeMusic
 
     public function __construct()
     {
-        // Selectionne un binaire Python valide selon l'environnement (Windows/Linux, venv locale, fallback systeme).
-        $this->python = '../../python/.venv/bin/python';
+        // Selectionne un binaire Python valide selon l'environnement (utilise chemins absolus)
+        $pythonDir = realpath(__DIR__ . '/../../python');
+        if ($pythonDir === false) {
+            // Fallback si realpath échoue (conserve comportement relatif)
+            $pythonDir = __DIR__ . '/../../python';
+        }
 
-        $this->script = '../../python/ytapi.py';
-        $this->scriptTest = '../../python/main.py';
+        $this->python = $pythonDir . '/.venv/bin/python';
 
-        $this->scriptDownload = '../../python/stream.py';
+        $this->script = $pythonDir . '/ytapi.py';
+        $this->scriptTest = $pythonDir . '/main.py';
+
+        $this->scriptDownload = $pythonDir . '/stream.py';
     }
 
     private function run(array $args): array
