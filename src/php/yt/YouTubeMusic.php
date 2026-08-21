@@ -42,6 +42,24 @@ class YouTubeMusic
 
         $json = implode("\n", $output);
 
+        // Log command and output to help debugging when run by the webserver.
+        try {
+            $log = [];
+            $log[] = "=== " . date('c') . " ===";
+            $log[] = "command: " . $command . ' ' . implode(' ', array_map('escapeshellarg', $args));
+            $log[] = "exit_code: " . intval($code);
+            $log[] = "user: " . get_current_user();
+            $log[] = "env_PATH: " . getenv('PATH');
+            $log[] = "env_HOME: " . getenv('HOME');
+            $log[] = "output:";
+            $log[] = $json;
+            $log[] = "\n";
+
+            @file_put_contents(__DIR__ . '/debug_ytapi.log', implode("\n", $log), FILE_APPEND | LOCK_EX);
+        } catch (Throwable $e) {
+            // ne pas interrompre l'exécution pour le logging
+        }
+
         $data = json_decode($json, true);
 
         if (!$data) {
