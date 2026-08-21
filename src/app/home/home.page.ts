@@ -183,7 +183,8 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
         await checkLogin(source, data.messageId, "php/auth.php?action=" + message.action, dataService);
         break;
 
-      case 'login': {
+      case 'login':
+      case 'register': {
         const dataToSave = { username: message.body.username, password: message.body.password };
         dataService.setData(dataToSave);
         const response = await fetch(

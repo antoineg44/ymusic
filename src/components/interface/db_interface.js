@@ -114,6 +114,7 @@ async function db_listener(event)
             break;
 
         case 'login':
+        case 'register':
         {
             const response = await fetch(
             get_url_from_base() + `php/auth.php?action=` + message.action,
