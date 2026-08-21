@@ -1,43 +1,21 @@
 <?php
 
-$url = $_GET['url'] ?? '';
-
-if (!$url) {
-    ?>
-    <form method="get">
-        <input
-            type="url"
-            name="url"
-            placeholder="https://www.youtube.com/watch?v=..."
-            style="width:500px"
-            required
-        >
-        <button type="submit">Tester</button>
-    </form>
-    <?php
-    exit;
-}
-
-$ytdlp = '/home/partith/.local/bin/yt-dlp';
-
-$command =
-    escapeshellarg($ytdlp)
-    . ' --no-playlist'
-    . ' --dump-single-json'
-    . ' --skip-download'
-    . ' '
-    . escapeshellarg($url)
-    . ' 2>&1';
-
 echo '<pre>';
 
-$output = [];
-$return = 0;
+$commands = [
+    'find /usr/bin /usr/local/bin /opt -maxdepth 3 -type f -name "python3*" 2>/dev/null',
+    'find /usr/bin /usr/local/bin /opt -maxdepth 3 -type f -name "python3.[0-9]*" 2>/dev/null',
+    'ls -la /usr/bin/python* 2>&1',
+    'ls -la /usr/local/bin/python* 2>&1',
+    'ls -la /opt 2>&1',
+];
 
-exec($command, $output, $return);
-
-echo htmlspecialchars(implode("\n", $output));
-
-echo "\n\nCode retour : " . $return;
+foreach ($commands as $cmd) {
+    echo "========================================\n";
+    echo "$cmd\n";
+    echo "========================================\n";
+    echo shell_exec($cmd);
+    echo "\n";
+}
 
 echo '</pre>';
