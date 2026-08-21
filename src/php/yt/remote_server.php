@@ -26,6 +26,29 @@ function remote_fail(string $message, int $status = 400): void
     exit;
 }
 
+/**
+ * Décode la sortie Python en ignorant d'éventuels avertissements écrits sur stderr
+ * (fusionnés via 2>&1) qui précèdent le JSON.
+ */
+function remote_decode_json(string $raw): ?array
+{
+    $data = json_decode($raw, true);
+    if (is_array($data)) {
+        return $data;
+    }
+
+    // Retire le texte parasite avant le premier '{' ou '['.
+    $start = strcspn($raw, '{[');
+    if ($start < strlen($raw)) {
+        $data = json_decode(substr($raw, $start), true);
+        if (is_array($data)) {
+            return $data;
+        }
+    }
+
+    return null;
+}
+
 $action = (string) ($_POST['action'] ?? $_GET['action'] ?? '');
 $arg = (string) ($_POST['arg'] ?? $_GET['arg'] ?? $_POST['id'] ?? $_GET['id'] ?? '');
 
@@ -49,7 +72,7 @@ if ($action === 'download') {
 
     exec($command . ' 2>&1', $output, $code);
     $json = implode("\n", $output);
-    $data = json_decode($json, true);
+    $data = remote_decode_json($json);
 
     if (!is_array($data)) {
         remote_fail('Reponse Python invalide: ' . $json, 500);
@@ -92,13 +115,14 @@ if (in_array($action, $apiActions, true)) {
 
     exec($command . ' 2>&1', $output, $code);
     $json = implode("\n", $output);
+    $data = remote_decode_json($json);
 
-    if (json_decode($json, true) === null) {
+    if (!is_array($data)) {
         remote_fail('Reponse Python invalide: ' . $json, 500);
     }
 
     header('Content-Type: application/json');
-    echo $json;
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
