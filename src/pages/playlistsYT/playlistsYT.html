@@ -330,7 +330,7 @@
           const payload = await sendMessageAndWait(window.parent, {
             action: 'playlistQuery',
             query: String(query || ''),
-          }, 15000);
+          }, 60000);
 
           if (!payload.success) {
             setStatus(payload.error || 'Recherche impossible.');
@@ -443,7 +443,7 @@
           const payload = await sendMessageAndWait(window.parent, {
             action: 'playlistItems',
             query: String(playlistId || ''),
-          });
+          }, 120000);
           if (!payload || !payload.success || !payload.playlist) {
             throw new Error(payload.error || 'Impossible de charger la playlist.');
           }
@@ -619,7 +619,7 @@
         const payload = await sendMessageAndWait(window.parent, {
           action: 'musicMetadata',
           query: String(videoId || ''),
-        });
+        }, 120000);
         if (!payload || !payload.success) {
           throw new Error(payload.error || `Impossible de recuperer les metadonnees de ${videoId}.`);
         }
@@ -636,7 +636,7 @@
         const musicPayload = await sendMessageAndWait(window.parent, {
           action: 'musicId',
           query: String(videoId || ''),
-        });
+        }, 300000);
         if (!musicPayload || !musicPayload.success) {
           throw new Error(musicPayload.error || `Impossible de telecharger ${videoId}.`);
         }
