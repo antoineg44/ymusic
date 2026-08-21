@@ -1,54 +1,20 @@
 <?php
 
-$dir = __DIR__ . '/bin';
-$ytdlp = $dir . '/yt-dlp';
+echo "<pre>";
 
-echo '<pre>';
+echo "=== libz ===\n";
+echo shell_exec("ldconfig -p 2>&1 | grep 'libz.so.1'");
 
-if (!is_dir($dir)) {
-    if (!mkdir($dir, 0755, true)) {
-        die("Impossible de créer : $dir\n");
-    }
-}
+echo "\n=== fichier système ===\n";
+echo shell_exec("ls -l /lib/x86_64-linux-gnu/libz.so.1 2>&1");
 
-/*
- * Téléchargement du binaire Linux x86_64 officiel
- */
-$url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux';
+echo "\n=== type ===\n";
+echo shell_exec("file /lib/x86_64-linux-gnu/libz.so.1 2>&1");
 
-echo "Téléchargement de yt-dlp...\n";
+echo "\n=== montage ===\n";
+echo shell_exec("mount 2>&1");
 
-$data = file_get_contents($url);
+echo "\n=== environnement ===\n";
+echo shell_exec("uname -a 2>&1");
 
-if ($data === false) {
-    die("ERREUR : téléchargement impossible.\n");
-}
-
-echo "Taille téléchargée : " . strlen($data) . " octets\n";
-
-if (file_put_contents($ytdlp, $data) === false) {
-    die("ERREUR : impossible d'écrire $ytdlp\n");
-}
-
-chmod($ytdlp, 0755);
-
-echo "Binaire installé : $ytdlp\n\n";
-
-/*
- * Test
- */
-echo "Test de yt-dlp...\n\n";
-
-$output = [];
-$return = 0;
-
-exec(
-    escapeshellarg($ytdlp) . ' --version 2>&1',
-    $output,
-    $return
-);
-
-echo "Code retour : $return\n";
-echo implode("\n", $output);
-
-echo '</pre>';
+echo "</pre>";
