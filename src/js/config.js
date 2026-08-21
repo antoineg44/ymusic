@@ -16,7 +16,7 @@ function GetConnexionType() {
         const domain_approv = [
             "localhost",
             "192.168.1.10",
-            "music.partitions.ovh"
+            "musiques.partitions.ovh"
         ];
         if (domain_approv.includes(window.location.host)) {
             // application web
@@ -34,7 +34,7 @@ function get_url() {
         return "";
     }
 
-    return "https://music.partitions.ovh/php/tools/";
+    return "https://musiques.partitions.ovh/php/tools/";
 }
 
 function get_url_from_base() {
@@ -42,7 +42,7 @@ function get_url_from_base() {
         return "";
     }
 
-    return "https://music.partitions.ovh/";
+    return "https://musiques.partitions.ovh/";
 }
 
 function toCloneablePayload(value) {

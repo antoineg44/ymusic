@@ -45,7 +45,7 @@ function replyToSource(source: EventSource, messageId: string | undefined, respo
 }
 
 function get_url_from_base() {
-  return "https://music.partitions.ovh/";
+  return "https://musiques.partitions.ovh/";
 }
 
 // Fonction pour faire une requête GET

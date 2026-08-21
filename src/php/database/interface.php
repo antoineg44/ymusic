@@ -4,7 +4,7 @@ $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 $allowed = [
     'https://localhost',
-    'https://music.partitions.ovh'
+    'https://musiques.partitions.ovh'
 ];
 
 if (in_array($origin, $allowed)) {
