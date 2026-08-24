@@ -62,41 +62,62 @@ async function searchMusiques(titleQuery = '') {
             setStatus('La requete de recherche est invalide.');
             return;
         }
-        
-        const query = {
-            table: 'Musiques',
-            select: ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
-            orderBy: 'Titre',
-            order: 'ASC',
-            limit: 20,
-            page: 1,
-            search: {
-                field: 'Titre',
-                value: String(titleQuery || '').trim()
-            }
-        };
 
-        sendMessageAndWait(window.parent, {action: 'search', query: query}).then(response => {
+        const normalizedQuery = String(titleQuery || '').trim();
+        if (!normalizedQuery) {
+            setStatus('La requete de recherche est invalide.');
+            return;
+        }
 
-            const musiques = Array.isArray(response.musiques) ? response.musiques : [];
-            if (musiques.length === 0) {
-                setStatus(`Aucun resultat pour "${titleQuery}".`);
-                homeEmpty.style.display = 'block';
+        const searchFields = ['Titre', 'Artiste'];
+
+        const allResults = await Promise.all(searchFields.map(async (field) => {
+            const query = {
+                table: 'Musiques',
+                select: ['Id', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'],
+                orderBy: 'Titre',
+                order: 'ASC',
+                limit: 20,
+                page: 1,
+                search: {
+                    field,
+                    value: normalizedQuery,
+                }
+            };
+
+            const response = await sendMessageAndWait(window.parent, { action: 'search', query });
+            return Array.isArray(response.musiques) ? response.musiques : [];
+        }));
+
+        const mergedById = new Map();
+        allResults.flat().forEach((row) => {
+            const id = String((row && row.Id) || '').trim();
+            if (!id) {
                 return;
             }
-
-            musiques.forEach((row, index) => {
-                const preparedSong = normalizeMusicRow(row);
-                preparedSong.showIndex = false;
-                const item = renderElement(preparedSong, index);
-                homeResults.appendChild(item);
-            });
-
-            setStatus(`20 resultats max pour "${titleQuery}".`);
-        }).catch(error => {
-            console.error(error);
+            if (!mergedById.has(id)) {
+                mergedById.set(id, row);
+            }
         });
+
+        const musiques = Array.from(mergedById.values()).slice(0, 20);
+
+        if (musiques.length === 0) {
+            setStatus(`Aucun resultat pour "${normalizedQuery}".`);
+            homeEmpty.style.display = 'block';
+            return;
+        }
+
+        musiques.forEach((row, index) => {
+            const preparedSong = normalizeMusicRow(row);
+            preparedSong.showIndex = false;
+            const item = renderElement(preparedSong, index);
+            homeResults.appendChild(item);
+        });
+
+        setStatus(`${musiques.length} resultat${musiques.length > 1 ? 's' : ''} pour "${normalizedQuery}" (Titre + Auteur).`);
     } catch (error) {
+        console.error(error);
         setStatus(`Erreur: ${error && error.message ? error.message : error}`, true);
     }
 }
