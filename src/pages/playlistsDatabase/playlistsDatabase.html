@@ -149,6 +149,34 @@
 				font-weight: 700;
 			}
 
+			.sort-control {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				margin: 0 0 12px;
+				flex-wrap: wrap;
+			}
+
+			.sort-label {
+				color: #cbd5e1;
+				font-weight: 600;
+			}
+
+			.sort-select {
+				appearance: none;
+				border: 1px solid rgba(148, 163, 184, 0.25);
+				border-radius: 999px;
+				background: rgba(15, 23, 42, 0.7);
+				color: #e2e8f0;
+				padding: 8px 34px 8px 12px;
+				font-weight: 600;
+				cursor: pointer;
+				background-image: linear-gradient(45deg, transparent 50%, #7dd3fc 50%), linear-gradient(135deg, #7dd3fc 50%, transparent 50%);
+				background-position: calc(100% - 18px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+				background-size: 6px 6px, 6px 6px;
+				background-repeat: no-repeat;
+			}
+
 			.playlist-tracks {
 				list-style: none;
 				margin: 0;
@@ -233,6 +261,17 @@
 						<button id="duplicatePlaylistButton" class="duplicate-btn" type="button">Dupliquer</button>
 						<h2 id="songsTitle">Musiques</h2>
 					</div>
+					<div class="sort-control">
+						<span class="sort-label">Trier par</span>
+						<select id="sortFieldSelect" class="sort-select" aria-label="Trier les musiques par champ">
+							<option value="PositionLecture">Position de lecture</option>
+							<option value="Titre">Titre</option>
+							<option value="Artiste">Artiste</option>
+							<option value="Duree">Durée</option>
+							<option value="NombreVue">Nombre de vues</option>
+							<option value="DateAjout">Date d'ajout</option>
+						</select>
+					</div>
 					<ul id="songsList" class="playlist-tracks" aria-label="Musiques de playlist"></ul>
 				</article>
 			</section>
@@ -249,11 +288,14 @@
 			const backToPlaylistsButton = document.getElementById('backToPlaylistsButton');
 			const playAllButton = document.getElementById('playAllButton');
 			const duplicatePlaylistButton = document.getElementById('duplicatePlaylistButton');
+			const sortFieldSelect = document.getElementById('sortFieldSelect');
 
 			let activePlaylistId = '';
 			let openedPlaylistName = '';
 			let openedPlaylistDescription = '';
 			let openedPlaylistSongs = [];
+			let currentSortField = 'PositionLecture';
+			let currentSortDirection = 'ASC';
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -384,9 +426,19 @@
 				});
 			}
 
-			async function loadPlaylistSongs(playlistId, playlistName) {
+			async function loadPlaylistSongs(playlistId, playlistName, sortField = currentSortField, sortDirection = currentSortDirection) {
 				try {
 					songsTitle.textContent = `Musiques - ${playlistName}`;
+					const validSortField = ['PositionLecture', 'Titre', 'Artiste', 'Duree', 'NombreVue', 'DateAjout'].includes(sortField)
+						? sortField
+						: 'PositionLecture';
+					const validSortDirection = String(sortDirection || 'ASC').toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+					currentSortField = validSortField;
+					currentSortDirection = validSortDirection;
+					if (sortFieldSelect) {
+						sortFieldSelect.value = validSortField;
+					}
+
 					const query = {
 						table: 'MyPlaylistMusiques',
 						select: ['Id', 'Titre', 'Artiste', 'MusicUtilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne', 'DateAjout', 'PositionLecture',],
@@ -394,8 +446,8 @@
 						equals: {
 							IdPlaylist: String(playlistId || ''),
 						},
-						orderBy: ['PositionLecture', 'Titre'],
-						order: ['ASC', 'ASC'],
+						orderBy: validSortField,
+						order: validSortDirection,
 						limit: 2000,
 						page: 1
 					};
@@ -413,7 +465,7 @@
 						: (Array.isArray(payload.songs) ? payload.songs : []);
 					openedPlaylistSongs = rows;
 					renderSongs(rows);
-					setStatus(`Playlist "${playlistName}" chargee (${rows.length} musique(s)).`);
+					setStatus(`Playlist "${playlistName}" chargee (${rows.length} musique(s)) - tri: ${validSortField}.`);
 				} catch (error) {
 					console.error(error);
 					openedPlaylistSongs = [];
@@ -618,6 +670,16 @@
 				backToPlaylistsButton.addEventListener('click', () => {
 					showPlaylistsView();
 				});
+				if (sortFieldSelect) {
+					sortFieldSelect.addEventListener('change', (event) => {
+						const field = String(event.target.value || 'PositionLecture');
+						if (!activePlaylistId || !openedPlaylistName) {
+							currentSortField = field;
+							return;
+						}
+						void loadPlaylistSongs(activePlaylistId, openedPlaylistName, field, currentSortDirection);
+					});
+				}
 				showPlaylistsView();
 				void loadPlaylists();
 				initEvent();
