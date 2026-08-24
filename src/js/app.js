@@ -708,8 +708,8 @@ async function saveLikedMusic(track) {
   }
 
   const rawViews = track.views ?? track.NombreVue ?? track.viewCount ?? '';
-  let parsedViews = parseViewCount(rawViews);
-  let persistedAlbumId = String(
+  const parsedViews = parseViewCount(rawViews);
+  const persistedAlbumId = String(
     track.albumId
     || track.Album
     || (track.album && track.album.id)
@@ -719,11 +719,48 @@ async function saveLikedMusic(track) {
     ? track.videoId
     : (isValidVideoId(state.currentVideoId) ? state.currentVideoId : '');
 
-  sendMessageAndWait(window, {action: 'play', query: persistedId}).then(response => {
-      console.log('Musique ajoutee en base:', response.music || track.title);
-  }).catch(error => {
-      console.error(error);
-  });
+  if (!persistedId) {
+    return;
+  }
+
+  const currentInternalViews = Number(
+    Number.isFinite(Number(track.NombreVueInterne))
+      ? track.NombreVueInterne
+      : Number.isFinite(Number(track.nombreVueInterne))
+        ? track.nombreVueInterne
+        : 0
+  );
+  const nextInternalViews = Math.max(0, currentInternalViews) + 1;
+
+  if (state.currentTrack) {
+    state.currentTrack.NombreVueInterne = nextInternalViews;
+  }
+  track.NombreVueInterne = nextInternalViews;
+
+  try {
+    await sendMessageAndWait(window, { action: 'play', query: persistedId });
+
+    const payload = await sendMessageAndWait(window, {
+      action: 'updateMusic',
+      body: {
+        Id: persistedId,
+        Titre: String(track.title || ''),
+        Artiste: String(track.artist || track.Artiste || (Array.isArray(track.artists) ? track.artists.join(', ') : '') || ''),
+        Album: String(track.album || track.Album || persistedAlbumId || ''),
+        Duree: Number(track.duration || track.Duree || 0),
+        AnneeParution: Number(track.year || track.AnneeParution || 0),
+        Genre: String(track.genre || track.Genre || ''),
+        NombreVue: parsedViews,
+        NombreVueInterne: nextInternalViews,
+      },
+    });
+
+    if (payload && payload.success) {
+      console.log('Musique enregistrée avec NombreVueInterne:', nextInternalViews);
+    }
+  } catch (error) {
+    console.error('saveLikedMusic error:', error);
+  }
 }
 
 function resolveCurrentTrackId() {
