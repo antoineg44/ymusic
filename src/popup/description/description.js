@@ -258,7 +258,7 @@ downloadButton.addEventListener("click", async () => {
   try {
     setStatus("Preparation du telechargement...");
 
-    const response = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
+    const response = await sendMessageAndWait(window.parent, {action: 'yt_download', query: id});
 
     const sourcePath = resolveDownloadPath(response);
     if (!sourcePath) {
