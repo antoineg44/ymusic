@@ -135,10 +135,10 @@
     }
 
     function updateTimeDisplay() {
-      // Déclenche l'enregistrement en base quand 75% du morceau est écouté.
+      // Déclenche l'enregistrement en base quand 50% du morceau est écouté.
       if (!state.likedLogged && Number.isFinite(state.currentDuration) && state.currentDuration > 0) {
         const ratio = state.currentPlayedSeconds / state.currentDuration;
-        if (ratio >= 0.75) {
+        if (ratio >= 0.50) {
           state.likedLogged = true;
 
           if (!state.likedSaved) {
