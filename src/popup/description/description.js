@@ -260,14 +260,18 @@ downloadButton.addEventListener("click", async () => {
 
     const response = await sendMessageAndWait(window.parent, {action: 'yt_download', query: id});
 
-    const sourcePath = resolveDownloadPath(response);
+    if (!response.download) {
+      throw new Error("Le serveur n'a retourne aucun fichier telechargeable.");
+    }
+
+    const sourcePath = resolveDownloadPath(response.download);
     if (!sourcePath) {
       throw new Error("Le serveur n'a retourne aucun fichier telechargeable.");
     }
 
     const musicTitle =
       sanitizeFileName((currentMusic && currentMusic.Titre) || id) || id;
-    const extension = getDownloadExtension(response);
+    const extension = getDownloadExtension(response.download);
     const downloadName = `${musicTitle}${extension}`;
 
     const link = document.createElement("a");
