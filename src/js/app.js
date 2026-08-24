@@ -416,6 +416,10 @@ function setActiveTab(tab) {
 
   state.currentTab = tab;
 
+  if (menuFrame && menuFrame.contentWindow) {
+    menuFrame.contentWindow.postMessage({ target: 'menu', type: 'SET_ACTIVE_TAB', tab }, '*');
+  }
+
   if (heroSection) {
     heroSection.hidden = !isHomeTab;
   }

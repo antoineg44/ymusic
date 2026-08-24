@@ -127,8 +127,8 @@
         });
       });
 
-      // Pour changer de tab
-      /*window.addEventListener('message', (event) => {
+      // Pour changer de tab depuis le parent ou un autre iframe
+      window.addEventListener('message', (event) => {
         const message = event.data;
         if (!message || message.target !== 'menu') {
           return;
@@ -137,7 +137,7 @@
         if (message.type === 'SET_ACTIVE_TAB') {
           setActiveTab(String(message.tab || 'accueil'));
         }
-      });*/
+      });
     </script>
   </body>
 </html>
