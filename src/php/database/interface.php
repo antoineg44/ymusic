@@ -1653,15 +1653,32 @@ if (!empty($_GET['deleteFile'])) {
         $pdo = get_database_pdo();
         ensure_music_table($pdo);
 
-        $titre = trim((string) ($payload['Titre'] ?? ''));
-        $artiste = trim((string) ($payload['Artiste'] ?? ''));
-        $utilisateur = trim((string) ($payload['Utilisateur'] ?? ''));
-        $album = trim((string) ($payload['Album'] ?? ''));
-        $genre = trim((string) ($payload['Genre'] ?? ''));
-        $duree = ($payload['Duree'] ?? '') === '' ? null : (int) $payload['Duree'];
-        $anneeParution = ($payload['AnneeParution'] ?? '') === '' ? null : (int) $payload['AnneeParution'];
-        $nombreVue = max(0, (int) ($payload['NombreVue'] ?? 0));
-        $nombreVueInterne = max(0, (int) ($payload['NombreVueInterne'] ?? 0));
+        $existingMusic = dMusique_get([
+            'select' => ['Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne'],
+            'equals' => ['Id' => $id],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+
+        $currentMusic = $existingMusic['musiques'][0] ?? [];
+
+        $titre = trim((string) (array_key_exists('Titre', $payload) ? ($payload['Titre'] ?? '') : ($currentMusic['Titre'] ?? '')));
+        $artiste = trim((string) (array_key_exists('Artiste', $payload) ? ($payload['Artiste'] ?? '') : ($currentMusic['Artiste'] ?? '')));
+        $utilisateur = trim((string) (array_key_exists('Utilisateur', $payload) ? ($payload['Utilisateur'] ?? '') : ($currentMusic['Utilisateur'] ?? '')));
+        $album = trim((string) (array_key_exists('Album', $payload) ? ($payload['Album'] ?? '') : ($currentMusic['Album'] ?? '')));
+        $genre = trim((string) (array_key_exists('Genre', $payload) ? ($payload['Genre'] ?? '') : ($currentMusic['Genre'] ?? '')));
+        $duree = array_key_exists('Duree', $payload)
+            ? (($payload['Duree'] ?? '') === '' ? null : (int) $payload['Duree'])
+            : (isset($currentMusic['Duree']) ? (int) $currentMusic['Duree'] : null);
+        $anneeParution = array_key_exists('AnneeParution', $payload)
+            ? (($payload['AnneeParution'] ?? '') === '' ? null : (int) $payload['AnneeParution'])
+            : (isset($currentMusic['AnneeParution']) ? (int) $currentMusic['AnneeParution'] : null);
+        $nombreVue = array_key_exists('NombreVue', $payload)
+            ? max(0, (int) ($payload['NombreVue'] ?? 0))
+            : max(0, (int) ($currentMusic['NombreVue'] ?? 0));
+        $nombreVueInterne = array_key_exists('NombreVueInterne', $payload)
+            ? max(0, (int) ($payload['NombreVueInterne'] ?? 0))
+            : max(0, (int) ($currentMusic['NombreVueInterne'] ?? 0));
 
         if ($titre === '') {
             throw new RuntimeException('Titre requis');
@@ -1891,6 +1908,56 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['play']) || !empty($_POST['play'])) {
+    try {
+        $videoId = trim((string) ($_GET['play'] ?? $_POST['play'] ?? ''));
+        if ($videoId === '') {
+            throw new RuntimeException('videoId requis');
+        }
+
+        $music = dMusique_get([
+            'select' => ['Id', 'NombreVueInterne'],
+            'equals' => ['Id' => $videoId],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+
+        if (empty($music['musiques'])) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Musique introuvable pour incrémentation',
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $updateStmt = $pdo->prepare(
+            'UPDATE Musiques
+             SET NombreVueInterne = NombreVueInterne + 1
+             WHERE Id = :id'
+        );
+        $updateStmt->execute([':id' => $videoId]);
+
+        $updatedMusic = dMusique_get([
+            'select' => ['Id', 'NombreVueInterne'],
+            'equals' => ['Id' => $videoId],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'NombreVueInterne incrémenté',
+            'music' => (array) (($updatedMusic['musiques'][0] ?? []) ?: []),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
 } elseif (!empty($_GET['add'])) {
     try {
 
