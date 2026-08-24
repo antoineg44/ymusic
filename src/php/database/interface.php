@@ -1915,30 +1915,55 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('videoId requis');
         }
 
-        $music = dMusique_get([
-            'select' => ['Id', 'NombreVueInterne'],
+        $pdo = get_database_pdo();
+        ensure_music_table($pdo);
+
+        $existingMusic = dMusique_get([
+            'select' => ['Id', 'Titre', 'Artiste', 'Album', 'NombreVue', 'NombreVueInterne'],
             'equals' => ['Id' => $videoId],
             'limit' => 1,
             'page' => 1,
         ]);
 
-        if (empty($music['musiques'])) {
+        if (empty($existingMusic['musiques'])) {
+            $details = $yt->songDetails($videoId);
+            if (!is_array($details) || empty($details['success']) || !is_array($details['metadata'] ?? null)) {
+                throw new RuntimeException('Impossible de récupérer les métadonnées de la musique');
+            }
+
+            $metadata = $details['metadata'];
+            $payload = [
+                'Id' => (string) ($metadata['videoId'] ?? $videoId),
+                'Titre' => (string) ($metadata['title'] ?? $videoId),
+                'Artiste' => (string) ($metadata['artist'] ?? ''),
+                'Album' => (string) ($metadata['album'] ?? ''),
+                'Duree' => (int) ($metadata['durationSeconds'] ?? 0),
+                'AnneeParution' => (int) ($metadata['year'] ?? 0),
+                'Genre' => (string) ($metadata['genre'] ?? ''),
+                'NombreVue' => (int) ($metadata['views'] ?? 0),
+                'NombreVueInterne' => 1,
+                'DateAjout' => date('Y-m-d H:i:s'),
+            ];
+
+            $added = add_music_to_database($payload, $pdo);
+            $moved = move_downloaded_webm_for_music($payload);
+
             echo json_encode([
-                'success' => false,
-                'error' => 'Musique introuvable pour incrémentation',
+                'success' => true,
+                'action' => 'created',
+                'message' => 'Musique ajoutee a la base et NombreVueInterne initialise',
+                'music' => $added,
+                'movedFile' => $moved,
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        $pdo = get_database_pdo();
-        ensure_music_table($pdo);
-
-        $updateStmt = $pdo->prepare(
+        $incrementStmt = $pdo->prepare(
             'UPDATE Musiques
              SET NombreVueInterne = NombreVueInterne + 1
              WHERE Id = :id'
         );
-        $updateStmt->execute([':id' => $videoId]);
+        $incrementStmt->execute([':id' => $videoId]);
 
         $updatedMusic = dMusique_get([
             'select' => ['Id', 'NombreVueInterne'],
@@ -1949,6 +1974,7 @@ if (!empty($_GET['deleteFile'])) {
 
         echo json_encode([
             'success' => true,
+            'action' => 'incremented',
             'message' => 'NombreVueInterne incrémenté',
             'music' => (array) (($updatedMusic['musiques'][0] ?? []) ?: []),
         ], JSON_UNESCAPED_UNICODE);
