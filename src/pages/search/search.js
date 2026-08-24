@@ -23,6 +23,25 @@ function postToParent(type, payload = {}) {
   window.parent.postMessage({ source: "recherche", type, ...payload }, "*");
 }
 
+window.addEventListener('message', (event) => {
+  const message = event.data;
+  if (!message || message.target !== 'search') {
+    return;
+  }
+
+  if (message.type === 'SET_SEARCH_QUERY') {
+    const query = String(message.query || '').trim();
+    if (!searchInput || !query) {
+      return;
+    }
+
+    searchInput.value = query;
+    window.setTimeout(() => {
+      searchMusic();
+    }, 0);
+  }
+});
+
 function updateSearchButtonLayout() {
   if (!searchRow || !searchButton) {
     return;

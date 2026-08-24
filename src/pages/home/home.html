@@ -24,7 +24,7 @@
       <ul id="homeResults" class="home-results"></ul>
       <p id="homeEmpty" class="home-empty" style="display: none;">
         Aucune musique en base. Vous pouvez en rechercher dans
-        <a href="#" onclick="if (window.parent && typeof window.parent.setActiveTab === 'function') { window.parent.setActiveTab('recherche'); } return false;">l'onglet "Recherche"</a>
+        <a href="#" onclick="const input = document.getElementById('homeSearchInput'); const query = input ? input.value.trim() : ''; if (window.parent && typeof window.parent.setActiveTab === 'function') { window.parent.setActiveTab('recherche', query); } return false;">l'onglet "Recherche"</a>
       </p>
 
       <section class="home-why" aria-labelledby="why-app-heading">

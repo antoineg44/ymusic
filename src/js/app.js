@@ -400,7 +400,7 @@ async function initializeApp() {
 // Expose explicitement le bootstrap pour les scripts inline (index.html).
 window.initializeApp = initializeApp;
 
-function setActiveTab(tab) {
+function setActiveTab(tab, searchQuery = '') {
   console.log("change tab to", tab);
 
   const isHomeTab = tab === 'accueil';
@@ -418,6 +418,19 @@ function setActiveTab(tab) {
 
   if (menuFrame && menuFrame.contentWindow) {
     menuFrame.contentWindow.postMessage({ target: 'menu', type: 'SET_ACTIVE_TAB', tab }, '*');
+  }
+
+  const normalizedQuery = String(searchQuery || '').trim();
+  if (isSearchTab && normalizedQuery && searchFrame && searchFrame.contentWindow) {
+    const sendSearchQuery = () => {
+      searchFrame.contentWindow.postMessage({ target: 'search', type: 'SET_SEARCH_QUERY', query: normalizedQuery }, '*');
+    };
+
+    if (searchFrame.dataset.ready === '1') {
+      sendSearchQuery();
+    } else {
+      searchFrame.addEventListener('load', sendSearchQuery, { once: true });
+    }
   }
 
   if (heroSection) {
