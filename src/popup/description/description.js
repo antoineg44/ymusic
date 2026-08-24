@@ -40,6 +40,17 @@ function renderMusicDetails(music) {
 
   descriptionList.innerHTML = "";
 
+  if (!music) {
+    const item = document.createElement("li");
+    item.className = "description-item";
+    item.innerHTML = `
+            <span class="description-key">Information</span>
+            <span class="description-value">Aucune information disponible</span>
+          `;
+    descriptionList.appendChild(item);
+    return;
+  }
+
   orderedKeys.forEach((key) => {
     const item = document.createElement("li");
     item.className = "description-item";
@@ -169,22 +180,28 @@ async function loadDescription() {
       page: 1
     };
 
-    var response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
+    let musiques = [];
 
-    var musiques = Array.isArray(response.musiques) ? response.musiques : [];
-    if (musiques.length === 0) {
-        setStatus("Musique non trouvee en base pour le moment. Les informations affichees sont partielles.");
+    try {
+      const response = await sendMessageAndWait(window.parent, {action: 'description', query: query});
+      musiques = Array.isArray(response.musiques) ? response.musiques : [];
 
-        response = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
-        musiques = Array.isArray(response.musiques) ? response.musiques : [];
+      if (musiques.length === 0) {
+        throw new Error("Musique non trouvee en base de donnees.");
+      }
+    } catch (databaseError) {
+      console.warn("Description base de donnees indisponible ou introuvable, fallback vers yt_description.", databaseError);
+      setStatus("Musique non trouvee en base. Tentative sur YouTube...");
+
+      const fallbackResponse = await sendMessageAndWait(window.parent, {action: 'yt_description', query: id});
+      musiques = Array.isArray(fallbackResponse.musiques) ? fallbackResponse.musiques : [];
+
+      if (musiques.length === 0) {
+        throw new Error("Aucune description trouvee dans la base ni sur YouTube.");
+      }
     }
 
-    console.log(musiques);
-
     currentMusic = musiques[0] || null;
-
-    console.log(currentMusic);
-
     renderMusicDetails(currentMusic);
 
     query = {
