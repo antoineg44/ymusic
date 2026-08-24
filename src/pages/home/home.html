@@ -21,7 +21,10 @@
         <p id="homeStatus" class="home-status">Chargement...</p>
       </div>
       <ul id="homeResults" class="home-results"></ul>
-      <p id="homeEmpty" class="home-empty" style="display: none;">Aucune musique en base.</p>
+      <p id="homeEmpty" class="home-empty" style="display: none;">
+        Aucune musique en base. Vous pouvez en rechercher dans
+        <a href="#" onclick="if (window.parent && typeof window.parent.setActiveTab === 'function') { window.parent.setActiveTab('recherche'); } return false;">l'onglet "Recherche"</a>
+      </p>
     </main>
 
     <script src="../../components/listMusic/listMusic.js"></script>
