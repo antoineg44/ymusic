@@ -70,7 +70,10 @@ function dMusique_get(array $options)
             throw new InvalidArgumentException('Champ de recherche invalide.');
         }
 
-        $research_param = remove_accent_and_ponctuation($options['search']['value']);
+        $research_param = remove_accent_and_ponctuation(
+            (string) ($options['search']['value'] ?? ''),
+            (string) ($field)
+        );
 
         $searchWhereClause = $research_param["whereClause"];
         $sql .= ' ' . $searchWhereClause;

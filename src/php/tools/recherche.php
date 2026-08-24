@@ -69,7 +69,7 @@ function build_title_search_sql(string $columnExpression): string
     return $normalizedTitleSql;
 }
 
-function remove_accent_and_ponctuation(String $textToSearch)
+function remove_accent_and_ponctuation(String $textToSearch, string $field = 'Titre')
 {
     if ($textToSearch !== '')
     {
@@ -109,7 +109,8 @@ function remove_accent_and_ponctuation(String $textToSearch)
         ]);
         $normalizedTextToSearch = (string) preg_replace('/[[:punct:]\s]+/u', '', $normalizedTextToSearch);
 
-        $normalizedTitleSql = build_title_search_sql('Titre');
+        $fieldName = preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $field) ? $field : 'Titre';
+        $normalizedFieldSql = build_title_search_sql($fieldName);
 
         $research_param["text"] = $normalizedTextToSearch;
         if ($normalizedTextToSearch === '') {
@@ -117,7 +118,7 @@ function remove_accent_and_ponctuation(String $textToSearch)
         }
         else
         {
-            $research_param["whereClause"] = "WHERE {$normalizedTitleSql} LIKE :search";
+            $research_param["whereClause"] = "WHERE {$normalizedFieldSql} LIKE :search";
             $research_param["queryParams"] = $normalizedTextToSearch;
         }
 
