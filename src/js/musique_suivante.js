@@ -24,27 +24,28 @@
         return;
       }
 
-      sendMessageAndWait(window, {action: 'nextMusic', query: videoId}).then(response => {
-          const musiques = Array.isArray(response.playlist) ? response.playlist : [];
-          if (musiques.length === 0) {
-              resetPlaylistQueue();
-              return;
-          }
-
-          const playlist = musiques.filter((entry) => entry && isValidVideoId(entry.videoId));
-          if (!playlist.length) {
-            resetPlaylistQueue();
-            return;
-          }
-
-          state.queue = playlist;
-          const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
-          state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
-          state.currentVideoId = videoId;
-        }).catch(error => {
-          console.error(error);
+      try {
+        const response = await sendMessageAndWait(window, { action: 'nextMusic', query: videoId });
+        const musiques = Array.isArray(response.playlist) ? response.playlist : [];
+        if (musiques.length === 0) {
           resetPlaylistQueue();
-      });
+          return;
+        }
+
+        const playlist = musiques.filter((entry) => entry && isValidVideoId(entry.videoId));
+        if (!playlist.length) {
+          resetPlaylistQueue();
+          return;
+        }
+
+        state.queue = playlist;
+        const matchIndex = playlist.findIndex((entry) => entry.videoId === videoId);
+        state.queueIndex = matchIndex >= 0 ? matchIndex : 0;
+        state.currentVideoId = videoId;
+      } catch (error) {
+        console.error(error);
+        resetPlaylistQueue();
+      }
     }
 
     async function playNext(options) {
