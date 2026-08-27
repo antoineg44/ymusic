@@ -522,6 +522,37 @@ async function postResponse(source: EventSource, messageId: string | undefined, 
   replyToSource(source, messageId, dataText);
 }
 
+// Sert l'audio depuis le store local s'il est deja telecharge (utilise hors-ligne et en ligne).
+async function serveLocalAudioIfAvailable(source: EventSource, messageId: string | undefined, query: any): Promise<boolean> {
+  const id = String(query || '').trim();
+  if (!id) {
+    return false;
+  }
+
+  let db: IDBDatabase;
+  try {
+    db = await openLocalDatabase();
+  } catch {
+    return false;
+  }
+
+  try {
+    const record = await getByKeyFromStore(db, LOCAL_AUDIO_STORE, id);
+    if (record && record.blob) {
+      const objectUrl = URL.createObjectURL(record.blob);
+      replyToSource(source, messageId, {
+        success: true,
+        download: { file: id, path: objectUrl, success: true },
+        music: { Id: id },
+      });
+      return true;
+    }
+    return false;
+  } finally {
+    db.close();
+  }
+}
+
 // Vérification si la requête est structurée
 function hasStructuredDbQuery(message: any): boolean {
   return Boolean(
@@ -556,6 +587,11 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
   const source = event.source as Window;
 
   try {
+    // Audio deja telecharge: on le lit depuis la base locale (hors-ligne comme en ligne).
+    if (message.action === 'musicId' && await serveLocalAudioIfAvailable(source, data.messageId, message.query)) {
+      return;
+    }
+
     // Hors-ligne: on sert les lectures et l'audio depuis la base locale, sans contacter le serveur.
     if (isOffline()) {
       await handleOfflineAction(source, data.messageId, message);
