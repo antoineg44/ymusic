@@ -695,15 +695,20 @@
 			}
 
 			async function incrementPlaylistView(playlistId) {
-				const payload = await sendMessageAndWait(window.parent, {
-					action: 'incrementPlaylistView',
-					body: {
-						playlistId: String(playlistId),
-					},
-				});
+				try {
+					const payload = await sendMessageAndWait(window.parent, {
+						action: 'incrementPlaylistView',
+						body: {
+							playlistId: String(playlistId),
+						},
+					});
 
-				if (!payload || !payload.success) {
-					throw new Error(payload.error || 'Impossible d\'incrementer les vues de la playlist.');
+					if (!payload || !payload.success) {
+						// Not blocking: log and continue (offline mode may not support this action)
+						console.debug('incrementPlaylistView failed:', payload && payload.error);
+					}
+				} catch (error) {
+					console.debug('incrementPlaylistView error:', error);
 				}
 			}
 
