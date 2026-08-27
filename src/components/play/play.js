@@ -413,7 +413,13 @@
 			if(base_url == "")base_url = "../../";
 
 			incomingAudio.crossOrigin = "anonymous";
-			incomingAudio.src = base_url + String(src || '').trim();
+			const rawSrc = String(src || '').trim();
+			let finalSrc = rawSrc;
+			// Ne pas préfixer les URLs absolues ou spéciales (blob:, data:, http(s)://, /)
+			if (!/^\s*(?:blob:|data:|https?:\/\/|\/)\s*/i.test(rawSrc)) {
+				finalSrc = base_url + rawSrc;
+			}
+			incomingAudio.src = finalSrc;
 			incomingAudio.currentTime = 0;
 			incomingAudio.volume = canCrossfade ? 0 : 1;
 			incomingAudio.load();
