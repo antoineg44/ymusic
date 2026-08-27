@@ -403,6 +403,42 @@ function ensure_liked_musics_table(PDO $pdo): void
 			KEY idx_musiques_aimees_musique (IdMusique)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
 	);
+
+	align_music_id_collation($pdo, 'MusiquesAimees', 'IdMusique');
+}
+
+function get_column_collation(PDO $pdo, string $table, string $column): ?string
+{
+	$stmt = $pdo->prepare(
+		"SELECT COLLATION_NAME
+		 FROM information_schema.COLUMNS
+		 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column
+		 LIMIT 1"
+	);
+	$stmt->execute([':table' => $table, ':column' => $column]);
+	$value = $stmt->fetchColumn();
+
+	return ($value !== false && $value !== null) ? (string) $value : null;
+}
+
+function align_music_id_collation(PDO $pdo, string $table, string $column): void
+{
+	// Aligne la collation de la colonne sur Musiques.Id pour eviter les erreurs de jointure.
+	$target = get_column_collation($pdo, 'Musiques', 'Id');
+
+	// La collation vient d'information_schema; on la valide avant de l'injecter dans un DDL.
+	if ($target === null || strpos($target, 'utf8mb4_') !== 0 || !preg_match('/^[A-Za-z0-9_]+$/', $target)) {
+		return;
+	}
+
+	$current = get_column_collation($pdo, $table, $column);
+	if ($current === null || $current === $target) {
+		return;
+	}
+
+	$pdo->exec(
+		"ALTER TABLE `$table` MODIFY `$column` VARCHAR(191) CHARACTER SET utf8mb4 COLLATE $target NOT NULL"
+	);
 }
 
 function add_liked_music(int $userId, string $musicId, ?PDO $pdo = null): array
