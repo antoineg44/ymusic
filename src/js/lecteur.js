@@ -295,6 +295,11 @@
         throw new Error('No media path provided.');
       }
 
+      // Un object URL local (audio hors-ligne) est deja disponible en memoire.
+      if (/^blob:/i.test(mediaPath)) {
+        return;
+      }
+
       const buildMediaUrl = () => {
         if (/^https?:\/\//i.test(mediaPath)) {
           try {
@@ -359,6 +364,11 @@
         const normalizedPath = String(track.path || '').trim();
         if (!normalizedPath) {
           return '';
+        }
+
+        // Object URL local (lecture hors-ligne): a utiliser tel quel.
+        if (/^blob:/i.test(normalizedPath)) {
+          return normalizedPath;
         }
 
         if (/^https?:\/\//i.test(normalizedPath)) {

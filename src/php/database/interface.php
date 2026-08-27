@@ -1934,6 +1934,168 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['exportUserData'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $pdo = get_database_pdo();
+
+        // Utilisateur courant (sans le hash du mot de passe).
+        $userStmt = $pdo->prepare(
+            'SELECT Id, NomUtilisateur, RoleUtilisateur, Actif, DateCreation, DateMiseAJour
+             FROM Utilisateurs WHERE Id = :id LIMIT 1'
+        );
+        $userStmt->execute([':id' => $userId]);
+        $utilisateur = $userStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        // Musiques aimees (avec details musique).
+        $likedPayload = dMusiqueAimee_get([
+            'equals' => ['IdUtilisateur' => $userId],
+            'withMusicDetails' => true,
+            'orderBy' => 'DateAjout',
+            'order' => 'DESC',
+            'limit' => 5000,
+            'page' => 1,
+        ]);
+        $musiquesAimees = $likedPayload['musiquesAimees'] ?? [];
+
+        // Playlists de l'utilisateur.
+        $playlistPayload = dPlaylist_get([
+            'equals' => ['Utilisateur' => $userId],
+            'orderBy' => 'DateDerniereModification',
+            'order' => 'DESC',
+            'limit' => 5000,
+            'page' => 1,
+        ]);
+        $playlists = $playlistPayload['playlists'] ?? [];
+
+        // Musiques rattachees a chaque playlist (avec details musique).
+        $playlistMusiques = [];
+        foreach ($playlists as $playlist) {
+            $playlistId = (int) ($playlist['idPlaylist'] ?? 0);
+            if ($playlistId <= 0) {
+                continue;
+            }
+
+            $linksPayload = dMyPlaylistMusiques_get([
+                'equals' => ['IdPlaylist' => $playlistId],
+                'withMusicDetails' => true,
+                'orderBy' => 'PositionLecture',
+                'order' => 'ASC',
+                'limit' => 5000,
+                'page' => 1,
+            ]);
+
+            foreach (($linksPayload['myPlaylistMusiques'] ?? []) as $link) {
+                $playlistMusiques[] = $link;
+            }
+        }
+
+        // Historique des dernieres lectures (avec details musique).
+        $historique = get_played_history($userId);
+
+        // Musiques referencees par MusiquesAimees et MyPlaylistMusiques (table Musiques locale).
+        $musicIds = [];
+        foreach ($musiquesAimees as $row) {
+            $id = trim((string) ($row['IdMusique'] ?? ''));
+            if ($id !== '') {
+                $musicIds[$id] = true;
+            }
+        }
+        foreach ($playlistMusiques as $row) {
+            $id = trim((string) ($row['IdMusique'] ?? ''));
+            if ($id !== '') {
+                $musicIds[$id] = true;
+            }
+        }
+
+        $musiques = [];
+        if (!empty($musicIds)) {
+            ensure_music_table($pdo);
+
+            $placeholders = [];
+            $params = [];
+            foreach (array_keys($musicIds) as $index => $id) {
+                $key = ":m{$index}";
+                $placeholders[] = $key;
+                $params[$key] = $id;
+            }
+
+            $musicStmt = $pdo->prepare(
+                'SELECT Id, Titre, Artiste, Utilisateur, Album, Duree, AnneeParution, Genre, NombreVue, NombreVueInterne, DateAjout
+                 FROM Musiques WHERE Id IN (' . implode(', ', $placeholders) . ')'
+            );
+            $musicStmt->execute($params);
+            $musiques = $musicStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'exportedAt' => date('c'),
+            'userId' => $userId,
+            'tables' => [
+                'Utilisateurs' => $utilisateur ? [$utilisateur] : [],
+                'Musiques' => $musiques,
+                'MusiquesAimees' => $musiquesAimees,
+                'Playlist' => $playlists,
+                'MyPlaylistMusiques' => $playlistMusiques,
+                'DernieresMusiquesLues' => $historique,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['downloadAudio'])) {
+
+    // Streame les octets d'un fichier audio local (les en-tetes CORS sont poses en tete de ce fichier).
+    try {
+        $id = trim((string) $_GET['downloadAudio']);
+        if ($id === '') {
+            throw new RuntimeException('Id requis');
+        }
+
+        $entry = resolve_audio_file_by_id_and_path($id);
+        $webRoot = dirname(dirname(__DIR__));
+        $relativePath = $entry !== null ? str_replace('\\', '/', (string) ($entry['path'] ?? '')) : '';
+        $absolutePath = $relativePath !== '' ? realpath($webRoot . '/' . ltrim($relativePath, '/')) : false;
+        $dataDir = realpath($webRoot . '/data');
+
+        if ($absolutePath === false || $dataDir === false || strpos($absolutePath, $dataDir) !== 0 || !is_file($absolutePath)) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Fichier introuvable'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $extension = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+        $mimeByExtension = [
+            'mp3' => 'audio/mpeg',
+            'm4a' => 'audio/mp4',
+            'aac' => 'audio/aac',
+            'ogg' => 'audio/ogg',
+            'wav' => 'audio/wav',
+            'flac' => 'audio/flac',
+            'webm' => 'audio/webm',
+        ];
+        $mimeType = $mimeByExtension[$extension] ?? 'application/octet-stream';
+
+        header('Content-Type: ' . $mimeType);
+        header('Content-Length: ' . (string) filesize($absolutePath));
+        header('Content-Disposition: inline; filename="' . basename($absolutePath) . '"');
+        readfile($absolutePath);
+        exit;
+    } catch (Throwable $exception) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
 } elseif (!empty($_GET['playedHistory'])) {
 
     try {
