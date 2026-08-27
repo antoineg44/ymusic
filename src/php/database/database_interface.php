@@ -499,17 +499,18 @@ const DERNIERES_MUSIQUES_LUES_MAX = 100;
 function ensure_played_history_table(PDO $pdo): void
 {
 	// Une ligne par utilisateur: 100 paires (DateLectureN, IdMusiqueN), la position 1 etant la plus recente.
+	// IdMusique limite a 64 (video id 11 ou hash sha256 64) pour rester sous la taille max de ligne (65535).
 	$columns = ['IdUtilisateur INT UNSIGNED NOT NULL'];
 	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
 		$columns[] = "DateLecture{$i} DATETIME NULL";
-		$columns[] = "IdMusique{$i} VARCHAR(191) NULL";
+		$columns[] = "IdMusique{$i} VARCHAR(64) NULL";
 	}
 	$columns[] = 'PRIMARY KEY (IdUtilisateur)';
 
 	$pdo->exec(
 		"CREATE TABLE IF NOT EXISTS DernieresMusiquesLues (\n\t\t\t"
 		. implode(",\n\t\t\t", $columns)
-		. "\n\t\t) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+		. "\n\t\t) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC"
 	);
 }
 

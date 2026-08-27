@@ -458,6 +458,10 @@ function setActiveTab(tab, searchQuery = '') {
     requestListRefresh();
   }
 
+  if (isAlbumsTab) {
+    requestFavoritesRefresh();
+  }
+
   // Mettre à jour la queue si l'onglet queue est affiché
   if (isQueueTab) {
     requestQueueRefresh();
@@ -573,6 +577,28 @@ function requestListRefresh() {
   };
 
   listFrame.addEventListener('load', refreshOnLoad, { once: true });
+}
+
+function requestFavoritesRefresh() {
+  if (!albumsFrame) {
+    return;
+  }
+
+  const postRefresh = () => {
+    if (albumsFrame.contentWindow) {
+      albumsFrame.contentWindow.postMessage({
+        target: 'favoris',
+        type: 'REFRESH_FAVORITES',
+      }, '*');
+    }
+  };
+
+  if (albumsFrame.dataset.loaded === '1' && albumsFrame.dataset.ready === '1' && albumsFrame.contentWindow) {
+    postRefresh();
+    return;
+  }
+
+  albumsFrame.addEventListener('load', postRefresh, { once: true });
 }
 
 function resolveCurrentQueueIndex() {

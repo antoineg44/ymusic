@@ -160,6 +160,13 @@
 			}
 
 			void loadLikedMusics();
+
+			window.addEventListener('message', (event) => {
+				const data = event && event.data ? event.data : {};
+				if (data.target === 'favoris' && data.type === 'REFRESH_FAVORITES') {
+					void loadLikedMusics();
+				}
+			});
 		</script>
 	</body>
 </html>
