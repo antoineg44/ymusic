@@ -912,6 +912,11 @@ function openLoginModal() {
     return;
   }
 
+  // Hors-ligne: ne pas afficher la connexion (session/donnees locales utilisees).
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return;
+  }
+
   loginModal.classList.remove('is-hidden');
   loginModal.setAttribute('aria-hidden', 'false');
 }
