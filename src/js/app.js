@@ -462,6 +462,10 @@ function setActiveTab(tab, searchQuery = '') {
     requestFavoritesRefresh();
   }
 
+  if (isArtistsTab) {
+    requestHistoryRefresh();
+  }
+
   // Mettre à jour la queue si l'onglet queue est affiché
   if (isQueueTab) {
     requestQueueRefresh();
@@ -599,6 +603,28 @@ function requestFavoritesRefresh() {
   }
 
   albumsFrame.addEventListener('load', postRefresh, { once: true });
+}
+
+function requestHistoryRefresh() {
+  if (!artistsFrame) {
+    return;
+  }
+
+  const postRefresh = () => {
+    if (artistsFrame.contentWindow) {
+      artistsFrame.contentWindow.postMessage({
+        target: 'artistes',
+        type: 'REFRESH_HISTORY',
+      }, '*');
+    }
+  };
+
+  if (artistsFrame.dataset.loaded === '1' && artistsFrame.dataset.ready === '1' && artistsFrame.contentWindow) {
+    postRefresh();
+    return;
+  }
+
+  artistsFrame.addEventListener('load', postRefresh, { once: true });
 }
 
 function resolveCurrentQueueIndex() {

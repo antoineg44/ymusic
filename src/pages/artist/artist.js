@@ -95,3 +95,10 @@ async function loadHistory() {
 }
 
 void loadHistory();
+
+window.addEventListener('message', (event) => {
+    const data = event && event.data ? event.data : {};
+    if (data.target === 'artistes' && data.type === 'REFRESH_HISTORY') {
+        void loadHistory();
+    }
+});
