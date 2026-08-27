@@ -251,6 +251,12 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
       case 'play':
         await sendResponse(source, data.messageId, "php/database/interface.php?add=" + encodeURIComponent(message.query));
         break;
+      case 'favoriteState':
+          await sendResponse(source, data.messageId, "php/database/interface.php?favoriteState=1&id=" + encodeURIComponent(message.query));
+          break;
+      case 'likedMusics':
+          await sendResponse(source, data.messageId, "php/database/interface.php?likedMusics=1");
+          break;
       case 'nextMusic':
         await sendResponse(source, data.messageId, "php/database/interface.php?next=" + encodeURIComponent(message.query));
         break;
@@ -280,7 +286,10 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
       case 'updateMusic':
       case 'deleteMusic':
       case 'addMusic':
-      case 'savePlayedPlaylist': {
+      case 'savePlayedPlaylist':
+      case 'addFavoriteMusic':
+      case 'removeFavoriteMusic':
+      {
         const body = { ...(message.body ?? {}) };
         body[message.action] = '1';
         await postResponse(source, data.messageId, "php/database/interface.php", body);

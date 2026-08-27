@@ -9,6 +9,8 @@ const state = {
   currentDuration: 0,
   currentPlayedSeconds: 0,
   likedLogged: false,
+  likedSaved: false,
+  favorite: false,
   currentTab: 'accueil',
   playerReady: false,
   searchReady: false,
@@ -126,6 +128,8 @@ function initializeControllers() {
     isValidVideoId,
     parseViewCount,
     saveLikedMusic,
+    setFavoriteMusic,
+    fetchFavoriteState,
     onTrackChanged: updateQueueDisplay,
     onOpenDescription: openDescriptionPopup,
   });
@@ -722,6 +726,44 @@ async function saveLikedMusic(track) {
     }
   } catch (error) {
     console.error('saveLikedMusic error:', error);
+  }
+}
+
+async function setFavoriteMusic(musicId, shouldFavorite) {
+  // Ajoute ou retire la musique de la table MusiquesAimees; renvoie l'etat de favori resultant.
+  const id = String(musicId || '').trim();
+  if (!id) {
+    return Boolean(shouldFavorite) === false;
+  }
+
+  try {
+    const response = await sendMessageAndWait(window, {
+      action: shouldFavorite ? 'addFavoriteMusic' : 'removeFavoriteMusic',
+      body: { IdMusique: id },
+    });
+
+    if (response && response.success) {
+      return Boolean(response.favorite);
+    }
+  } catch (error) {
+    console.error('setFavoriteMusic error:', error);
+  }
+
+  return !shouldFavorite;
+}
+
+async function fetchFavoriteState(musicId) {
+  const id = String(musicId || '').trim();
+  if (!id) {
+    return false;
+  }
+
+  try {
+    const response = await sendMessageAndWait(window, { action: 'favoriteState', query: id });
+    return Boolean(response && response.success && response.isFavorite);
+  } catch (error) {
+    console.error('fetchFavoriteState error:', error);
+    return false;
   }
 }
 

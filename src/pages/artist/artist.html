@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Artistes - YMusic</title>
+		<title>Dernières lectures - YMusic</title>
 		<link rel="stylesheet" href="../../components/colors/styles.css" />
     	<link rel="stylesheet" href="../../components/listMusic/listMusic.css" />
     	<link rel="stylesheet" href="artist.css" />
@@ -14,38 +14,24 @@
 			<section class="panel">
 				<div class="artists-head">
 					<div>
-						<h1>Artistes en base</h1>
-						<p id="artistsStatus" class="status">Chargement...</p>
+						<h1>Dernières musiques lues</h1>
+						<p id="historyStatus" class="status">Chargement...</p>
 					</div>
 				</div>
 
 				<div class="artists-table-wrap">
-					<table class="artists-table" aria-label="Liste des artistes">
+					<table class="artists-table" aria-label="Historique des lectures">
 						<thead>
 							<tr>
+								<th>Titre</th>
 								<th>Artiste</th>
-								<th>Nombre de musiques</th>
+								<th>Album</th>
+								<th>Date de lecture</th>
+								<th></th>
 							</tr>
 						</thead>
-						<tbody id="artistsBody"></tbody>
+						<tbody id="historyBody"></tbody>
 					</table>
-				</div>
-
-				<div id="artistSongsPanel" class="artist-songs-panel is-hidden">
-					<div class="artists-head">
-						<div>
-							<h2 id="songsTitle">Musiques</h2>
-							<p id="songsStatus" class="status"></p>
-						</div>
-						<div class="artists-actions">
-							<button id="playAllSongsBtn" class="play-all-btn" type="button">Lire tout</button>
-							<button id="backToArtistsBtn" class="artists-back" type="button">Retour aux artistes</button>
-						</div>
-					</div>
-					<div class="artists-table-wrap">
-						<ul id="songsList" class="artist-songs-list" aria-label="Musiques de l'artiste"></ul>
-					</div>
-					<audio id="artistPreviewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>
 				</div>
 			</section>
 		</main>
@@ -54,3 +40,4 @@
     	<script src="artist.js"></script>
 	</body>
 </html>
+

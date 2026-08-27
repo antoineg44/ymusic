@@ -4,6 +4,23 @@ const homeEmpty = document.getElementById('homeEmpty');
 const homeSearchInput = document.getElementById('homeSearchInput');
 const homeSearchButton = document.getElementById('homeSearchButton');
 const homeResetButton = document.getElementById('homeResetButton');
+const homeTitle = document.getElementById('homeTitle');
+const homeModeMusiques = document.getElementById('homeModeMusiques');
+const homeModeAuteurs = document.getElementById('homeModeAuteurs');
+const homeArtistsView = document.getElementById('homeArtistsView');
+const homeArtistsBody = document.getElementById('homeArtistsBody');
+const homeArtistsTableWrap = homeArtistsView ? homeArtistsView.querySelector('.artists-table-wrap') : null;
+const homeArtistSongsPanel = document.getElementById('homeArtistSongsPanel');
+const homeSongsTitle = document.getElementById('homeSongsTitle');
+const homeSongsStatus = document.getElementById('homeSongsStatus');
+const homeSongsList = document.getElementById('homeSongsList');
+const homePlayAllSongsBtn = document.getElementById('homePlayAllSongsBtn');
+const homeBackToArtistsBtn = document.getElementById('homeBackToArtistsBtn');
+const homeWhySection = document.querySelector('.home-why');
+
+let currentMode = 'musiques';
+let activeArtistName = '';
+let openedArtistSongs = [];
 
 function setStatus(message, isError = false) {
     homeStatus.textContent = message;
@@ -160,7 +177,232 @@ async function loadLatestMusiques() {
 
 function searchByTitle() {
     const query = homeSearchInput ? homeSearchInput.value : '';
-    void searchMusiques(query);
+    if (currentMode === 'auteurs') {
+        void loadArtists(query);
+    } else {
+        void searchMusiques(query);
+    }
+}
+
+function setSongsStatus(message, isError = false) {
+    homeSongsStatus.textContent = message;
+    homeSongsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+}
+
+function showArtistsList() {
+    if (homeArtistSongsPanel) {
+        homeArtistSongsPanel.classList.add('is-hidden');
+    }
+    if (homeArtistsTableWrap) {
+        homeArtistsTableWrap.classList.remove('is-hidden');
+    }
+    homeSongsList.innerHTML = '';
+    openedArtistSongs = [];
+    activeArtistName = '';
+}
+
+function buildArtistQueueTracks(rows) {
+    return rows
+        .map((row) => {
+            const videoId = String((row && row.Id) || '').trim();
+            if (!videoId) {
+                return null;
+            }
+
+            const artist = activeArtistName || String((row && row.Artiste) || '').trim();
+            return {
+                videoId,
+                title: String((row && row.Titre) || 'Musique inconnue').trim(),
+                artists: artist ? [artist] : [],
+                duration: Number((row && row.Duree) || 0),
+                views: Number((row && row.NombreVue) || 0),
+            };
+        })
+        .filter(Boolean);
+}
+
+function playAllArtistSongs() {
+    if (!activeArtistName) {
+        setSongsStatus('Aucun artiste ouvert.', true);
+        return;
+    }
+
+    const tracks = buildArtistQueueTracks(openedArtistSongs);
+    if (!tracks.length) {
+        setSongsStatus('Aucune musique disponible pour cet artiste.', true);
+        return;
+    }
+
+    window.parent.postMessage({ source: 'playlists', type: 'PLAYLIST_LOAD_ALL', tracks }, '*');
+    setSongsStatus(`File de lecture remplacee par ${tracks.length} musique(s) de ${activeArtistName}.`);
+}
+
+async function loadArtistSongs(artistName) {
+    const artist = String(artistName || '').trim();
+    if (!artist) {
+        return;
+    }
+
+    activeArtistName = artist;
+
+    if (homeArtistsTableWrap) {
+        homeArtistsTableWrap.classList.add('is-hidden');
+    }
+    homeArtistSongsPanel.classList.remove('is-hidden');
+    homeSongsTitle.textContent = `Musiques de ${artist}`;
+    homeSongsList.innerHTML = '';
+    openedArtistSongs = [];
+    setSongsStatus('Chargement...');
+
+    const query = {
+        table: 'Musiques',
+        select: ['Id', 'Titre', 'Album', 'Duree', 'NombreVue', 'NombreVueInterne', 'DateAjout'],
+        orderBy: 'DateAjout',
+        order: 'DESC',
+        limit: 50,
+        page: 1,
+        equals: {
+            'Artiste': artist,
+        },
+    };
+
+    try {
+        const response = await sendMessageAndWait(window.parent, { action: 'getMusiques', query });
+        const musiques = Array.isArray(response.musiques) ? response.musiques : [];
+        openedArtistSongs = musiques;
+
+        if (musiques.length === 0) {
+            homeSongsList.innerHTML = '<li>Aucune musique pour cet artiste</li>';
+            setSongsStatus('Aucune musique trouvee pour cet artiste.');
+            return;
+        }
+
+        musiques.forEach((song, index) => {
+            const preparedSong = {
+                Id: String(song.Id || ''),
+                Titre: String(song.Titre || ''),
+                Artiste: activeArtistName || String(song.Artiste || ''),
+                title: String(song.Titre || 'Musique inconnue'),
+                artists: [activeArtistName || String(song.Artiste || 'Artiste inconnu')],
+                duration: Number(song.Duree || 0),
+                views: Number(song.NombreVueInterne || 0),
+                showIndex: false,
+                buttons: {
+                    buttons: {
+                        play: {
+                            type: 'ARTIST_PLAY_SONG',
+                            result: {
+                                ...song,
+                                Artiste: activeArtistName || String(song.Artiste || ''),
+                            },
+                            className: 'song-play-button',
+                        },
+                    },
+                    source: 'artistes',
+                },
+            };
+
+            const item = renderElement(preparedSong, index);
+            homeSongsList.appendChild(item);
+        });
+
+        setSongsStatus(`${musiques.length} musique(s) chargee(s).`);
+    } catch (error) {
+        console.error(error);
+        openedArtistSongs = [];
+        setSongsStatus('Erreur pendant le chargement des musiques.', true);
+    }
+}
+
+async function loadArtists(searchValue = '') {
+    setStatus('Chargement...');
+    homeArtistsBody.innerHTML = '';
+    showArtistsList();
+
+    const normalized = String(searchValue || '').trim();
+    const query = {
+        table: 'Musiques',
+        count: 1,
+        select: ['Artiste'],
+        groupBy: 'Artiste',
+        orderBy: 'Artiste',
+        order: 'ASC',
+        page: 1,
+        limit: 200,
+    };
+
+    if (normalized) {
+        query.search = { field: 'Artiste', value: normalized };
+    }
+
+    try {
+        const response = await sendMessageAndWait(window.parent, { action: 'getMusiques', query });
+        const musiques = Array.isArray(response.musiques) ? response.musiques : [];
+
+        if (musiques.length === 0) {
+            homeArtistsBody.innerHTML = '<tr><td colspan="2">Aucun artiste en base</td></tr>';
+            setStatus(normalized ? `Aucun artiste pour "${normalized}".` : 'Aucun artiste trouve.');
+            return;
+        }
+
+        musiques.forEach((artist) => {
+            const row = document.createElement('tr');
+            row.className = 'artist-row';
+            const artistName = String(artist.Artiste || '').trim();
+            row.innerHTML = `
+                <td>${escapeHtml(artist.Artiste || '')}</td>
+                <td>${Number(artist.TotalMusiques || 0)}</td>
+            `;
+
+            row.addEventListener('click', () => {
+                void loadArtistSongs(artistName);
+            });
+            homeArtistsBody.appendChild(row);
+        });
+
+        setStatus(`${musiques.length} artiste(s)${normalized ? ` pour "${normalized}"` : ''} charge(s).`);
+    } catch (error) {
+        console.error(error);
+        setStatus('Erreur pendant le chargement des artistes.', true);
+    }
+}
+
+function setMode(mode) {
+    currentMode = mode === 'auteurs' ? 'auteurs' : 'musiques';
+    const isAuteurs = currentMode === 'auteurs';
+
+    if (homeModeMusiques) {
+        homeModeMusiques.classList.toggle('is-active', !isAuteurs);
+    }
+    if (homeModeAuteurs) {
+        homeModeAuteurs.classList.toggle('is-active', isAuteurs);
+    }
+
+    homeResults.style.display = isAuteurs ? 'none' : '';
+    homeEmpty.style.display = 'none';
+    if (homeArtistsView) {
+        homeArtistsView.classList.toggle('is-hidden', !isAuteurs);
+    }
+    if (homeWhySection) {
+        homeWhySection.style.display = isAuteurs ? 'none' : '';
+    }
+
+    if (homeSearchInput) {
+        homeSearchInput.value = '';
+        homeSearchInput.placeholder = isAuteurs
+            ? 'Rechercher un auteur dans la table Musiques'
+            : 'Rechercher un titre dans la table Musiques';
+    }
+
+    if (homeTitle) {
+        homeTitle.textContent = isAuteurs ? 'Artistes en base' : 'Dernieres musiques ajoutees';
+    }
+
+    if (isAuteurs) {
+        void loadArtists();
+    } else {
+        void loadLatestMusiques();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -182,8 +424,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (homeSearchInput) {
             homeSearchInput.value = '';
         }
-        void loadLatestMusiques();
+        if (currentMode === 'auteurs') {
+            void loadArtists();
+        } else {
+            void loadLatestMusiques();
+        }
         });
+    }
+
+    if (homeModeMusiques) {
+        homeModeMusiques.addEventListener('click', () => setMode('musiques'));
+    }
+    if (homeModeAuteurs) {
+        homeModeAuteurs.addEventListener('click', () => setMode('auteurs'));
+    }
+
+    if (homePlayAllSongsBtn) {
+        homePlayAllSongsBtn.addEventListener('click', () => playAllArtistSongs());
+    }
+    if (homeBackToArtistsBtn) {
+        homeBackToArtistsBtn.addEventListener('click', () => showArtistsList());
     }
 
     void loadLatestMusiques();

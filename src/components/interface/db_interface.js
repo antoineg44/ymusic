@@ -189,6 +189,15 @@ async function db_listener(event)
         case 'play':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?play=" + encodeURIComponent(message.query));
             break;
+        case 'favoriteState':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?favoriteState=1&id=" + encodeURIComponent(message.query));
+            break;
+        case 'likedMusics':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?likedMusics=1");
+            break;
+        case 'playedHistory':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?playedHistory=1");
+            break;
         case 'nextMusic':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?next=" + encodeURIComponent(message.query));
             break;
@@ -218,6 +227,8 @@ async function db_listener(event)
         case 'deleteMusic':
         case 'addMusic':
         case 'savePlayedPlaylist':
+        case 'addFavoriteMusic':
+        case 'removeFavoriteMusic':
         {
             const body = Object.assign({}, message.body || {});
             body[message.action] = '1';

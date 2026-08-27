@@ -8,6 +8,8 @@
       isValidVideoId,
       parseViewCount,
       saveLikedMusic,
+      setFavoriteMusic,
+      fetchFavoriteState,
       onTrackChanged,
       onOpenDescription,
     } = deps;
@@ -130,8 +132,23 @@
 
     function syncFavoriteState() {
       sendPlayerMessage('SET_FAVORITE_STATE', {
-        isFavorite: Boolean(state.likedSaved),
+        isFavorite: Boolean(state.favorite),
       });
+    }
+
+    async function refreshFavoriteState(musicId) {
+      const id = String(musicId || '').trim();
+      const isFavorite = id && typeof fetchFavoriteState === 'function'
+        ? await fetchFavoriteState(id)
+        : false;
+
+      // Ignore la reponse si la piste a change entre-temps.
+      if (resolveCurrentMusicId() !== id) {
+        return;
+      }
+
+      state.favorite = Boolean(isFavorite);
+      syncFavoriteState();
     }
 
     function updateTimeDisplay() {
@@ -144,7 +161,6 @@
           if (!state.likedSaved) {
             state.likedSaved = true;
             void saveLikedMusic(state.currentTrack);
-            syncFavoriteState();
           }
 
           void prepareNextTrackForSeamlessPlayback();
@@ -337,6 +353,7 @@
       state.currentPlayedSeconds = 0;
       state.likedLogged = false;
       state.likedSaved = false;
+      state.favorite = false;
 
       const resolveTrackSource = () => {
         const normalizedPath = String(track.path || '').trim();
@@ -364,12 +381,14 @@
         src: source,
         title: track.title,
         meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
-        isFavorite: Boolean(state.likedSaved),
+        isFavorite: Boolean(state.favorite),
         musicId: resolveCurrentMusicId(track),
         fadeInSeconds,
       });
       syncFavoriteState();
       syncNextTrackPreview();
+
+      void refreshFavoriteState(resolveCurrentMusicId(track));
 
       if (isValidVideoId(state.currentVideoId)) {
         void prepareNextTrackForSeamlessPlayback();
@@ -620,15 +639,31 @@
     }
 
     async function toggleFavorite() {
-      if (!state.currentTrack || state.likedSaved) {
+      const musicId = resolveCurrentMusicId();
+      if (!state.currentTrack || !musicId) {
         syncFavoriteState();
         return;
       }
 
-      state.likedSaved = true;
-      state.likedLogged = true;
+      const desiredFavorite = !state.favorite;
+      state.favorite = desiredFavorite;
       syncFavoriteState();
-      await saveLikedMusic(state.currentTrack);
+
+      if (typeof setFavoriteMusic !== 'function') {
+        return;
+      }
+
+      const confirmedFavorite = await setFavoriteMusic(musicId, desiredFavorite);
+
+      // Ignore la reponse si la piste a change entre-temps.
+      if (resolveCurrentMusicId() !== musicId) {
+        return;
+      }
+
+      if (confirmedFavorite !== state.favorite) {
+        state.favorite = Boolean(confirmedFavorite);
+        syncFavoriteState();
+      }
     }
 
     function handleMessage(message) {

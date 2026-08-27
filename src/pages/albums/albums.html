@@ -3,17 +3,17 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Albums - YMusic</title>
+		<title>Mes favoris - YMusic</title>
 		<link rel="stylesheet" href="../../components/colors/styles.css" />
     	<script src="../../js/config.js"></script>
 		<style>
-			.albums-page {
+			.liked-page {
 				max-width: 1100px;
 				margin: 0 auto;
 				padding: 24px;
 			}
 
-			.albums-head {
+			.liked-head {
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
@@ -21,58 +21,68 @@
 				margin-bottom: 16px;
 			}
 
-			.albums-back {
-				color: #bae6fd;
-			}
-
-			.albums-table-wrap {
+			.liked-table-wrap {
 				overflow-x: auto;
 			}
 
-			.albums-table {
+			.liked-table {
 				width: 100%;
 				border-collapse: collapse;
 			}
 
-			.albums-table th,
-			.albums-table td {
+			.liked-table th,
+			.liked-table td {
 				text-align: left;
 				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 				padding: 10px;
 			}
+
+			.liked-table tbody tr {
+				cursor: pointer;
+			}
+
+			.liked-table tbody tr:hover {
+				background: rgba(148, 163, 184, 0.12);
+			}
+
+			.play-btn {
+				cursor: pointer;
+			}
 		</style>
 	</head>
 	<body>
-		<main class="albums-page">
+		<main class="liked-page">
 			<section class="panel">
-				<div class="albums-head">
+				<div class="liked-head">
 					<div>
-						<h1>Albums en base</h1>
-						<p id="albumsStatus" class="status">Chargement...</p>
+						<h1>Mes musiques aimées</h1>
+						<p id="likedStatus" class="status">Chargement...</p>
 					</div>
 				</div>
 
-				<div class="albums-table-wrap">
-					<table class="albums-table" aria-label="Liste des albums">
+				<div class="liked-table-wrap">
+					<table class="liked-table" aria-label="Liste des musiques aimées">
 						<thead>
 							<tr>
+								<th>Titre</th>
+								<th>Artiste</th>
 								<th>Album</th>
-								<th>Nombre de musiques</th>
-								<th>Vues totales</th>
+								<th>Vues</th>
+								<th></th>
 							</tr>
 						</thead>
-						<tbody id="albumsBody"></tbody>
+						<tbody id="likedBody"></tbody>
 					</table>
 				</div>
 			</section>
 		</main>
 
 		<script>
-			const albumsBody = document.getElementById('albumsBody');
-			const albumsStatus = document.getElementById('albumsStatus');
+			const likedBody = document.getElementById('likedBody');
+			const likedStatus = document.getElementById('likedStatus');
 
 			function escapeHtml(value) {
-				return String(value)
+				return String(value ?? '')
 					.replace(/&/g, '&amp;')
 					.replace(/</g, '&lt;')
 					.replace(/>/g, '&gt;')
@@ -80,69 +90,76 @@
 			}
 
 			function setStatus(message, isError = false) {
-				albumsStatus.textContent = message;
-				albumsStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
+				likedStatus.textContent = message;
+				likedStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
 			}
 
-			async function loadAlbums() {
-				try {
-					const query = {
-						table: 'Musiques',
-						select: ['Album', 'NombreVue'],
-						orderBy: 'Album',
-						order: 'ASC',
-						limit: 5000,
-						page: 1,
-					};
+			function playMusic(row) {
+				const id = String((row && row.Id) || '').trim();
+				if (!id) {
+					setStatus('Impossible de lire cette musique (Id manquant).', true);
+					return;
+				}
 
-					const payload = await sendMessageAndWait(window.parent, { action: 'albums', query });
+				window.parent.postMessage({ source: 'liste', type: 'LIST_PLAY_SONG', song: row }, '*');
+				setStatus(`Lecture envoyée au lecteur: ${row.Titre || id}`);
+			}
+
+			function renderLikedMusics(rows) {
+				likedBody.innerHTML = '';
+
+				if (!rows.length) {
+					likedBody.innerHTML = '<tr><td colspan="5">Aucune musique aimée pour le moment.</td></tr>';
+					return;
+				}
+
+				rows.forEach((row) => {
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td>${escapeHtml(row.Titre || '')}</td>
+						<td>${escapeHtml(row.Artiste || '')}</td>
+						<td>${escapeHtml(row.Album || '')}</td>
+						<td>${Number(row.NombreVue || 0)}</td>
+						<td><button type="button" class="play-btn" aria-label="Lire">▶</button></td>
+					`;
+
+					tr.addEventListener('click', (event) => {
+						const target = event.target;
+						if (target instanceof HTMLElement && target.closest('button')) {
+							return;
+						}
+						playMusic(row);
+					});
+
+					const playButton = tr.querySelector('.play-btn');
+					playButton.addEventListener('click', () => playMusic(row));
+
+					likedBody.appendChild(tr);
+				});
+			}
+
+			async function loadLikedMusics() {
+				try {
+					const payload = await sendMessageAndWait(window.parent, { action: 'likedMusics' });
 					if (!payload || payload.success === false) {
-						throw new Error(payload.error || 'Impossible de recuperer la liste des albums');
+						throw new Error((payload && payload.error) || 'Impossible de récupérer les musiques aimées');
 					}
 
 					const musiques = Array.isArray(payload.musiques) ? payload.musiques : [];
-					const albumsMap = new Map();
-					musiques.forEach((row) => {
-						const album = String((row && row.Album) || '').trim();
-						if (!album) {
-							return;
-						}
+					renderLikedMusics(musiques);
 
-						const previous = albumsMap.get(album) || { Album: album, TotalMusiques: 0, TotalVues: 0 };
-						previous.TotalMusiques += 1;
-						previous.TotalVues += Number((row && row.NombreVue) || 0);
-						albumsMap.set(album, previous);
-					});
-
-					const albums = Array.from(albumsMap.values()).sort((left, right) => {
-						return String(left.Album).localeCompare(String(right.Album), 'fr', { sensitivity: 'base' });
-					});
-
-					albumsBody.innerHTML = '';
-					if (!albums.length) {
-						albumsBody.innerHTML = '<tr><td colspan="3">Aucun album en base</td></tr>';
-						setStatus('Aucun album trouve.');
-						return;
+					if (!musiques.length) {
+						setStatus('Aucune musique aimée pour le moment.');
+					} else {
+						setStatus(`${musiques.length} musique(s) aimée(s).`);
 					}
-
-					albums.forEach((album) => {
-						const row = document.createElement('tr');
-						row.innerHTML = `
-							<td>${escapeHtml(album.Album || '')}</td>
-							<td>${Number(album.TotalMusiques || 0)}</td>
-							<td>${Number(album.TotalVues || 0)}</td>
-						`;
-						albumsBody.appendChild(row);
-					});
-
-					setStatus(`${albums.length} album(s) charge(s).`);
 				} catch (error) {
 					console.error(error);
 					setStatus(error.message || 'Erreur de chargement.', true);
 				}
 			}
 
-			void loadAlbums();
+			void loadLikedMusics();
 		</script>
 	</body>
 </html>

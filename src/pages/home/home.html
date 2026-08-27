@@ -12,7 +12,11 @@
   <body>
     <main class="home-page">
       <div class="home-header">
-        <h2>Dernieres musiques ajoutees</h2>
+        <h2 id="homeTitle">Dernieres musiques ajoutees</h2>
+        <div class="home-mode-toggle" role="group" aria-label="Type de recherche">
+          <button id="homeModeMusiques" class="home-mode-button is-active" type="button" data-mode="musiques">Musiques</button>
+          <button id="homeModeAuteurs" class="home-mode-button" type="button" data-mode="auteurs">Auteurs</button>
+        </div>
         <div class="home-search-row">
           <input id="homeSearchInput" class="home-search-input" type="text" placeholder="Rechercher un titre dans la table Musiques" />
           <button id="homeSearchButton" class="home-search-button" type="button">Rechercher</button>
@@ -26,6 +30,36 @@
         Aucune musique en base. Vous pouvez en rechercher dans
         <a href="#" onclick="const input = document.getElementById('homeSearchInput'); const query = input ? input.value.trim() : ''; if (window.parent && typeof window.parent.setActiveTab === 'function') { window.parent.setActiveTab('recherche', query); } return false;">l'onglet "Recherche"</a>
       </p>
+
+      <div id="homeArtistsView" class="home-artists-view is-hidden">
+        <div class="artists-table-wrap">
+          <table class="artists-table" aria-label="Liste des artistes">
+            <thead>
+              <tr>
+                <th>Artiste</th>
+                <th>Nombre de musiques</th>
+              </tr>
+            </thead>
+            <tbody id="homeArtistsBody"></tbody>
+          </table>
+        </div>
+
+        <div id="homeArtistSongsPanel" class="artist-songs-panel is-hidden">
+          <div class="artists-head">
+            <div>
+              <h2 id="homeSongsTitle">Musiques</h2>
+              <p id="homeSongsStatus" class="status"></p>
+            </div>
+            <div class="artists-actions">
+              <button id="homePlayAllSongsBtn" class="play-all-btn" type="button">Lire tout</button>
+              <button id="homeBackToArtistsBtn" class="artists-back" type="button">Retour aux artistes</button>
+            </div>
+          </div>
+          <div class="artists-table-wrap">
+            <ul id="homeSongsList" class="artist-songs-list" aria-label="Musiques de l'artiste"></ul>
+          </div>
+        </div>
+      </div>
 
       <section class="home-why" aria-labelledby="why-app-heading">
         <h3 id="why-app-heading">Pourquoi cette application ?</h3>

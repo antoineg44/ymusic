@@ -391,6 +391,239 @@ function ensure_playlists_tables(PDO $pdo): void
 	);
 }
 
+function ensure_liked_musics_table(PDO $pdo): void
+{
+	// Associe les musiques aimees a un utilisateur (Utilisateurs.Id vers Musiques.Id).
+	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS MusiquesAimees (
+			IdUtilisateur INT UNSIGNED NOT NULL,
+			IdMusique VARCHAR(191) NOT NULL,
+			DateAjout DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (IdUtilisateur, IdMusique),
+			KEY idx_musiques_aimees_musique (IdMusique)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+}
+
+function add_liked_music(int $userId, string $musicId, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_liked_musics_table($db);
+
+	$musicId = trim($musicId);
+	if ($userId <= 0 || $musicId === '') {
+		throw new InvalidArgumentException('Utilisateur et musique requis');
+	}
+
+	$stmt = $db->prepare(
+		'INSERT INTO MusiquesAimees (IdUtilisateur, IdMusique, DateAjout)
+		 VALUES (:userId, :musicId, :dateAjout)
+		 ON DUPLICATE KEY UPDATE DateAjout = DateAjout'
+	);
+	$stmt->execute([
+		':userId' => $userId,
+		':musicId' => $musicId,
+		':dateAjout' => date('Y-m-d H:i:s'),
+	]);
+
+	return [
+		'IdUtilisateur' => $userId,
+		'IdMusique' => $musicId,
+	];
+}
+
+function remove_liked_music(int $userId, string $musicId, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_liked_musics_table($db);
+
+	$musicId = trim($musicId);
+	if ($userId <= 0 || $musicId === '') {
+		throw new InvalidArgumentException('Utilisateur et musique requis');
+	}
+
+	$stmt = $db->prepare(
+		'DELETE FROM MusiquesAimees WHERE IdUtilisateur = :userId AND IdMusique = :musicId'
+	);
+	$stmt->execute([
+		':userId' => $userId,
+		':musicId' => $musicId,
+	]);
+
+	return [
+		'IdUtilisateur' => $userId,
+		'IdMusique' => $musicId,
+		'removed' => $stmt->rowCount() > 0,
+	];
+}
+
+// Nombre maximum de musiques lues conservees par utilisateur.
+const DERNIERES_MUSIQUES_LUES_MAX = 100;
+
+function ensure_played_history_table(PDO $pdo): void
+{
+	// Une ligne par utilisateur: 100 paires (DateLectureN, IdMusiqueN), la position 1 etant la plus recente.
+	$columns = ['IdUtilisateur INT UNSIGNED NOT NULL'];
+	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
+		$columns[] = "DateLecture{$i} DATETIME NULL";
+		$columns[] = "IdMusique{$i} VARCHAR(191) NULL";
+	}
+	$columns[] = 'PRIMARY KEY (IdUtilisateur)';
+
+	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS DernieresMusiquesLues (\n\t\t\t"
+		. implode(",\n\t\t\t", $columns)
+		. "\n\t\t) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+}
+
+function record_played_music(int $userId, string $musicId, ?PDO $pdo = null): array
+{
+	// Ajoute la lecture courante en tete et conserve les DERNIERES_MUSIQUES_LUES_MAX plus recentes.
+	$db = $pdo ?? get_database_pdo();
+	ensure_played_history_table($db);
+
+	$musicId = trim($musicId);
+	if ($userId <= 0 || $musicId === '') {
+		throw new InvalidArgumentException('Utilisateur et musique requis');
+	}
+
+	$selectColumns = ['IdUtilisateur'];
+	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
+		$selectColumns[] = "DateLecture{$i}";
+		$selectColumns[] = "IdMusique{$i}";
+	}
+
+	$selectStmt = $db->prepare(
+		'SELECT ' . implode(', ', $selectColumns) . ' FROM DernieresMusiquesLues WHERE IdUtilisateur = :userId LIMIT 1'
+	);
+	$selectStmt->execute([':userId' => $userId]);
+	$existingRow = $selectStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+	$pairs = [];
+	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
+		$id = trim((string) ($existingRow["IdMusique{$i}"] ?? ''));
+		if ($id === '') {
+			continue;
+		}
+
+		$date = trim((string) ($existingRow["DateLecture{$i}"] ?? ''));
+		$pairs[] = ['date' => $date !== '' ? $date : null, 'id' => $id];
+	}
+
+	array_unshift($pairs, ['date' => date('Y-m-d H:i:s'), 'id' => $musicId]);
+	$pairs = array_slice($pairs, 0, DERNIERES_MUSIQUES_LUES_MAX);
+
+	$insertColumns = ['IdUtilisateur'];
+	$placeholders = [':userId'];
+	$updates = [];
+	$params = [':userId' => $userId];
+
+	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
+		$pair = $pairs[$i - 1] ?? null;
+		$dateParam = ":date{$i}";
+		$idParam = ":id{$i}";
+
+		$insertColumns[] = "DateLecture{$i}";
+		$insertColumns[] = "IdMusique{$i}";
+		$placeholders[] = $dateParam;
+		$placeholders[] = $idParam;
+		$updates[] = "DateLecture{$i} = VALUES(DateLecture{$i})";
+		$updates[] = "IdMusique{$i} = VALUES(IdMusique{$i})";
+
+		$params[$dateParam] = $pair ? ($pair['date'] ?? date('Y-m-d H:i:s')) : null;
+		$params[$idParam] = $pair['id'] ?? null;
+	}
+
+	$insertStmt = $db->prepare(
+		'INSERT INTO DernieresMusiquesLues (' . implode(', ', $insertColumns) . ')'
+		. ' VALUES (' . implode(', ', $placeholders) . ')'
+		. ' ON DUPLICATE KEY UPDATE ' . implode(', ', $updates)
+	);
+	$insertStmt->execute($params);
+
+	return [
+		'IdUtilisateur' => $userId,
+		'IdMusique' => $musicId,
+		'TotalEnregistrees' => count($pairs),
+	];
+}
+
+function get_played_history(int $userId, ?PDO $pdo = null): array
+{
+	// Retourne l'historique ordonne (plus recent d'abord) avec les details de chaque musique.
+	$db = $pdo ?? get_database_pdo();
+	ensure_played_history_table($db);
+
+	if ($userId <= 0) {
+		return [];
+	}
+
+	$selectColumns = [];
+	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
+		$selectColumns[] = "DateLecture{$i}";
+		$selectColumns[] = "IdMusique{$i}";
+	}
+
+	$stmt = $db->prepare(
+		'SELECT ' . implode(', ', $selectColumns) . ' FROM DernieresMusiquesLues WHERE IdUtilisateur = :userId LIMIT 1'
+	);
+	$stmt->execute([':userId' => $userId]);
+	$row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+	$entries = [];
+	$uniqueIds = [];
+	for ($i = 1; $i <= DERNIERES_MUSIQUES_LUES_MAX; $i++) {
+		$id = trim((string) ($row["IdMusique{$i}"] ?? ''));
+		if ($id === '') {
+			continue;
+		}
+
+		$entries[] = [
+			'Id' => $id,
+			'IdMusique' => $id,
+			'DateLecture' => (string) ($row["DateLecture{$i}"] ?? ''),
+		];
+		$uniqueIds[$id] = true;
+	}
+
+	if (empty($entries)) {
+		return [];
+	}
+
+	ensure_music_table($db);
+
+	$placeholders = [];
+	$params = [];
+	foreach (array_keys($uniqueIds) as $index => $id) {
+		$key = ":id{$index}";
+		$placeholders[] = $key;
+		$params[$key] = $id;
+	}
+
+	$detailsStmt = $db->prepare(
+		'SELECT Id, Titre, Artiste, Album, Duree, NombreVue FROM Musiques WHERE Id IN (' . implode(', ', $placeholders) . ')'
+	);
+	$detailsStmt->execute($params);
+
+	$details = [];
+	foreach ($detailsStmt->fetchAll(PDO::FETCH_ASSOC) as $music) {
+		$details[(string) $music['Id']] = $music;
+	}
+
+	foreach ($entries as &$entry) {
+		$music = $details[$entry['IdMusique']] ?? [];
+		$entry['Titre'] = (string) ($music['Titre'] ?? '');
+		$entry['Artiste'] = (string) ($music['Artiste'] ?? '');
+		$entry['Album'] = (string) ($music['Album'] ?? '');
+		$entry['Duree'] = $music['Duree'] ?? null;
+		$entry['NombreVue'] = (int) ($music['NombreVue'] ?? 0);
+	}
+	unset($entry);
+
+	return $entries;
+}
+
 function save_played_playlist(array $payload, ?PDO $pdo = null): array
 {
 	$db = $pdo ?? get_database_pdo();

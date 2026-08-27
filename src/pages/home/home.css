@@ -13,6 +13,106 @@ body {
   min-height: 100vh;
 }
 
+.artists-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.artists-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.artists-back {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: rgba(56, 189, 248, 0.2);
+    color: #7dd3fc;
+    font-weight: 700;
+}
+
+.play-all-btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: #38bdf8;
+    color: #082f49;
+    font-weight: 700;
+}
+
+.artists-table-wrap {
+    overflow-x: auto;
+}
+
+.artists-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.artists-table th,
+.artists-table td {
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 10px;
+}
+
+.artist-row {
+    cursor: pointer;
+}
+
+.artist-row:hover {
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.artist-songs-panel {
+    margin-top: 16px;
+}
+
+.artist-songs-panel.is-hidden {
+    display: none;
+}
+
+.artists-head.is-hidden,
+.artists-table-wrap.is-hidden {
+    display: none;
+}
+
+.song-play-button {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: #38bdf8;
+    color: #082f49;
+    font-weight: 700;
+}
+
+.artist-songs-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.artist-songs-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
 .home-page {
     padding: 0;
 }
@@ -57,6 +157,37 @@ body {
     color: #e2e8f0;
     font-weight: 600;
 }
+
+.home-mode-toggle {
+    margin-top: 10px;
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.home-mode-button {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 16px;
+    cursor: pointer;
+    background: transparent;
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.home-mode-button.is-active {
+    background: #38bdf8;
+    color: #082f49;
+    font-weight: 700;
+}
+
+.home-artists-view.is-hidden {
+    display: none;
+}
+
 
 .home-header h2 {
     margin: 0;

@@ -28,6 +28,7 @@ require_once __DIR__ . '/../tools/recherche.php';
 require_once __DIR__ . '/interface_Musiques.php';
 require_once __DIR__ . '/interface_Playlist.php';
 require_once __DIR__ . '/interface_MyPlaylistMusiques.php';
+require_once __DIR__ . '/interface_MusiquesAimees.php';
 
 
 header('Content-Type: application/json');
@@ -51,6 +52,8 @@ if (isset($_GET['requete'])) {
             echo json_encode(dPlaylist_get($structure), JSON_UNESCAPED_UNICODE);
         } elseif ($structure['table'] === 'MyPlaylistMusiques') {
             echo json_encode(dMyPlaylistMusiques_get($structure), JSON_UNESCAPED_UNICODE);
+        } elseif ($structure['table'] === 'MusiquesAimees') {
+            echo json_encode(dMusiqueAimee_get($structure), JSON_UNESCAPED_UNICODE);
         } else {
             echo json_encode([
                 'success' => false,
@@ -1908,6 +1911,129 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['playedHistory'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $history = get_played_history($userId);
+
+        echo json_encode([
+            'success' => true,
+            'musiques' => $history,
+            'totalRows' => count($history),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['likedMusics'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $payload = dMusiqueAimee_get([
+            'select' => ['IdMusique', 'DateAjout', 'Id', 'Titre', 'Artiste', 'Utilisateur', 'Album', 'Duree', 'AnneeParution', 'Genre', 'NombreVue', 'NombreVueInterne'],
+            'equals' => ['IdUtilisateur' => $userId],
+            'withMusicDetails' => true,
+            'orderBy' => 'DateAjout',
+            'order' => 'DESC',
+            'limit' => 5000,
+            'page' => 1,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'musiques' => $payload['musiquesAimees'] ?? [],
+            'totalRows' => $payload['totalRows'] ?? 0,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['favoriteState'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $musicId = trim((string) ($_GET['id'] ?? ''));
+        if ($musicId === '') {
+            throw new RuntimeException('IdMusique requis');
+        }
+
+        $payload = dMusiqueAimee_get([
+            'select' => ['IdMusique'],
+            'equals' => [
+                'IdUtilisateur' => $userId,
+                'IdMusique' => $musicId,
+            ],
+            'limit' => 1,
+            'page' => 1,
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'isFavorite' => !empty($payload['musiquesAimees']),
+            'IdMusique' => $musicId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['addFavoriteMusic']) || !empty($_POST['addFavoriteMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $userId = resolve_current_user_id();
+        $musicId = trim((string) ($payload['IdMusique'] ?? $payload['MusicId'] ?? ''));
+        if ($musicId === '') {
+            throw new RuntimeException('IdMusique requis');
+        }
+
+        add_liked_music($userId, $musicId);
+
+        echo json_encode([
+            'success' => true,
+            'favorite' => true,
+            'IdMusique' => $musicId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['removeFavoriteMusic']) || !empty($_POST['removeFavoriteMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $userId = resolve_current_user_id();
+        $musicId = trim((string) ($payload['IdMusique'] ?? $payload['MusicId'] ?? ''));
+        if ($musicId === '') {
+            throw new RuntimeException('IdMusique requis');
+        }
+
+        remove_liked_music($userId, $musicId);
+
+        echo json_encode([
+            'success' => true,
+            'favorite' => false,
+            'IdMusique' => $musicId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['play']) || !empty($_POST['play'])) {
     try {
         $videoId = trim((string) ($_GET['play'] ?? $_POST['play'] ?? ''));
@@ -1948,6 +2074,15 @@ if (!empty($_GET['deleteFile'])) {
             $added = add_music_to_database($payload, $pdo);
             $moved = move_downloaded_webm_for_music($payload);
 
+            $currentUserId = (int) ($_SESSION['user']['id'] ?? 0);
+            if ($currentUserId > 0) {
+                try {
+                    record_played_music($currentUserId, (string) ($added['Id'] ?? $videoId), $pdo);
+                } catch (Throwable $historyError) {
+                    error_log('record_played_music: ' . $historyError->getMessage());
+                }
+            }
+
             echo json_encode([
                 'success' => true,
                 'action' => 'created',
@@ -1964,6 +2099,15 @@ if (!empty($_GET['deleteFile'])) {
              WHERE Id = :id'
         );
         $incrementStmt->execute([':id' => $videoId]);
+
+        $currentUserId = (int) ($_SESSION['user']['id'] ?? 0);
+        if ($currentUserId > 0) {
+            try {
+                record_played_music($currentUserId, $videoId, $pdo);
+            } catch (Throwable $historyError) {
+                error_log('record_played_music: ' . $historyError->getMessage());
+            }
+        }
 
         $updatedMusic = dMusique_get([
             'select' => ['Id', 'NombreVueInterne'],
