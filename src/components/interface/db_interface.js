@@ -229,6 +229,7 @@ async function db_listener(event)
         case 'savePlayedPlaylist':
         case 'addFavoriteMusic':
         case 'removeFavoriteMusic':
+        case 'recordPlayedMusic':
         {
             const body = Object.assign({}, message.body || {});
             body[message.action] = '1';

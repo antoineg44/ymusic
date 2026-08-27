@@ -377,18 +377,27 @@
       };
 
       const source = resolveTrackSource();
+      const currentMusicId = resolveCurrentMusicId(track);
       sendPlayerMessage('LOAD_TRACK', {
         src: source,
         title: track.title,
         meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
         isFavorite: Boolean(state.favorite),
-        musicId: resolveCurrentMusicId(track),
+        musicId: currentMusicId,
         fadeInSeconds,
       });
       syncFavoriteState();
       syncNextTrackPreview();
 
-      void refreshFavoriteState(resolveCurrentMusicId(track));
+      void refreshFavoriteState(currentMusicId);
+
+      // Historise la lecture des le lancement du morceau.
+      if (currentMusicId) {
+        void sendMessageAndWait(window, {
+          action: 'recordPlayedMusic',
+          body: { IdMusique: currentMusicId },
+        }).catch((error) => console.debug('recordPlayedMusic failed:', error));
+      }
 
       if (isValidVideoId(state.currentVideoId)) {
         void prepareNextTrackForSeamlessPlayback();

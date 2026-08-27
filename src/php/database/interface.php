@@ -1911,6 +1911,29 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['recordPlayedMusic']) || !empty($_POST['recordPlayedMusic'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $userId = resolve_current_user_id();
+        $musicId = trim((string) ($payload['IdMusique'] ?? $payload['MusicId'] ?? ''));
+        if ($musicId === '') {
+            throw new RuntimeException('IdMusique requis');
+        }
+
+        record_played_music($userId, $musicId);
+
+        echo json_encode([
+            'success' => true,
+            'IdMusique' => $musicId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['playedHistory'])) {
 
     try {
@@ -2074,15 +2097,6 @@ if (!empty($_GET['deleteFile'])) {
             $added = add_music_to_database($payload, $pdo);
             $moved = move_downloaded_webm_for_music($payload);
 
-            $currentUserId = (int) ($_SESSION['user']['id'] ?? 0);
-            if ($currentUserId > 0) {
-                try {
-                    record_played_music($currentUserId, (string) ($added['Id'] ?? $videoId), $pdo);
-                } catch (Throwable $historyError) {
-                    error_log('record_played_music: ' . $historyError->getMessage());
-                }
-            }
-
             echo json_encode([
                 'success' => true,
                 'action' => 'created',
@@ -2099,15 +2113,6 @@ if (!empty($_GET['deleteFile'])) {
              WHERE Id = :id'
         );
         $incrementStmt->execute([':id' => $videoId]);
-
-        $currentUserId = (int) ($_SESSION['user']['id'] ?? 0);
-        if ($currentUserId > 0) {
-            try {
-                record_played_music($currentUserId, $videoId, $pdo);
-            } catch (Throwable $historyError) {
-                error_log('record_played_music: ' . $historyError->getMessage());
-            }
-        }
 
         $updatedMusic = dMusique_get([
             'select' => ['Id', 'NombreVueInterne'],
