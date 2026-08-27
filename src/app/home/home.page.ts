@@ -356,9 +356,36 @@ async function handleOfflineAction(source: EventSource, messageId: string | unde
       }
 
       case 'playlistSongs': {
-        const id = String(message.query || '').trim();
+        // La requete peut etre un objet structure (equals.IdPlaylist) ou un simple id.
+        const q: any = message.query;
+        let playlistId = '';
+        let orderBy = '';
+        let order = 'ASC';
+        if (q && typeof q === 'object') {
+          playlistId = String((q.equals && (q.equals.IdPlaylist ?? q.equals.PlaylistId)) ?? '').trim();
+          orderBy = String(q.orderBy || '');
+          order = String(q.order || 'ASC');
+        } else {
+          playlistId = String(q || '').trim();
+        }
+
         const rows = await readAllFromStore(db, 'MyPlaylistMusiques');
-        reply({ success: true, songs: rows.filter((row) => String(row.IdPlaylist ?? '') === id) });
+        let filtered = rows.filter((row) => String(row.IdPlaylist ?? '') === playlistId);
+
+        if (orderBy) {
+          const direction = String(order).toUpperCase() === 'DESC' ? -1 : 1;
+          filtered = filtered.slice().sort((a, b) => {
+            const av = a[orderBy];
+            const bv = b[orderBy];
+            if (av == null && bv == null) return 0;
+            if (av == null) return -direction;
+            if (bv == null) return direction;
+            if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * direction;
+            return String(av).localeCompare(String(bv), 'fr', { sensitivity: 'base' }) * direction;
+          });
+        }
+
+        reply({ success: true, myPlaylistMusiques: filtered, songs: filtered });
         break;
       }
 
