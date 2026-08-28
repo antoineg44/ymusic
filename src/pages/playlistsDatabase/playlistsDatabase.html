@@ -744,7 +744,11 @@
 						NombreVue: Number((row && row.NombreVue) || 0),
 						Utilisateur: Number((row && row.Utilisateur) || 0),
 					}));
-					const sharedPlaylists = playlists.filter((playlist) => Number((playlist && playlist.Partage) || 0) === 1);
+					const sharedPlaylists = playlists.filter((playlist) => {
+						const isShared = Number((playlist && playlist.Partage) || 0) === 1;
+						const isOwnedByCurrentUser = currentUserId && Number((playlist && playlist.Utilisateur) || 0) === currentUserId;
+						return isShared && !isOwnedByCurrentUser;
+					});
 					renderPlaylists(sharedPlaylists);
 					showPlaylistsView();
 					setStatus(`${sharedPlaylists.length} playlist(s) partagee(s) chargee(s).`);

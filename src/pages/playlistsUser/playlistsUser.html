@@ -83,6 +83,10 @@
 				background: rgba(56, 189, 248, 0.1);
 			}
 
+			.playlist-row.is-shared td {
+				color: #86efac;
+			}
+
 			.playlist-user-link {
 				color: #7dd3fc;
 				text-decoration: none;
@@ -394,8 +398,9 @@
 
 				playlists.forEach((playlist) => {
 					const id = Number(playlist.PlaylistId || 0);
+					const isShared = Number(playlist.Partage || 0) === 1;
 					const tr = document.createElement('tr');
-					tr.className = `playlist-row ${activePlaylistId === id ? 'is-active' : ''}`;
+					tr.className = `playlist-row ${activePlaylistId === id ? 'is-active' : ''} ${isShared ? 'is-shared' : ''}`;
 					tr.dataset.id = String(id);
 					tr.innerHTML = `
 						<td>${id || '-'}</td>
