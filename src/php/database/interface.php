@@ -2219,6 +2219,71 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['likedPlaylists'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $playlistIds = get_liked_playlist_ids($userId);
+
+        echo json_encode([
+            'success' => true,
+            'playlistIds' => $playlistIds,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['addLikedPlaylist']) || !empty($_POST['addLikedPlaylist'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $userId = resolve_current_user_id();
+        $playlistId = (int) ($payload['IdPlaylist'] ?? $payload['PlaylistId'] ?? 0);
+        if ($playlistId <= 0) {
+            throw new RuntimeException('IdPlaylist requis');
+        }
+
+        add_liked_playlist($userId, $playlistId);
+
+        echo json_encode([
+            'success' => true,
+            'liked' => true,
+            'IdPlaylist' => $playlistId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_GET['removeLikedPlaylist']) || !empty($_POST['removeLikedPlaylist'])) {
+
+    try {
+        $payload = array_merge($_GET, $_POST);
+        $userId = resolve_current_user_id();
+        $playlistId = (int) ($payload['IdPlaylist'] ?? $payload['PlaylistId'] ?? 0);
+        if ($playlistId <= 0) {
+            throw new RuntimeException('IdPlaylist requis');
+        }
+
+        remove_liked_playlist($userId, $playlistId);
+
+        echo json_encode([
+            'success' => true,
+            'liked' => false,
+            'IdPlaylist' => $playlistId,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['play']) || !empty($_POST['play'])) {
     try {
         $videoId = trim((string) ($_GET['play'] ?? $_POST['play'] ?? ''));

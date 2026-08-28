@@ -493,6 +493,87 @@ function remove_liked_music(int $userId, string $musicId, ?PDO $pdo = null): arr
 	];
 }
 
+function ensure_liked_playlists_table(PDO $pdo): void
+{
+	// Associe les playlists aimees a un utilisateur (Utilisateurs.Id vers Playlist.idPlaylist).
+	$pdo->exec(
+		"CREATE TABLE IF NOT EXISTS PlaylistsAimees (
+			IdUtilisateur INT UNSIGNED NOT NULL,
+			IdPlaylist INT UNSIGNED NOT NULL,
+			DateAjout DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (IdUtilisateur, IdPlaylist),
+			KEY idx_playlists_aimees_playlist (IdPlaylist)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	);
+}
+
+function add_liked_playlist(int $userId, int $playlistId, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_liked_playlists_table($db);
+
+	if ($userId <= 0 || $playlistId <= 0) {
+		throw new InvalidArgumentException('Utilisateur et playlist requis');
+	}
+
+	$stmt = $db->prepare(
+		'INSERT INTO PlaylistsAimees (IdUtilisateur, IdPlaylist, DateAjout)
+		 VALUES (:userId, :playlistId, :dateAjout)
+		 ON DUPLICATE KEY UPDATE DateAjout = DateAjout'
+	);
+	$stmt->execute([
+		':userId' => $userId,
+		':playlistId' => $playlistId,
+		':dateAjout' => date('Y-m-d H:i:s'),
+	]);
+
+	return [
+		'IdUtilisateur' => $userId,
+		'IdPlaylist' => $playlistId,
+	];
+}
+
+function remove_liked_playlist(int $userId, int $playlistId, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_liked_playlists_table($db);
+
+	if ($userId <= 0 || $playlistId <= 0) {
+		throw new InvalidArgumentException('Utilisateur et playlist requis');
+	}
+
+	$stmt = $db->prepare(
+		'DELETE FROM PlaylistsAimees WHERE IdUtilisateur = :userId AND IdPlaylist = :playlistId'
+	);
+	$stmt->execute([
+		':userId' => $userId,
+		':playlistId' => $playlistId,
+	]);
+
+	return [
+		'IdUtilisateur' => $userId,
+		'IdPlaylist' => $playlistId,
+		'removed' => $stmt->rowCount() > 0,
+	];
+}
+
+function get_liked_playlist_ids(int $userId, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_liked_playlists_table($db);
+
+	if ($userId <= 0) {
+		return [];
+	}
+
+	$stmt = $db->prepare(
+		'SELECT IdPlaylist FROM PlaylistsAimees WHERE IdUtilisateur = :userId ORDER BY DateAjout DESC'
+	);
+	$stmt->execute([':userId' => $userId]);
+
+	return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
 // Nombre maximum de musiques lues conservees par utilisateur.
 const DERNIERES_MUSIQUES_LUES_MAX = 100;
 

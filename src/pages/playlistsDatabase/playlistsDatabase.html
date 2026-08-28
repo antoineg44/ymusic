@@ -103,6 +103,24 @@
 				font-weight: 700;
 			}
 
+			.like-btn {
+				border: 0;
+				background: transparent;
+				cursor: pointer;
+				font-size: 1.25rem;
+				line-height: 1;
+				padding: 4px 6px;
+				color: #94a3b8;
+			}
+
+			.like-btn.is-liked {
+				color: #ec4899;
+			}
+
+			.like-cell {
+				text-align: center;
+			}
+
 			.status {
 				margin: 0;
 				color: #7dd3fc;
@@ -247,6 +265,7 @@
 									<th>Date derniere modification</th>
 									<th>Vues</th>
 									<th>Utilisateur</th>
+									<th>Aimer</th>
 								</tr>
 							</thead>
 							<tbody id="playlistsBody"></tbody>
@@ -296,6 +315,8 @@
 			let openedPlaylistSongs = [];
 			let currentSortField = 'PositionLecture';
 			let currentSortDirection = 'ASC';
+			let currentUserId = 0;
+			let likedPlaylistIds = new Set();
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -356,7 +377,7 @@
 				playlistsBody.innerHTML = '';
 
 				if (!playlists.length) {
-					playlistsBody.innerHTML = '<tr><td colspan="6">Aucune playlist en base.</td></tr>';
+					playlistsBody.innerHTML = '<tr><td colspan="7">Aucune playlist en base.</td></tr>';
 					return;
 				}
 
@@ -372,11 +393,26 @@
 						<td>${escapeHtml(formatDate(playlist.DateDerniereModification))}</td>
 						<td>${Number(playlist.NombreVue || 0)}</td>
 						<td>${renderUserLink(playlist)}</td>
+						<td class="like-cell"></td>
 					`;
+
+					const likeCell = tr.querySelector('.like-cell');
+					const ownerId = Number(playlist.Utilisateur || 0);
+					if (likeCell && id && (!currentUserId || ownerId !== currentUserId)) {
+						const likeButton = document.createElement('button');
+						likeButton.type = 'button';
+						likeButton.className = 'like-btn';
+						updateLikeButton(likeButton, id);
+						likeButton.addEventListener('click', (event) => {
+							event.stopPropagation();
+							void toggleLikePlaylist(id, likeButton);
+						});
+						likeCell.appendChild(likeButton);
+					}
 
 					tr.addEventListener('click', (event) => {
 						const target = event.target;
-						if (target instanceof HTMLElement && target.closest('a')) {
+						if (target instanceof HTMLElement && target.closest('a, button')) {
 							return;
 						}
 
@@ -392,6 +428,51 @@
 
 					playlistsBody.appendChild(tr);
 				});
+			}
+
+			function updateLikeButton(button, playlistId) {
+				const liked = likedPlaylistIds.has(Number(playlistId));
+				button.classList.toggle('is-liked', liked);
+				button.textContent = liked ? '♥' : '♡';
+				button.title = liked ? 'Retirer des playlists aimées' : 'Aimer cette playlist';
+				button.setAttribute('aria-label', button.title);
+			}
+
+			async function toggleLikePlaylist(playlistId, button) {
+				const id = Number(playlistId) || 0;
+				if (!id) {
+					return;
+				}
+
+				const wasLiked = likedPlaylistIds.has(id);
+				const action = wasLiked ? 'removeLikedPlaylist' : 'addLikedPlaylist';
+
+				if (wasLiked) {
+					likedPlaylistIds.delete(id);
+				} else {
+					likedPlaylistIds.add(id);
+				}
+				updateLikeButton(button, id);
+
+				try {
+					const payload = await sendMessageAndWait(window.parent, {
+						action,
+						body: { IdPlaylist: String(id) },
+					});
+					if (!payload || payload.success === false) {
+						throw new Error((payload && payload.error) || 'Action impossible.');
+					}
+					setStatus(wasLiked ? 'Playlist retiree de vos favoris.' : 'Playlist ajoutee a vos favoris.');
+				} catch (error) {
+					if (wasLiked) {
+						likedPlaylistIds.add(id);
+					} else {
+						likedPlaylistIds.delete(id);
+					}
+					updateLikeButton(button, id);
+					console.error(error);
+					setStatus(error.message || 'Impossible de mettre a jour le favori.', true);
+				}
 			}
 
 			function renderSongs(rows) {
@@ -615,8 +696,32 @@
 				}
 			}
 
+			async function loadCurrentUserId() {
+				try {
+					const payload = await sendMessageAndWait(window.parent, { action: 'currentUser' });
+					if (payload && payload.success !== false) {
+						currentUserId = Number(payload.id || 0);
+					}
+				} catch (error) {
+					console.debug('currentUser error:', error);
+				}
+			}
+
+			async function loadLikedPlaylistIds() {
+				try {
+					const payload = await sendMessageAndWait(window.parent, { action: 'likedPlaylists' });
+					if (payload && payload.success !== false && Array.isArray(payload.playlistIds)) {
+						likedPlaylistIds = new Set(payload.playlistIds.map((value) => Number(value)));
+					}
+				} catch (error) {
+					console.debug('likedPlaylists error:', error);
+				}
+			}
+
 			async function loadPlaylists() {
 				try {
+					await Promise.all([loadCurrentUserId(), loadLikedPlaylistIds()]);
+
 					const query = {
 						table: 'Playlist',
 						select: ['idPlaylist', 'NomPlaylist', 'Description', 'DateDerniereModification', 'Partage', 'NombreVue', 'Utilisateur'],
