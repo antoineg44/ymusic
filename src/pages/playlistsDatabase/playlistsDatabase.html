@@ -63,6 +63,15 @@
 				font-weight: 600;
 			}
 
+			.playlists-table th.sortable {
+				cursor: pointer;
+				user-select: none;
+			}
+
+			.playlists-table th.sortable.is-active {
+				color: #7dd3fc;
+			}
+
 			.playlist-row.is-active {
 				background: rgba(56, 189, 248, 0.1);
 			}
@@ -259,11 +268,11 @@
 						<table class="playlists-table" aria-label="Playlists de la communauté">
 							<thead>
 								<tr>
-									<th>ID</th>
-									<th>Nom</th>
-									<th>Description</th>
-									<th>Date derniere modification</th>
-									<th>Vues</th>
+									<th class="sortable" data-sort="PlaylistId">ID</th>
+									<th class="sortable" data-sort="NomPlaylist">Nom</th>
+									<th class="sortable" data-sort="Description">Description</th>
+									<th class="sortable" data-sort="DateDerniereModification">Date derniere modification</th>
+									<th class="sortable" data-sort="NombreVue">Vues</th>
 									<th>Aimer</th>
 								</tr>
 							</thead>
@@ -316,6 +325,12 @@
 			let currentSortDirection = 'ASC';
 			let currentUserId = 0;
 			let likedPlaylistIds = new Set();
+			let loadedPlaylists = [];
+			let playlistSortBy = '';
+			let playlistSortDir = 'asc';
+			const playlistSortableHeaders = Array.from(document.querySelectorAll('.playlists-table th.sortable'));
+			const NUMERIC_PLAYLIST_FIELDS = new Set(['PlaylistId', 'NombreVue']);
+			const DATE_PLAYLIST_FIELDS = new Set(['DateDerniereModification']);
 
 			function postToParent(type, payload = {}) {
 				window.parent.postMessage({ source: 'liste', type, ...payload }, '*');
@@ -471,6 +486,41 @@
 					console.error(error);
 					setStatus(error.message || 'Impossible de mettre a jour le favori.', true);
 				}
+			}
+
+			function sortLoadedPlaylists() {
+				if (!playlistSortBy) {
+					return loadedPlaylists.slice();
+				}
+
+				const dir = playlistSortDir === 'desc' ? -1 : 1;
+				const field = playlistSortBy;
+
+				return loadedPlaylists.slice().sort((a, b) => {
+					if (NUMERIC_PLAYLIST_FIELDS.has(field)) {
+						return (Number(a[field]) - Number(b[field])) * dir;
+					}
+					if (DATE_PLAYLIST_FIELDS.has(field)) {
+						const ta = Date.parse(String(a[field]).replace(' ', 'T')) || 0;
+						const tb = Date.parse(String(b[field]).replace(' ', 'T')) || 0;
+						return (ta - tb) * dir;
+					}
+					return String(a[field]).localeCompare(String(b[field]), 'fr', { sensitivity: 'base' }) * dir;
+				});
+			}
+
+			function updatePlaylistSortIndicators() {
+				playlistSortableHeaders.forEach((header) => {
+					const isActive = header.dataset.sort === playlistSortBy;
+					header.classList.toggle('is-active', isActive);
+					const label = header.dataset.label || header.textContent;
+					header.textContent = isActive ? `${label} ${playlistSortDir === 'asc' ? '▲' : '▼'}` : label;
+				});
+			}
+
+			function renderSortedPlaylists() {
+				renderPlaylists(sortLoadedPlaylists());
+				updatePlaylistSortIndicators();
 			}
 
 			function renderSongs(rows) {
@@ -749,7 +799,8 @@
 						const isOwnedByCurrentUser = currentUserId && Number((playlist && playlist.Utilisateur) || 0) === currentUserId;
 						return isShared && !isOwnedByCurrentUser;
 					});
-					renderPlaylists(sharedPlaylists);
+					loadedPlaylists = sharedPlaylists;
+					renderSortedPlaylists();
 					showPlaylistsView();
 					setStatus(`${sharedPlaylists.length} playlist(s) partagee(s) chargee(s).`);
 				} catch (error) {
@@ -791,6 +842,22 @@
 						void loadPlaylistSongs(activePlaylistId, openedPlaylistName, field, currentSortDirection);
 					});
 				}
+				playlistSortableHeaders.forEach((header) => {
+					header.dataset.label = header.textContent;
+					header.addEventListener('click', () => {
+						const sortBy = String(header.dataset.sort || '').trim();
+						if (!sortBy) {
+							return;
+						}
+						if (sortBy === playlistSortBy) {
+							playlistSortDir = playlistSortDir === 'asc' ? 'desc' : 'asc';
+						} else {
+							playlistSortBy = sortBy;
+							playlistSortDir = 'asc';
+						}
+						renderSortedPlaylists();
+					});
+				});
 				showPlaylistsView();
 				void loadPlaylists();
 				initEvent();
