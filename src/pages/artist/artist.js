@@ -1,4 +1,4 @@
-const historyBody = document.getElementById('historyBody');
+const historyResults = document.getElementById('historyResults');
 const historyStatus = document.getElementById('historyStatus');
 
 function setStatus(message, isError = false) {
@@ -26,48 +26,64 @@ function formatPlayedDate(value) {
     });
 }
 
-function playMusic(row) {
-    const id = String((row && row.Id) || '').trim();
-    if (!id) {
-        setStatus('Impossible de lire cette musique (Id manquant).', true);
-        return;
+function toDisplayDuration(rawDuration) {
+    if (typeof rawDuration === 'number' && Number.isFinite(rawDuration)) {
+        const safeSeconds = Math.max(0, Math.floor(rawDuration));
+        const minutes = Math.floor(safeSeconds / 60);
+        const seconds = safeSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
 
-    window.parent.postMessage({ source: 'liste', type: 'LIST_PLAY_SONG', song: row }, '*');
-    setStatus(`Lecture envoyée au lecteur: ${row.Titre || id}`);
+    const asText = String(rawDuration || '').trim();
+    return asText || '00:00';
+}
+
+function normalizeMusicRow(row) {
+    const id = String((row && (row.Id || row.IdMusique)) || '').trim();
+    const title = String((row && row.Titre) || '').trim();
+    const artist = String((row && row.Artiste) || '').trim();
+
+    return {
+        Id: id,
+        title,
+        artists: artist ? [artist] : [],
+        duration: toDisplayDuration(row && row.Duree),
+        views: Number(row && row.NombreVue) || 0,
+        showIndex: true,
+        buttons: {
+            source: 'liste',
+            buttons: {
+                play: {
+                    type: 'LIST_PLAY_SONG',
+                    payload: {
+                        song: {
+                            Id: id,
+                            Titre: title,
+                            Artiste: artist,
+                        },
+                    },
+                },
+            },
+        },
+    };
 }
 
 function renderHistory(rows) {
-    historyBody.innerHTML = '';
+    historyResults.innerHTML = '';
 
-    if (!rows.length) {
-        historyBody.innerHTML = '<tr><td colspan="5">Aucune musique lue pour le moment.</td></tr>';
-        return;
-    }
+    rows.forEach((row, index) => {
+        const preparedSong = normalizeMusicRow(row);
+        const item = renderElement(preparedSong, index);
 
-    rows.forEach((row) => {
-        const tr = document.createElement('tr');
-        tr.className = 'artist-row';
-        tr.innerHTML = `
-            <td>${escapeHtml(row.Titre || row.IdMusique || '')}</td>
-            <td>${escapeHtml(row.Artiste || '')}</td>
-            <td>${escapeHtml(row.Album || '')}</td>
-            <td>${escapeHtml(formatPlayedDate(row.DateLecture))}</td>
-            <td><button type="button" class="song-play-button" aria-label="Lire">▶</button></td>
-        `;
+        const trackInfo = item.querySelector('.track-info');
+        if (trackInfo) {
+            const dateLine = document.createElement('small');
+            dateLine.className = 'history-played-date';
+            dateLine.textContent = `Écouté le ${formatPlayedDate(row.DateLecture)}`;
+            trackInfo.appendChild(dateLine);
+        }
 
-        tr.addEventListener('click', (event) => {
-            const target = event.target;
-            if (target instanceof HTMLElement && target.closest('button')) {
-                return;
-            }
-            playMusic(row);
-        });
-
-        const playButton = tr.querySelector('.song-play-button');
-        playButton.addEventListener('click', () => playMusic(row));
-
-        historyBody.appendChild(tr);
+        historyResults.appendChild(item);
     });
 }
 

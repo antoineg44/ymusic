@@ -4,7 +4,8 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Mes favoris - YMusic</title>
-		<link rel="stylesheet" href="../../components/colors/styles.css" />
+		<link rel="stylesheet" href="../../components/colors/colors.css" />
+		<link rel="stylesheet" href="../../components/listMusic/listMusic.css" />
     	<script src="../../js/config.js"></script>
 		<style>
 			.liked-page {
@@ -21,31 +22,83 @@
 				margin-bottom: 16px;
 			}
 
-			.liked-table-wrap {
-				overflow-x: auto;
+			.liked-head h1 {
+				margin: 0;
 			}
 
-			.liked-table {
-				width: 100%;
-				border-collapse: collapse;
+			.status {
+				margin: 6px 0 0;
+				min-height: 1.2em;
+				color: #7dd3fc;
 			}
 
-			.liked-table th,
-			.liked-table td {
-				text-align: left;
-				border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-				padding: 10px;
+			.home-results {
+				list-style: none;
+				margin: 12px 0 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
 			}
 
-			.liked-table tbody tr {
+			.home-results li {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 10px;
+				background: rgba(30, 41, 59, 0.7);
+				border: 1px solid rgba(148, 163, 184, 0.15);
+				border-radius: 12px;
+				padding: 10px 12px;
 				cursor: pointer;
 			}
 
-			.liked-table tbody tr:hover {
-				background: rgba(148, 163, 184, 0.12);
+			.home-results .queue-item-index {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 32px;
+				min-width: 32px;
+				height: 32px;
+				background: rgba(56, 189, 248, 0.2);
+				border-radius: 50%;
+				color: #38bdf8;
+				font-weight: 700;
+				font-size: 0.9rem;
 			}
 
-			.play-btn {
+			.home-results .track-info {
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-width: 0;
+			}
+
+			.home-results .track-info strong,
+			.home-results .track-info small {
+				display: block;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.home-results .track-info small {
+				color: #94a3b8;
+			}
+
+			.home-results .actions {
+				display: flex;
+				align-items: center;
+				justify-content: flex-end;
+				gap: 8px;
+				min-width: 40px;
+			}
+
+			.home-results .actions button {
+				width: 28px;
+				height: 28px;
+				border-radius: 50%;
+				border: 0;
 				cursor: pointer;
 			}
 		</style>
@@ -60,81 +113,69 @@
 					</div>
 				</div>
 
-				<div class="liked-table-wrap">
-					<table class="liked-table" aria-label="Liste des musiques aimées">
-						<thead>
-							<tr>
-								<th>Titre</th>
-								<th>Artiste</th>
-								<th>Album</th>
-								<th>Vues</th>
-								<th></th>
-							</tr>
-						</thead>
-						<tbody id="likedBody"></tbody>
-					</table>
-				</div>
+				<ul id="likedResults" class="home-results" aria-label="Liste des musiques aimées"></ul>
 			</section>
 		</main>
 
+		<script src="../../components/listMusic/listMusic.js"></script>
 		<script>
-			const likedBody = document.getElementById('likedBody');
+			const likedResults = document.getElementById('likedResults');
 			const likedStatus = document.getElementById('likedStatus');
-
-			function escapeHtml(value) {
-				return String(value ?? '')
-					.replace(/&/g, '&amp;')
-					.replace(/</g, '&lt;')
-					.replace(/>/g, '&gt;')
-					.replace(/\"/g, '&quot;');
-			}
 
 			function setStatus(message, isError = false) {
 				likedStatus.textContent = message;
 				likedStatus.style.color = isError ? '#fca5a5' : '#7dd3fc';
 			}
 
-			function playMusic(row) {
-				const id = String((row && row.Id) || '').trim();
-				if (!id) {
-					setStatus('Impossible de lire cette musique (Id manquant).', true);
-					return;
+			function toDisplayDuration(rawDuration) {
+				if (typeof rawDuration === 'number' && Number.isFinite(rawDuration)) {
+					const safeSeconds = Math.max(0, Math.floor(rawDuration));
+					const minutes = Math.floor(safeSeconds / 60);
+					const seconds = safeSeconds % 60;
+					return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 				}
 
-				window.parent.postMessage({ source: 'liste', type: 'LIST_PLAY_SONG', song: row }, '*');
-				setStatus(`Lecture envoyée au lecteur: ${row.Titre || id}`);
+				const asText = String(rawDuration || '').trim();
+				return asText || '00:00';
+			}
+
+			function normalizeMusicRow(row) {
+				const id = String((row && row.Id) || '').trim();
+				const title = String((row && row.Titre) || '').trim();
+				const artist = String((row && row.Artiste) || '').trim();
+
+				return {
+					Id: id,
+					title,
+					artists: artist ? [artist] : [],
+					duration: toDisplayDuration(row && row.Duree),
+					views: Number(row && row.NombreVue) || 0,
+					showIndex: true,
+					buttons: {
+						source: 'liste',
+						buttons: {
+							play: {
+								type: 'LIST_PLAY_SONG',
+								payload: {
+									song: {
+										Id: id,
+										Titre: title,
+										Artiste: artist,
+									},
+								},
+							},
+						},
+					},
+				};
 			}
 
 			function renderLikedMusics(rows) {
-				likedBody.innerHTML = '';
+				likedResults.innerHTML = '';
 
-				if (!rows.length) {
-					likedBody.innerHTML = '<tr><td colspan="5">Aucune musique aimée pour le moment.</td></tr>';
-					return;
-				}
-
-				rows.forEach((row) => {
-					const tr = document.createElement('tr');
-					tr.innerHTML = `
-						<td>${escapeHtml(row.Titre || '')}</td>
-						<td>${escapeHtml(row.Artiste || '')}</td>
-						<td>${escapeHtml(row.Album || '')}</td>
-						<td>${Number(row.NombreVue || 0)}</td>
-						<td><button type="button" class="play-btn" aria-label="Lire">▶</button></td>
-					`;
-
-					tr.addEventListener('click', (event) => {
-						const target = event.target;
-						if (target instanceof HTMLElement && target.closest('button')) {
-							return;
-						}
-						playMusic(row);
-					});
-
-					const playButton = tr.querySelector('.play-btn');
-					playButton.addEventListener('click', () => playMusic(row));
-
-					likedBody.appendChild(tr);
+				rows.forEach((row, index) => {
+					const preparedSong = normalizeMusicRow(row);
+					const item = renderElement(preparedSong, index);
+					likedResults.appendChild(item);
 				});
 			}
 

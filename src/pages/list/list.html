@@ -17,6 +17,12 @@
 					</div>
 				</div>
 
+				<div class="pagination" aria-label="Pagination des musiques">
+					<button type="button" id="pagePrev" title="Afficher les 50 resultats precedents">50 precedents</button>
+					<span id="pageInfo">Resultats 0 - 0 / 0</span>
+					<button type="button" id="pageNext" title="Afficher les 50 resultats suivants">50 suivants</button>
+				</div>
+
 				<div class="musiques-table-wrap">
 					<table class="musiques-table" aria-label="Liste complete des musiques">
 						<thead>
@@ -37,12 +43,6 @@
 						</thead>
 						<tbody id="musiquesBody"></tbody>
 					</table>
-				</div>
-
-				<div class="pagination" aria-label="Pagination des musiques">
-					<button type="button" id="pagePrev" title="Afficher les 50 resultats precedents">50 precedents</button>
-					<span id="pageInfo">Resultats 0 - 0 / 0</span>
-					<button type="button" id="pageNext" title="Afficher les 50 resultats suivants">50 suivants</button>
 				</div>
 
 				<audio id="previewAudio" preload="none" style="width: 100%; margin-top: 14px;"></audio>

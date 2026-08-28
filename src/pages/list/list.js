@@ -157,7 +157,7 @@ async function loadMusiques() {
     sendMessageAndWait(window.parent, {action: 'getMusiques', query: query}).then(response => {
 
         currentSortBy = String(response.sortBy || currentSortBy);
-        currentSortDir = String(response.sortDir || currentSortDir).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+        currentSortDir = String(response.sortDir || currentSortDir).toUpperCase() === 'ASC' ? 'asc' : 'desc';
         currentPage = Math.max(1, Number(response.page || currentPage));
         totalPages = Math.max(1, Number(response.totalPages || 1));
         totalRows = Math.max(0, Number(response.totalRows || 0));
