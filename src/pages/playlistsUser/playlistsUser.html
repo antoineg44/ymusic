@@ -275,7 +275,6 @@
 									<th>Description</th>
 									<th>Date derniere modification</th>
 									<th>Vues</th>
-									<th>Utilisateur</th>
 								</tr>
 							</thead>
 							<tbody id="playlistsBody"></tbody>
@@ -389,7 +388,7 @@
 				playlistsBody.innerHTML = '';
 
 				if (!playlists.length) {
-					playlistsBody.innerHTML = '<tr><td colspan="6">Aucune playlist personnelle creee.</td></tr>';
+					playlistsBody.innerHTML = '<tr><td colspan="5">Aucune playlist personnelle creee.</td></tr>';
 					return;
 				}
 
@@ -404,7 +403,6 @@
 						<td>${escapeHtml(playlist.Description || '')}</td>
 						<td>${escapeHtml(formatDate(playlist.DateDerniereModification))}</td>
 						<td>${Number(playlist.NombreVue || 0)}</td>
-						<td>${renderUserLink(playlist)}</td>
 					`;
 
 					tr.addEventListener('click', (event) => {

@@ -264,7 +264,6 @@
 									<th>Description</th>
 									<th>Date derniere modification</th>
 									<th>Vues</th>
-									<th>Utilisateur</th>
 									<th>Aimer</th>
 								</tr>
 							</thead>
@@ -377,7 +376,7 @@
 				playlistsBody.innerHTML = '';
 
 				if (!playlists.length) {
-					playlistsBody.innerHTML = '<tr><td colspan="7">Aucune playlist en base.</td></tr>';
+					playlistsBody.innerHTML = '<tr><td colspan="6">Aucune playlist en base.</td></tr>';
 					return;
 				}
 
@@ -392,7 +391,6 @@
 						<td>${escapeHtml(playlist.Description || '')}</td>
 						<td>${escapeHtml(formatDate(playlist.DateDerniereModification))}</td>
 						<td>${Number(playlist.NombreVue || 0)}</td>
-						<td>${renderUserLink(playlist)}</td>
 						<td class="like-cell"></td>
 					`;
 
