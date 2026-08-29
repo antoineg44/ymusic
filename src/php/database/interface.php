@@ -1969,6 +1969,37 @@ if (!empty($_GET['deleteFile'])) {
         ]);
         $playlists = $playlistPayload['playlists'] ?? [];
 
+        // Playlists aimees (table PlaylistsAimees) + fusion de leurs metadonnees dans Playlist pour l'usage hors-ligne.
+        ensure_liked_playlists_table($pdo);
+        $likedStmt = $pdo->prepare(
+            'SELECT IdUtilisateur, IdPlaylist, DateAjout
+             FROM PlaylistsAimees WHERE IdUtilisateur = :id ORDER BY DateAjout DESC'
+        );
+        $likedStmt->execute([':id' => $userId]);
+        $playlistsAimees = $likedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $existingPlaylistIds = [];
+        foreach ($playlists as $existingPlaylist) {
+            $existingPlaylistIds[(int) ($existingPlaylist['idPlaylist'] ?? 0)] = true;
+        }
+        foreach ($playlistsAimees as $liked) {
+            $likedId = (int) ($liked['IdPlaylist'] ?? 0);
+            if ($likedId <= 0 || isset($existingPlaylistIds[$likedId])) {
+                continue;
+            }
+
+            $likedMeta = dPlaylist_get([
+                'equals' => ['idPlaylist' => $likedId],
+                'limit' => 1,
+                'page' => 1,
+            ]);
+            $likedRows = $likedMeta['playlists'] ?? [];
+            if (!empty($likedRows)) {
+                $playlists[] = $likedRows[0];
+                $existingPlaylistIds[$likedId] = true;
+            }
+        }
+
         // Musiques rattachees a chaque playlist (avec details musique).
         $playlistMusiques = [];
         foreach ($playlists as $playlist) {
@@ -2039,6 +2070,7 @@ if (!empty($_GET['deleteFile'])) {
                 'MusiquesAimees' => $musiquesAimees,
                 'Playlist' => $playlists,
                 'MyPlaylistMusiques' => $playlistMusiques,
+                'PlaylistsAimees' => $playlistsAimees,
                 'DernieresMusiquesLues' => $historique,
             ],
         ], JSON_UNESCAPED_UNICODE);

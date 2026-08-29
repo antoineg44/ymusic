@@ -3,6 +3,9 @@ const CONNEXION_TYPE = Object.freeze({
     SERVER: "Server", CLIENT: "Client", MOBILE: "Mobile"
 });
 
+// Version de l'application (doit rester alignee avec package.json).
+const APP_VERSION = "0.0.1";
+
 
 function GetConnexionType() {
     if(window.location.href.includes("file://")) {

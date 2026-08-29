@@ -49,6 +49,13 @@
         border-color: rgba(56, 189, 248, 0.7);
       }
 
+      .sidebar-link.is-disabled {
+        opacity: 0.4;
+        pointer-events: none;
+        cursor: not-allowed;
+        filter: grayscale(1);
+      }
+
       a {
         display: flex;
         align-items: center;
@@ -112,6 +119,20 @@
     <script>
       const sidebarLinks = Array.from(document.querySelectorAll('.sidebar-link'));
 
+      // Onglets necessitant Internet: grises et inaccessibles hors ligne.
+      const OFFLINE_DISABLED_TABS = ['recherche', 'playlists'];
+
+      function applyOfflineState() {
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        sidebarLinks.forEach((link) => {
+          if (!OFFLINE_DISABLED_TABS.includes(link.dataset.tab || '')) {
+            return;
+          }
+          link.classList.toggle('is-disabled', offline);
+          link.setAttribute('aria-disabled', offline ? 'true' : 'false');
+        });
+      }
+
       function setActiveTab(tab) {
         sidebarLinks.forEach((link) => {
           link.classList.toggle('is-active', (link.dataset.tab || '') === tab);
@@ -121,11 +142,18 @@
       sidebarLinks.forEach((link) => {
         link.addEventListener('click', (event) => {
           event.preventDefault();
+          if (link.classList.contains('is-disabled')) {
+            return;
+          }
           const tab = String(link.dataset.tab || 'accueil');
           setActiveTab(tab);
           window.parent.postMessage({ source: 'menu', type: 'MENU_TAB_SELECTED', tab }, '*');
         });
       });
+
+      applyOfflineState();
+      window.addEventListener('online', applyOfflineState);
+      window.addEventListener('offline', applyOfflineState);
 
       // Pour changer de tab depuis le parent ou un autre iframe
       window.addEventListener('message', (event) => {

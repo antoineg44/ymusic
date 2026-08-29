@@ -388,12 +388,17 @@
 
       const source = resolveTrackSource();
       const currentMusicId = resolveCurrentMusicId(track);
+      const coverVideoId = String(track.videoId || '').trim();
+      const cover = isValidVideoId(coverVideoId)
+        ? `https://i.ytimg.com/vi/${coverVideoId}/hqdefault.jpg`
+        : '';
       sendPlayerMessage('LOAD_TRACK', {
         src: source,
         title: track.title,
         meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
         isFavorite: Boolean(state.favorite),
         musicId: currentMusicId,
+        cover,
         fadeInSeconds,
       });
       syncFavoriteState();

@@ -399,6 +399,11 @@ async function initializeApp() {
   authController.ensureAuthenticated();
   
   initializeSidebarMenu();
+
+  // Demarrage hors ligne: informer l'utilisateur.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    showOfflinePopup();
+  }
 }
 
 // Expose explicitement le bootstrap pour les scripts inline (index.html).
@@ -928,6 +933,52 @@ function closeLoginModal() {
 
   loginModal.classList.add('is-hidden');
   loginModal.setAttribute('aria-hidden', 'true');
+}
+
+// Affiche un popup indiquant que l'application a demarre sans connexion Internet.
+function showOfflinePopup() {
+  if (document.getElementById('offlinePopup')) {
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'offlinePopup';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Mode hors ligne');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,0.65);';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'max-width:min(420px,90vw);background:#1e293b;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:16px;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+
+  const icon = document.createElement('div');
+  icon.textContent = '\uD83D\uDCF6';
+  icon.style.cssText = 'font-size:2.5rem;margin-bottom:8px;';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Mode hors ligne';
+  title.style.cssText = 'margin:0 0 8px;font-size:1.25rem;';
+
+  const text = document.createElement('p');
+  text.textContent = "L'application a demarre sans connexion Internet. La recherche et les playlists YouTube sont indisponibles. Vos musiques telechargees restent accessibles.";
+  text.style.cssText = 'margin:0 0 20px;line-height:1.5;color:#cbd5e1;';
+
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.textContent = 'Compris';
+  closeButton.style.cssText = 'background:#38bdf8;color:#0f172a;border:none;border-radius:10px;padding:10px 24px;font-size:1rem;font-weight:600;cursor:pointer;';
+
+  const close = () => overlay.remove();
+  closeButton.addEventListener('click', close);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      close();
+    }
+  });
+
+  box.append(icon, title, text, closeButton);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 function openEditionsPopup(musicId) {

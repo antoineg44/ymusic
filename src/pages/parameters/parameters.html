@@ -126,6 +126,13 @@
         min-height: 18px;
         font-size: 0.9rem;
       }
+
+      .settings-version {
+        margin-top: 20px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.85rem;
+      }
     </style>
   </head>
   <body>
@@ -158,6 +165,8 @@
         <small>Supprime tous les fichiers presents dans data/temp.</small>
         <div id="clearTempFilesStatus" class="settings-inline-status" aria-live="polite"></div>
       </div>
+
+      <p id="appVersion" class="settings-version">Version : ...</p>
     </section>
 
     <script>
@@ -312,6 +321,31 @@
       }
 
       void refreshTempFilesCount();
+
+      // Affiche la version de l'app: version native Capacitor si disponible, sinon APP_VERSION (config.js).
+      async function displayAppVersion() {
+        const appVersionLabel = document.getElementById('appVersion');
+        if (!appVersionLabel) {
+          return;
+        }
+
+        let version = typeof APP_VERSION === 'string' ? APP_VERSION : '';
+        try {
+          const appPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+          if (appPlugin && typeof appPlugin.getInfo === 'function') {
+            const info = await appPlugin.getInfo();
+            if (info && info.version) {
+              version = String(info.version);
+            }
+          }
+        } catch (error) {
+          console.debug('App version lookup failed:', error);
+        }
+
+        appVersionLabel.textContent = `Version : ${version || 'inconnue'}`;
+      }
+
+      void displayAppVersion();
     </script>
   </body>
 </html>

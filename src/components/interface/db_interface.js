@@ -81,11 +81,11 @@ async function db_listener(event)
 {
     const data = event && event.data ? event.data : {};
     const message = data && data.message ? data.message : {};
-    const isAuthAction = ['check', 'login', 'register', 'logout'].includes(message.action);
 
-    if (connexionType == CONNEXION_TYPE.MOBILE && !isAuthAction)
+    // En mode mobile, le relais (auth avec auto-login, offline, base locale) est gere par l'app Angular (home.page.ts).
+    if (connexionType == CONNEXION_TYPE.MOBILE)
     {
-        console.log("Mobile connexion type: stop");
+        console.log("Mobile connexion type: relais gere par home.page.ts");
         return;
     }
     console.log("db_listener");

@@ -102,12 +102,105 @@ function formatTime(seconds) {
     return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
 }
 
+// Notification media systeme (ecran verrouille / centre de notifications) via l'API MediaSession.
+function hasMediaSession() {
+    return typeof navigator !== 'undefined' && 'mediaSession' in navigator;
+}
+
+let mediaSessionHandlersReady = false;
+
+function setupMediaSession() {
+    if (!hasMediaSession() || mediaSessionHandlersReady) {
+        return;
+    }
+
+    const safeSetHandler = (action, handler) => {
+        try {
+            navigator.mediaSession.setActionHandler(action, handler);
+        } catch (error) {
+            // Certaines actions ne sont pas supportees par tous les navigateurs/WebView.
+        }
+    };
+
+    safeSetHandler('previoustrack', () => {
+        postToParent('REQUEST_PREV');
+    });
+    safeSetHandler('nexttrack', () => {
+        postToParent('REQUEST_NEXT');
+    });
+    safeSetHandler('play', () => {
+        toggleLocalPlayback();
+    });
+    safeSetHandler('pause', () => {
+        toggleLocalPlayback();
+    });
+
+    mediaSessionHandlersReady = true;
+}
+
+function updateMediaSessionMetadata(title, artist, cover) {
+    if (!hasMediaSession()) {
+        return;
+    }
+
+    setupMediaSession();
+
+    const artwork = cover
+        ? [
+            { src: cover, sizes: '96x96', type: 'image/jpeg' },
+            { src: cover, sizes: '256x256', type: 'image/jpeg' },
+            { src: cover, sizes: '512x512', type: 'image/jpeg' },
+        ]
+        : [];
+
+    try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: String(title || 'Lecture en cours'),
+            artist: String(artist || ''),
+            album: 'ymusic',
+            artwork,
+        });
+    } catch (error) {
+        // MediaMetadata peut ne pas etre disponible sur certaines plateformes.
+    }
+}
+
+function updateMediaSessionPlaybackState(isPlaying) {
+    if (!hasMediaSession()) {
+        return;
+    }
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+}
+
+function updateMediaSessionPosition(payload) {
+    if (!hasMediaSession() || typeof navigator.mediaSession.setPositionState !== 'function') {
+        return;
+    }
+
+    const duration = Number(payload && payload.duration);
+    const position = Number(payload && payload.currentTime);
+    if (!Number.isFinite(duration) || duration <= 0) {
+        return;
+    }
+
+    try {
+        navigator.mediaSession.setPositionState({
+            duration,
+            position: Math.min(Math.max(0, position || 0), duration),
+            playbackRate: 1,
+        });
+    } catch (error) {
+        // Ignore les etats de position invalides.
+    }
+}
+
 const playController = typeof window.createPlayController === 'function'
     ? window.createPlayController({
         primaryAudio,
         secondaryAudio,
         onPlayStateChange: (isPlaying) => {
             playButton.textContent = isPlaying ? '⏸' : '▶';
+            updateMediaSessionPlaybackState(isPlaying);
         },
         onFadeIndicatorChange: (isActive) => {
             timeLabel.classList.toggle('is-fade-active', Boolean(isActive));
@@ -116,6 +209,7 @@ const playController = typeof window.createPlayController === 'function'
             seekBar.max = payload.duration || 100;
             seekBar.value = payload.currentTime || 0;
             timeLabel.textContent = `${formatTime(payload.currentTime)} / ${formatTime(payload.duration)}`;
+            updateMediaSessionPosition(payload);
             postToParent('TIME_UPDATE', payload);
         },
         onAutoNext: ({ fadeSeconds }) => {
@@ -201,6 +295,8 @@ window.addEventListener('message', (event) => {
         setFavoriteState(Boolean(message.isFavorite));
         currentMusicId = String(message.musicId || '').trim();
 
+        updateMediaSessionMetadata(message.title, message.meta, String(message.cover || ''));
+
         if (!hasPlaybackController()) {
             postToParent('PLAYER_ERROR', { error: 'Moteur de lecture indisponible.' });
             return;
@@ -269,4 +365,5 @@ setStatusText(nextPlaying, 'Prochaine musique: aucune');
 if (hasPlaybackController()) {
     playController.refreshSettings();
 }
+setupMediaSession();
 postToParent('PLAYER_READY');

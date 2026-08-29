@@ -50,8 +50,8 @@ function get_url_from_base() {
 
 // Base de donnees locale (IndexedDB) miroir des tables utilisateur pour un usage hors-ligne.
 const LOCAL_DB_NAME = 'ymusic_local';
-const LOCAL_DB_VERSION = 3;
-const LOCAL_DB_STORES = ['Utilisateurs', 'Musiques', 'MusiquesAimees', 'Playlist', 'MyPlaylistMusiques', 'DernieresMusiquesLues'];
+const LOCAL_DB_VERSION = 4;
+const LOCAL_DB_STORES = ['Utilisateurs', 'Musiques', 'MusiquesAimees', 'Playlist', 'MyPlaylistMusiques', 'PlaylistsAimees', 'DernieresMusiquesLues'];
 const LOCAL_AUDIO_STORE = 'AudioFiles';
 
 let localSyncInProgress = false;
@@ -352,6 +352,13 @@ async function handleOfflineAction(source: EventSource, messageId: string | unde
       case 'dbPlaylists': {
         const rows = await readAllFromStore(db, 'Playlist');
         reply({ success: true, playlists: rows });
+        break;
+      }
+
+      case 'likedPlaylists': {
+        const rows = await readAllFromStore(db, 'PlaylistsAimees');
+        const playlistIds = rows.map((row) => Number(row.IdPlaylist ?? 0)).filter((id) => id > 0);
+        reply({ success: true, playlistIds });
         break;
       }
 
