@@ -2081,6 +2081,48 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['releaseFiles'])) {
+
+    // Liste les fichiers presents dans src/release pour telechargement.
+    try {
+        $webRoot = realpath(dirname(dirname(__DIR__)));
+        $releaseDir = $webRoot !== false ? realpath($webRoot . '/release') : false;
+
+        $files = [];
+        if ($releaseDir !== false && is_dir($releaseDir)) {
+            foreach (scandir($releaseDir) as $entry) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+
+                $absolutePath = $releaseDir . DIRECTORY_SEPARATOR . $entry;
+                if (!is_file($absolutePath) || $entry[0] === '.') {
+                    continue;
+                }
+
+                $files[] = [
+                    'name' => $entry,
+                    'size' => (int) filesize($absolutePath),
+                    'path' => 'release/' . rawurlencode($entry),
+                ];
+            }
+        }
+
+        usort($files, static function ($a, $b) {
+            return strcmp((string) $a['name'], (string) $b['name']);
+        });
+
+        echo json_encode([
+            'success' => true,
+            'files' => $files,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['downloadAudio'])) {
 
     // Streame les octets d'un fichier audio local (les en-tetes CORS sont poses en tete de ce fichier).
@@ -2089,7 +2131,6 @@ if (!empty($_GET['deleteFile'])) {
         if ($id === '') {
             throw new RuntimeException('Id requis');
         }
-
         $entry = resolve_audio_file_by_id_and_path($id);
         $webRoot = dirname(dirname(__DIR__));
         $relativePath = $entry !== null ? str_replace('\\', '/', (string) ($entry['path'] ?? '')) : '';

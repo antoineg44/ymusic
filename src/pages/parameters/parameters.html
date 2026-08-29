@@ -133,6 +133,56 @@
         color: #94a3b8;
         font-size: 0.85rem;
       }
+
+      .settings-release {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.4);
+      }
+
+      .settings-release h2 {
+        margin: 0 0 8px;
+        font-size: 1rem;
+      }
+
+      .settings-release ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .settings-release li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.15);
+      }
+
+      .settings-release li:first-of-type {
+        border-top: 0;
+      }
+
+      .settings-release a {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 600;
+        word-break: break-all;
+      }
+
+      .settings-release .release-size {
+        color: #94a3b8;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+
+      .settings-release small {
+        display: block;
+        color: #94a3b8;
+      }
     </style>
   </head>
   <body>
@@ -164,6 +214,12 @@
         </div>
         <small>Supprime tous les fichiers presents dans data/temp.</small>
         <div id="clearTempFilesStatus" class="settings-inline-status" aria-live="polite"></div>
+      </div>
+
+      <div class="settings-release">
+        <h2>Telechargements</h2>
+        <ul id="releaseFilesList"></ul>
+        <small id="releaseFilesStatus">Chargement des fichiers...</small>
       </div>
 
       <p id="appVersion" class="settings-version">Version : ...</p>
@@ -321,6 +377,77 @@
       }
 
       void refreshTempFilesCount();
+
+      // Formate une taille de fichier en octets vers une unite lisible.
+      function formatFileSize(bytes) {
+        const size = Number(bytes || 0);
+        if (!Number.isFinite(size) || size <= 0) {
+          return '';
+        }
+        const units = ['o', 'Ko', 'Mo', 'Go'];
+        let value = size;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+          value /= 1024;
+          unitIndex += 1;
+        }
+        return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+      }
+
+      // Recupere et affiche les fichiers de src/release avec des liens de telechargement.
+      async function loadReleaseFiles() {
+        const list = document.getElementById('releaseFilesList');
+        const status = document.getElementById('releaseFilesStatus');
+        if (!list || !status) {
+          return;
+        }
+
+        try {
+          const payload = await sendMessageAndWait(window.parent, { action: 'releaseFiles' });
+          if (!payload || payload.success === false) {
+            throw new Error((payload && payload.error) || 'Erreur API');
+          }
+
+          const files = Array.isArray(payload.files) ? payload.files : [];
+          list.textContent = '';
+
+          if (files.length === 0) {
+            status.textContent = 'Aucun fichier disponible.';
+            return;
+          }
+
+          for (const file of files) {
+            const name = String((file && file.name) || '').trim();
+            const path = String((file && file.path) || '').trim();
+            if (!name || !path) {
+              continue;
+            }
+
+            const item = document.createElement('li');
+
+            const link = document.createElement('a');
+            link.href = get_url_from_base() + path;
+            link.textContent = name;
+            link.setAttribute('download', name);
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener');
+
+            const size = document.createElement('span');
+            size.className = 'release-size';
+            size.textContent = formatFileSize(file && file.size);
+
+            item.append(link, size);
+            list.appendChild(item);
+          }
+
+          status.textContent = '';
+        } catch (error) {
+          status.textContent = 'Impossible de charger les fichiers.';
+          console.debug('releaseFiles error:', error);
+        }
+      }
+
+      void loadReleaseFiles();
 
       // Affiche la version de l'app: version native Capacitor si disponible, sinon APP_VERSION (config.js).
       function displayAppVersion() {

@@ -171,6 +171,9 @@ async function db_listener(event)
         case 'tempFilesCount':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?tempFilesCount=1");
             break;
+        case 'releaseFiles':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?releaseFiles=1");
+            break;
         case 'myPlaylists':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?myPlaylists=1");
             break;

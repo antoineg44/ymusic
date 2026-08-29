@@ -76,6 +76,7 @@ src/php/connexion.php
 src/php/.venv/*
 src/python/cookies.txt
 src/python/.venv/*
+src/release/*
 
 # intermediate file
 www/*
