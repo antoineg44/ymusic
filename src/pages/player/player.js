@@ -201,6 +201,7 @@ const playController = typeof window.createPlayController === 'function'
         onPlayStateChange: (isPlaying) => {
             playButton.textContent = isPlaying ? '⏸' : '▶';
             updateMediaSessionPlaybackState(isPlaying);
+            postToParent('PLAYER_STATE', { isPlaying });
         },
         onFadeIndicatorChange: (isActive) => {
             timeLabel.classList.toggle('is-fade-active', Boolean(isActive));

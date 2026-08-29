@@ -75,6 +75,102 @@
       playerFrame.contentWindow.postMessage({ target: 'lecteur', type, ...(payload || {}) }, '*');
     }
 
+    // Notification media native (Android/iOS) via capacitor-music-controls-plugin.
+    function getMusicControls() {
+      return (typeof window !== 'undefined'
+        && window.Capacitor
+        && window.Capacitor.Plugins
+        && window.Capacitor.Plugins.CapacitorMusicControls) || null;
+    }
+
+    let musicControlsListenersReady = false;
+
+    function handleMusicControlsEvent(action) {
+      const message = action && (action.message || action);
+      switch (message) {
+        case 'music-controls-next':
+          void playNext({ autoChained: false });
+          break;
+        case 'music-controls-previous':
+          void playPrevious();
+          break;
+        case 'music-controls-pause':
+        case 'music-controls-play':
+        case 'music-controls-toggle-play-pause':
+        case 'music-controls-media-button':
+          togglePlayback();
+          break;
+        default:
+          break;
+      }
+    }
+
+    function ensureMusicControlsListeners() {
+      const controls = getMusicControls();
+      if (!controls || musicControlsListenersReady) {
+        return;
+      }
+      musicControlsListenersReady = true;
+
+      // Android: evenements remontes via document; iOS: via addListener.
+      try {
+        document.addEventListener('controlsNotification', (event) => {
+          handleMusicControlsEvent({ message: event && event.message });
+        });
+      } catch (error) {
+        console.debug('musicControls document listener failed:', error);
+      }
+
+      try {
+        if (typeof controls.addListener === 'function') {
+          controls.addListener('controlsNotification', (info) => {
+            handleMusicControlsEvent(info);
+          });
+        }
+      } catch (error) {
+        console.debug('musicControls addListener failed:', error);
+      }
+    }
+
+    function updateNativeMediaNotification(title, artist, cover) {
+      const controls = getMusicControls();
+      if (!controls || typeof controls.create !== 'function') {
+        return;
+      }
+
+      ensureMusicControlsListeners();
+      try {
+        void controls.create({
+          track: String(title || 'Lecture en cours'),
+          artist: String(artist || ''),
+          cover: String(cover || ''),
+          hasPrev: true,
+          hasNext: true,
+          hasClose: false,
+          isPlaying: true,
+          dismissable: true,
+        });
+      } catch (error) {
+        console.debug('musicControls create failed:', error);
+      }
+    }
+
+    function updateNativeMediaPlaybackState(isPlaying, elapsedSeconds) {
+      const controls = getMusicControls();
+      if (!controls || typeof controls.updateElapsed !== 'function') {
+        return;
+      }
+
+      try {
+        void controls.updateElapsed({
+          isPlaying: Boolean(isPlaying),
+          elapsed: Math.max(0, Number(elapsedSeconds || 0)),
+        });
+      } catch (error) {
+        console.debug('musicControls updateElapsed failed:', error);
+      }
+    }
+
     function resolveNextTrackTitle() {
       if (isValidVideoId(state.currentVideoId) && Array.isArray(state.queue) && state.queue.length) {
         let currentQueueIndex = state.queue.findIndex((entry) => entry && entry.videoId === state.currentVideoId);
@@ -392,10 +488,11 @@
       const cover = isValidVideoId(coverVideoId)
         ? `https://i.ytimg.com/vi/${coverVideoId}/hqdefault.jpg`
         : '';
+      const meta = (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale');
       sendPlayerMessage('LOAD_TRACK', {
         src: source,
         title: track.title,
-        meta: (track.folder === 'temp' && track.artist) ? track.artist : (track.folder || 'Bibliotheque locale'),
+        meta,
         isFavorite: Boolean(state.favorite),
         musicId: currentMusicId,
         cover,
@@ -403,6 +500,9 @@
       });
       syncFavoriteState();
       syncNextTrackPreview();
+
+      // Met a jour la notification media native (Android/iOS) avec les infos du morceau.
+      updateNativeMediaNotification(track.title, meta, cover);
 
       void refreshFavoriteState(currentMusicId);
 
@@ -732,6 +832,11 @@
         state.currentDuration = Number(message.duration || 0);
         state.currentPlayedSeconds = Number(message.playedSeconds || 0);
         updateTimeDisplay();
+        return true;
+      }
+
+      if (message.type === 'PLAYER_STATE') {
+        updateNativeMediaPlaybackState(Boolean(message.isPlaying), state.currentPlayedSeconds);
         return true;
       }
 

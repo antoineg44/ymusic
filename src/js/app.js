@@ -409,6 +409,11 @@ async function initializeApp() {
     showOfflinePopup();
   }
   sendOfflineStateToMenu();
+
+  // En ligne: verifier si une version plus recente est disponible dans src/release.
+  if (!appIsOffline) {
+    void checkForNewVersion();
+  }
 }
 
 // Expose explicitement le bootstrap pour les scripts inline (index.html).
@@ -1016,7 +1021,116 @@ function showOfflinePopup() {
   document.body.appendChild(overlay);
 }
 
-function openEditionsPopup(musicId) {
+// Extrait la version depuis un nom de fichier APK de la forme app-<version>.apk.
+function parseApkVersion(filename) {
+  const match = /^app-(.+)\.apk$/i.exec(String(filename || '').trim());
+  return match ? match[1] : null;
+}
+
+// Compare deux versions "x.y.z" (retourne >0 si a est plus recente que b).
+function compareVersions(a, b) {
+  const pa = String(a || '').split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b || '').split('.').map((n) => parseInt(n, 10) || 0);
+  const length = Math.max(pa.length, pb.length);
+  for (let i = 0; i < length; i += 1) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
+
+// Affiche un popup proposant de telecharger une nouvelle version de l'application.
+function showUpdatePopup(version, url) {
+  if (document.getElementById('updatePopup')) {
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'updatePopup';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Mise a jour disponible');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,0.65);';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'max-width:min(420px,90vw);background:#1e293b;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:16px;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+
+  const icon = document.createElement('div');
+  icon.textContent = '\u2B06\uFE0F';
+  icon.style.cssText = 'font-size:2.5rem;margin-bottom:8px;';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Nouvelle version disponible';
+  title.style.cssText = 'margin:0 0 8px;font-size:1.25rem;';
+
+  const text = document.createElement('p');
+  text.textContent = `La version ${version} de l'application est disponible au telechargement.`;
+  text.style.cssText = 'margin:0 0 20px;line-height:1.5;color:#cbd5e1;';
+
+  const downloadLink = document.createElement('a');
+  downloadLink.href = url;
+  downloadLink.textContent = 'Telecharger';
+  downloadLink.setAttribute('download', '');
+  downloadLink.setAttribute('target', '_blank');
+  downloadLink.setAttribute('rel', 'noopener');
+  downloadLink.style.cssText = 'display:inline-block;background:#38bdf8;color:#0f172a;border-radius:10px;padding:10px 24px;font-size:1rem;font-weight:600;text-decoration:none;margin-right:8px;';
+
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.textContent = 'Plus tard';
+  closeButton.style.cssText = 'background:transparent;color:#cbd5e1;border:1px solid rgba(148,163,184,0.5);border-radius:10px;padding:10px 24px;font-size:1rem;font-weight:600;cursor:pointer;';
+
+  const close = () => overlay.remove();
+  closeButton.addEventListener('click', close);
+  downloadLink.addEventListener('click', close);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      close();
+    }
+  });
+
+  const actions = document.createElement('div');
+  actions.append(downloadLink, closeButton);
+  box.append(icon, title, text, actions);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+// Verifie si src/release contient un APK plus recent que la version courante et propose la mise a jour.
+async function checkForNewVersion() {
+  const currentVersion = typeof APP_VERSION === 'string' ? APP_VERSION : '';
+  if (!currentVersion) {
+    return;
+  }
+
+  try {
+    const payload = await sendMessageAndWait(window, { action: 'releaseFiles' });
+    if (!payload || payload.success === false || !Array.isArray(payload.files)) {
+      return;
+    }
+
+    let best = null;
+    for (const file of payload.files) {
+      const version = parseApkVersion(file && file.name);
+      if (!version || compareVersions(version, currentVersion) <= 0) {
+        continue;
+      }
+      if (!best || compareVersions(version, best.version) > 0) {
+        best = { version, path: String((file && file.path) || '') };
+      }
+    }
+
+    if (best && best.path) {
+      showUpdatePopup(best.version, get_url_from_base() + best.path);
+    }
+  } catch (error) {
+    console.debug('checkForNewVersion error:', error);
+  }
+}
+
+
   if (!descriptionModal || !descriptionFrame) {
     return;
   }
