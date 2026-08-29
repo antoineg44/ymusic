@@ -122,8 +122,11 @@
       // Onglets necessitant Internet: grises et inaccessibles hors ligne.
       const OFFLINE_DISABLED_TABS = ['recherche', 'playlists'];
 
-      function applyOfflineState() {
-        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      // L'etat hors ligne fiable est fourni par le parent (app.js); navigator.onLine sert de repli initial.
+      function applyOfflineState(forceOffline) {
+        const offline = typeof forceOffline === 'boolean'
+          ? forceOffline
+          : (typeof navigator !== 'undefined' && navigator.onLine === false);
         sidebarLinks.forEach((link) => {
           if (!OFFLINE_DISABLED_TABS.includes(link.dataset.tab || '')) {
             return;
@@ -152,8 +155,11 @@
       });
 
       applyOfflineState();
-      window.addEventListener('online', applyOfflineState);
-      window.addEventListener('offline', applyOfflineState);
+      window.addEventListener('online', () => applyOfflineState());
+      window.addEventListener('offline', () => applyOfflineState());
+
+      // Signale au parent que le menu est pret afin de recevoir l'etat hors ligne fiable.
+      window.parent.postMessage({ source: 'menu', type: 'MENU_READY' }, '*');
 
       // Pour changer de tab depuis le parent ou un autre iframe
       window.addEventListener('message', (event) => {
@@ -164,6 +170,10 @@
 
         if (message.type === 'SET_ACTIVE_TAB') {
           setActiveTab(String(message.tab || 'accueil'));
+        }
+
+        if (message.type === 'SET_OFFLINE_STATE') {
+          applyOfflineState(Boolean(message.offline));
         }
       });
     </script>

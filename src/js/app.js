@@ -115,6 +115,7 @@ let pendingQueueRefreshOnLoad = null;
 let playerController = null;
 let rechercheController = null;
 let authController = null;
+let appIsOffline = false;
 
 function initializeControllers() {
   if (playerController || rechercheController || authController) {
@@ -336,6 +337,8 @@ window.addEventListener('message', (event) => {
   if (message.source === 'menu') {
     if (message.type === 'MENU_TAB_SELECTED') {
       setActiveTab(String(message.tab || 'accueil'));
+    } else if (message.type === 'MENU_READY') {
+      sendOfflineStateToMenu();
     }
     return;
   }
@@ -400,10 +403,12 @@ async function initializeApp() {
   
   initializeSidebarMenu();
 
-  // Demarrage hors ligne: informer l'utilisateur.
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  // Detection fiable du mode hors ligne (navigator.onLine est peu fiable dans la WebView).
+  appIsOffline = await detectOfflineStatus();
+  if (appIsOffline) {
     showOfflinePopup();
   }
+  sendOfflineStateToMenu();
 }
 
 // Expose explicitement le bootstrap pour les scripts inline (index.html).
@@ -933,6 +938,36 @@ function closeLoginModal() {
 
   loginModal.classList.add('is-hidden');
   loginModal.setAttribute('aria-hidden', 'true');
+}
+
+// Detecte de maniere fiable l'absence de connexion au serveur (navigator.onLine peu fiable en WebView).
+async function detectOfflineStatus() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return true;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const response = await fetch(get_url_from_base() + 'php/auth.php?action=check', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return !response.ok;
+  } catch (error) {
+    // Erreur reseau (serveur injoignable) => hors ligne.
+    return true;
+  }
+}
+
+// Transmet l'etat hors ligne courant a l'iframe du menu (pour griser Recherche/Playlists).
+function sendOfflineStateToMenu() {
+  if (menuFrame && menuFrame.contentWindow) {
+    menuFrame.contentWindow.postMessage({ target: 'menu', type: 'SET_OFFLINE_STATE', offline: appIsOffline }, '*');
+  }
 }
 
 // Affiche un popup indiquant que l'application a demarre sans connexion Internet.

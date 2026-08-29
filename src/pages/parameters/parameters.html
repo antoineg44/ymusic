@@ -323,29 +323,36 @@
       void refreshTempFilesCount();
 
       // Affiche la version de l'app: version native Capacitor si disponible, sinon APP_VERSION (config.js).
-      async function displayAppVersion() {
+      function displayAppVersion() {
         const appVersionLabel = document.getElementById('appVersion');
         if (!appVersionLabel) {
           return;
         }
 
-        let version = typeof APP_VERSION === 'string' ? APP_VERSION : '';
+        // Affiche immediatement le repli (le pont Capacitor peut ne jamais repondre dans une iframe).
+        const fallback = typeof APP_VERSION === 'string' ? APP_VERSION : '';
+        appVersionLabel.textContent = `Version : ${fallback || 'inconnue'}`;
+
         try {
           const appPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
           if (appPlugin && typeof appPlugin.getInfo === 'function') {
-            const info = await appPlugin.getInfo();
-            if (info && info.version) {
-              version = String(info.version);
-            }
+            Promise.race([
+              appPlugin.getInfo(),
+              new Promise((resolve) => window.setTimeout(() => resolve(null), 1500)),
+            ])
+              .then((info) => {
+                if (info && info.version) {
+                  appVersionLabel.textContent = `Version : ${info.version}`;
+                }
+              })
+              .catch((error) => console.debug('App version lookup failed:', error));
           }
         } catch (error) {
           console.debug('App version lookup failed:', error);
         }
-
-        appVersionLabel.textContent = `Version : ${version || 'inconnue'}`;
       }
 
-      void displayAppVersion();
+      displayAppVersion();
     </script>
   </body>
 </html>
