@@ -132,7 +132,7 @@
       }
     }
 
-    function updateNativeMediaNotification(title, artist, cover) {
+    async function updateNativeMediaNotification(title, artist, cover) {
       const controls = getMusicControls();
       if (!controls || typeof controls.create !== 'function') {
         return;
@@ -140,16 +140,61 @@
 
       ensureMusicControlsListeners();
       try {
-        void controls.create({
+        // Défaut: pas de couverture (prévenir les NPE côté plugin si URL non joignable).
+        let safeCover = '';
+
+        try {
+          const coverStr = String(cover || '').trim();
+          if (coverStr && /^https?:\/\//i.test(coverStr) && navigator.onLine) {
+            // Eviter d'envoyer certaines sources externes connues (ex: i.ytimg.com)
+            if (!/i\.ytimg\.com/i.test(coverStr)) {
+              // Essayer un HEAD rapide pour s'assurer que l'URL est joignable.
+              try {
+                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const signal = controller ? controller.signal : undefined;
+                const timeoutId = controller ? setTimeout(() => controller.abort(), 3000) : null;
+                try {
+                  await fetch(coverStr, { method: 'HEAD', mode: 'no-cors', signal });
+                  safeCover = coverStr;
+                } catch (err) {
+                  safeCover = '';
+                } finally {
+                  if (timeoutId) clearTimeout(timeoutId);
+                }
+              } catch (err) {
+                safeCover = '';
+              }
+            }
+          }
+        } catch (err) {
+          safeCover = '';
+        }
+
+        // Fournir l'ensemble des champs que le plugin natif s'attend à recevoir,
+        // en évitant les valeurs `null` qui causent des NPE côté Java.
+        const opts = {
           track: String(title || 'Lecture en cours'),
           artist: String(artist || ''),
-          cover: String(cover || ''),
+          album: String(''),
+          ticker: String(''),
+          cover: String(safeCover || ''),
+          isPlaying: true,
           hasPrev: true,
           hasNext: true,
           hasClose: false,
-          isPlaying: true,
           dismissable: true,
-        });
+          playIcon: String(''),
+          pauseIcon: String(''),
+          prevIcon: String(''),
+          nextIcon: String(''),
+          closeIcon: String(''),
+          notificationIcon: String(''),
+          duration: 0,
+          elapsed: 0,
+          hasScrubbing: false,
+        };
+
+        void controls.create(opts);
       } catch (error) {
         console.debug('musicControls create failed:', error);
       }
