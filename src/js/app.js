@@ -1130,7 +1130,7 @@ async function checkForNewVersion() {
   }
 }
 
-
+function openEditionsPopup(musicId) {
   if (!descriptionModal || !descriptionFrame) {
     return;
   }
