@@ -637,12 +637,12 @@
           videoId,
         };
 
-        if (downloadedPath) {
+        // Un object URL local (blob:) ne porte pas d'info de dossier: garder 'temp' pour afficher l'artiste.
+        if (downloadedPath && !/^blob:/i.test(downloadedPath)) {
           const pathParts = downloadedPath.split('/');
           const folder = pathParts.length > 1 ? pathParts[pathParts.length - 2] : 'Bibliotheque';
           track.folder = folder;
         }
-
         await waitForMediaReady(track.path);
 
         const downloadedTrack = state.library.find((entry) => entry.path === track.path || entry.file === track.file) || track;
