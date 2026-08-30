@@ -719,6 +719,12 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
       case 'likedMusics':
           await sendResponse(source, data.messageId, "php/database/interface.php?likedMusics=1");
           break;
+      case 'likedPlaylists':
+          await sendResponse(source, data.messageId, "php/database/interface.php?likedPlaylists=1");
+          break;
+      case 'playedHistory':
+          await sendResponse(source, data.messageId, "php/database/interface.php?playedHistory=1");
+          break;
       case 'nextMusic':
         await sendResponse(source, data.messageId, "php/database/interface.php?next=" + encodeURIComponent(message.query));
         break;
