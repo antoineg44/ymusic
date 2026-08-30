@@ -58,6 +58,10 @@ let musicIntegrityModal;
 let musicIntegrityBackdrop;
 let musicIntegrityFrame;
 let musicIntegrityCloseButton;
+let updateModal;
+let updateBackdrop;
+let updateFrame;
+let updateCloseButton;
 let playlistMenuModal;
 let playlistMenuBackdrop;
 let playlistMenuFrame;
@@ -110,6 +114,10 @@ function initializeDOMElements() {
   playlistMenuBackdrop = document.getElementById('playlistMenuModalBackdrop');
   playlistMenuFrame = document.getElementById('playlistMenuFrame');
   playlistMenuCloseButton = document.getElementById('playlistMenuCloseButton');
+  updateModal = document.getElementById('updateModal');
+  updateBackdrop = document.getElementById('updateModalBackdrop');
+  updateFrame = document.getElementById('updateFrame');
+  updateCloseButton = document.getElementById('updateCloseButton');
 }
 let pendingQueueRefreshOnLoad = null;
 let playerController = null;
@@ -168,6 +176,10 @@ function attachModalEventListeners() {
     musicIntegrityCloseButton.addEventListener('click', closeMusicIntegrityPopup);
   }
 
+  if (updateCloseButton) {
+    updateCloseButton.addEventListener('click', closeUpdatePopup);
+  }
+
   if (descriptionBackdrop) {
     descriptionBackdrop.addEventListener('click', closeDescriptionPopup);
   }
@@ -182,6 +194,10 @@ function attachModalEventListeners() {
 
   if (musicIntegrityBackdrop) {
     musicIntegrityBackdrop.addEventListener('click', closeMusicIntegrityPopup);
+  }
+
+  if (updateBackdrop) {
+    updateBackdrop.addEventListener('click', closeUpdatePopup);
   }
 
   if (loginModalBackdrop) {
@@ -310,6 +326,20 @@ window.addEventListener('message', (event) => {
       closePlaylistMenuPopup();
     } else if (message.type === 'ADD_CURRENT_MUSIC_TO_PLAYLIST') {
       void addCurrentMusicToPlaylistFromMenu(message);
+    }
+    return;
+  }
+
+  if (message.source === 'update') {
+    if (message.type === 'CLOSE_UPDATE') {
+      closeUpdatePopup();
+    } else if (message.type === 'DOWNLOAD' && message.url) {
+      try {
+        window.open(String(message.url), '_blank', 'noopener');
+      } catch (e) {
+        /* ignore */
+      }
+      closeUpdatePopup();
     }
     return;
   }
@@ -1042,60 +1072,25 @@ function compareVersions(a, b) {
 }
 
 // Affiche un popup proposant de telecharger une nouvelle version de l'application.
-function showUpdatePopup(version, url) {
-  if (document.getElementById('updatePopup')) {
+function openUpdatePopup(version, url) {
+  if (!updateModal || !updateFrame) {
     return;
   }
 
-  const overlay = document.createElement('div');
-  overlay.id = 'updatePopup';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-label', 'Mise a jour disponible');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,0.65);';
+  const params = new URLSearchParams({ version: String(version || ''), url: String(url || '') });
+  updateFrame.src = `popup/update/update.html?${params.toString()}`;
+  updateModal.classList.remove('is-hidden');
+  updateModal.setAttribute('aria-hidden', 'false');
+}
 
-  const box = document.createElement('div');
-  box.style.cssText = 'max-width:min(420px,90vw);background:#1e293b;color:#e2e8f0;border:1px solid rgba(148,163,184,0.35);border-radius:16px;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);';
+function closeUpdatePopup() {
+  if (!updateModal || !updateFrame) {
+    return;
+  }
 
-  const icon = document.createElement('div');
-  icon.textContent = '\u2B06\uFE0F';
-  icon.style.cssText = 'font-size:2.5rem;margin-bottom:8px;';
-
-  const title = document.createElement('h2');
-  title.textContent = 'Nouvelle version disponible';
-  title.style.cssText = 'margin:0 0 8px;font-size:1.25rem;';
-
-  const text = document.createElement('p');
-  text.textContent = `La version ${version} de l'application est disponible au telechargement.`;
-  text.style.cssText = 'margin:0 0 20px;line-height:1.5;color:#cbd5e1;';
-
-  const downloadLink = document.createElement('a');
-  downloadLink.href = url;
-  downloadLink.textContent = 'Telecharger';
-  downloadLink.setAttribute('download', '');
-  downloadLink.setAttribute('target', '_blank');
-  downloadLink.setAttribute('rel', 'noopener');
-  downloadLink.style.cssText = 'display:inline-block;background:#38bdf8;color:#0f172a;border-radius:10px;padding:10px 24px;font-size:1rem;font-weight:600;text-decoration:none;margin-right:8px;';
-
-  const closeButton = document.createElement('button');
-  closeButton.type = 'button';
-  closeButton.textContent = 'Plus tard';
-  closeButton.style.cssText = 'background:transparent;color:#cbd5e1;border:1px solid rgba(148,163,184,0.5);border-radius:10px;padding:10px 24px;font-size:1rem;font-weight:600;cursor:pointer;';
-
-  const close = () => overlay.remove();
-  closeButton.addEventListener('click', close);
-  downloadLink.addEventListener('click', close);
-  overlay.addEventListener('click', (event) => {
-    if (event.target === overlay) {
-      close();
-    }
-  });
-
-  const actions = document.createElement('div');
-  actions.append(downloadLink, closeButton);
-  box.append(icon, title, text, actions);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  updateModal.classList.add('is-hidden');
+  updateModal.setAttribute('aria-hidden', 'true');
+  updateFrame.src = 'about:blank';
 }
 
 // Verifie si src/release contient un APK plus recent que la version courante et propose la mise a jour.
@@ -1123,7 +1118,7 @@ async function checkForNewVersion() {
     }
 
     if (best && best.path) {
-      showUpdatePopup(best.version, get_url_from_base() + best.path);
+      openUpdatePopup(best.version, get_url_from_base() + best.path);
     }
   } catch (error) {
     console.debug('checkForNewVersion error:', error);
