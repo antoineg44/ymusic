@@ -195,7 +195,7 @@
 				if (!analyserNode) {
 					analyserNode = audioContext.createAnalyser();
 					analyserNode.fftSize = 2048;
-					analyserNode.connect(audioContext.destination);
+					// L'analyseur est un simple point de mesure (non relie a la sortie) pour ne pas doubler le son.
 					analyserData = new Uint8Array(analyserNode.fftSize);
 				}
 
@@ -210,6 +210,8 @@
 					let source = audioSourceNodes.get(activeAudio);
 					if (!source) {
 						source = audioContext.createMediaElementSource(activeAudio);
+						// Chaque source reste reliee a la sortie pour rester audible pendant le fondu croise.
+						source.connect(audioContext.destination);
 						audioSourceNodes.set(activeAudio, source);
 					}
 
