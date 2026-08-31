@@ -15,6 +15,7 @@
 	const OUTRO_SKIP_RATIO = 0.68;
 	const OUTRO_SKIP_MAX_SECONDS = 5;
 	const OUTRO_SKIP_END_OFFSET_SECONDS = 0.12;
+	const INTRO_FADE_MAX_WAIT_SECONDS = 3;
 
 	function createPlayController(options) {
 		const primaryAudio = options.primaryAudio;
@@ -38,6 +39,8 @@
 		const fadeFrameIds = new WeakMap();
 		let fadeIndicatorCount = 0;
 		let crossfadeToken = 0;
+		let pendingIncomingFade = null;
+		let pendingIncomingFadeTimerId = null;
 		let introLowCount = 0;
 		let outroLowCount = 0;
 		let lastIntroSkipAt = 0;
@@ -315,6 +318,12 @@
 				return;
 			}
 
+			// Anticipation du debut : des que la vraie musique de la piste entrante est audible,
+			// on lance le fondu differe pour qu'il porte sur du son et non sur le silence d'intro.
+			if (pendingIncomingFade && pendingIncomingFade.incoming === media && level >= QUIET_LEVEL_THRESHOLD) {
+				startPendingIncomingFade();
+			}
+
 			const currentTime = Number(media.currentTime || 0);
 			const duration = Number(media.duration || 0);
 			const remaining = Math.max(0, duration - currentTime);
@@ -447,6 +456,32 @@
 			outgoingAudio.load();
 		}
 
+		function clearPendingIncomingFade() {
+			pendingIncomingFade = null;
+			if (pendingIncomingFadeTimerId !== null) {
+				window.clearTimeout(pendingIncomingFadeTimerId);
+				pendingIncomingFadeTimerId = null;
+			}
+		}
+
+		// Demarre le fondu croise differe (les deux pistes en meme temps) une fois l'intro reelle atteinte.
+		function startPendingIncomingFade() {
+			const pending = pendingIncomingFade;
+			clearPendingIncomingFade();
+			if (!pending || pending.token !== crossfadeToken) {
+				return;
+			}
+
+			setMediaVolume(pending.outgoing, 1);
+			fadeAudioVolume(pending.incoming, 1, pending.fadeSeconds);
+			fadeAudioVolume(pending.outgoing, 0, pending.fadeSeconds, () => {
+				if (pending.token !== crossfadeToken) {
+					return;
+				}
+				cleanupOutgoingAudio(pending.outgoing);
+			});
+		}
+
 		function normalizeTrackSrc(src) {
 			const normalized = String(src || '').trim();
 			if (!normalized) {
@@ -463,6 +498,7 @@
 		function loadTrack({ src, fadeInSeconds }) {
 			refreshSettings();
 			resetTrimDetectionState();
+			clearPendingIncomingFade();
 			crossfadeToken += 1;
 			cancelAllVolumeFades();
 
@@ -502,7 +538,22 @@
 				emitPlaybackError('Lecture bloquee par le navigateur.');
 			});
 
-			if (canCrossfade) {
+			if (canCrossfade && trimQuietPartsEnabled) {
+				// Anticipation du debut : on garde l'entrante a 0 et la sortante a fond, puis on declenche
+				// le fondu des que la vraie musique de l'entrante commence (apres le silence d'intro).
+				// Repli : si aucun son n'est detecte a temps, on lance quand meme le fondu.
+				setMediaVolume(outgoingAudio, 1);
+				pendingIncomingFade = {
+					token,
+					incoming: incomingAudio,
+					outgoing: outgoingAudio,
+					fadeSeconds: safeFadeInSeconds,
+				};
+				pendingIncomingFadeTimerId = window.setTimeout(() => {
+					pendingIncomingFadeTimerId = null;
+					startPendingIncomingFade();
+				}, Math.floor(INTRO_FADE_MAX_WAIT_SECONDS * 1000));
+			} else if (canCrossfade) {
 				// Les deux musiques jouent en meme temps pendant toute la duree du fondu :
 				// la sortante part du maximum et descend vers 0, l'entrante part de 0 et monte vers le maximum.
 				setMediaVolume(outgoingAudio, 1);
