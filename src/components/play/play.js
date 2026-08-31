@@ -326,6 +326,12 @@
 				OUTRO_SCAN_MAX_SECONDS,
 				Math.max(OUTRO_SCAN_MIN_SECONDS, duration * OUTRO_SCAN_WINDOW_RATIO)
 			);
+			// Fondu anticipe : si la troncature et le fondu sont actifs, on scrute la fin plus tot
+			// (fenetre elargie de la duree du fondu) pour enchainer des le debut du silence de fin.
+			const anticipateCrossfade = trimQuietPartsEnabled && crossfadeSeconds > 0 && !autoChainRequested;
+			const outroScanRegion = anticipateCrossfade
+				? Math.min(duration * 0.5, crossfadeSeconds + outroScanWindow)
+				: outroScanWindow;
 
 			if (!introSkipped && currentTime <= introScanLimit) {
 				if (level < QUIET_LEVEL_THRESHOLD) {
@@ -353,7 +359,7 @@
 				introLowCount = 0;
 			}
 
-			if (!outroSkipped && remaining <= outroScanWindow && remaining > OUTRO_SKIP_END_OFFSET_SECONDS) {
+			if (!outroSkipped && remaining <= outroScanRegion && remaining > OUTRO_SKIP_END_OFFSET_SECONDS) {
 				if (level < QUIET_LEVEL_THRESHOLD) {
 					outroLowCount += 1;
 				} else {
@@ -361,6 +367,14 @@
 				}
 
 				if (outroLowCount >= 4) {
+					if (anticipateCrossfade) {
+						// On demarre le fondu croise des la fin musicale detectee, sans sauter le silence.
+						autoChainRequested = true;
+						outroSkipped = true;
+						emitAutoNext(crossfadeSeconds);
+						return;
+					}
+
 					const outroStep = Math.min(OUTRO_SKIP_MAX_SECONDS, Math.max(0.5, remaining * OUTRO_SKIP_RATIO));
 					const target = Math.min(duration - OUTRO_SKIP_END_OFFSET_SECONDS, currentTime + outroStep);
 
