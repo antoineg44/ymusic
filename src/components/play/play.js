@@ -36,7 +36,6 @@
 		let analyserAttachedAudio = null;
 		const fadeFrameIds = new WeakMap();
 		let fadeIndicatorCount = 0;
-		let secondHalfFadeTimerId = null;
 		let crossfadeToken = 0;
 		let introLowCount = 0;
 		let outroLowCount = 0;
@@ -76,13 +75,6 @@
 
 		function getInactiveAudio() {
 			return activeAudio === primaryAudio ? secondaryAudio : primaryAudio;
-		}
-
-		function clearSecondHalfFadeTimer() {
-			if (secondHalfFadeTimerId !== null) {
-				window.clearTimeout(secondHalfFadeTimerId);
-				secondHalfFadeTimerId = null;
-			}
 		}
 
 		function readTrimQuietPartsSetting() {
@@ -397,7 +389,6 @@
 		function loadTrack({ src, fadeInSeconds }) {
 			refreshSettings();
 			resetTrimDetectionState();
-			clearSecondHalfFadeTimer();
 			crossfadeToken += 1;
 			cancelAllVolumeFades();
 
@@ -405,7 +396,6 @@
 			const outgoingAudio = activeAudio;
 			const safeFadeInSeconds = Math.max(0, Number(fadeInSeconds || 0));
 			const canCrossfade = safeFadeInSeconds > 0 && Boolean(outgoingAudio.src) && !outgoingAudio.paused;
-			const halfFadeSeconds = Math.max(0.05, safeFadeInSeconds / 2);
 			const token = crossfadeToken;
 
 			var base_url = get_url_from_base();
@@ -435,22 +425,16 @@
 			});
 
 			if (canCrossfade) {
+				// Les deux musiques jouent en meme temps pendant toute la duree du fondu :
+				// la sortante part du maximum et descend vers 0, l'entrante part de 0 et monte vers le maximum.
 				outgoingAudio.volume = 1;
-				fadeAudioVolume(incomingAudio, 1, halfFadeSeconds);
-
-				secondHalfFadeTimerId = window.setTimeout(() => {
-					secondHalfFadeTimerId = null;
+				fadeAudioVolume(incomingAudio, 1, safeFadeInSeconds);
+				fadeAudioVolume(outgoingAudio, 0, safeFadeInSeconds, () => {
 					if (token !== crossfadeToken) {
 						return;
 					}
-
-					fadeAudioVolume(outgoingAudio, 0, halfFadeSeconds, () => {
-						if (token !== crossfadeToken) {
-							return;
-						}
-						cleanupOutgoingAudio(outgoingAudio);
-					});
-				}, Math.floor(halfFadeSeconds * 1000));
+					cleanupOutgoingAudio(outgoingAudio);
+				});
 			} else {
 				cleanupOutgoingAudio(outgoingAudio);
 			}
