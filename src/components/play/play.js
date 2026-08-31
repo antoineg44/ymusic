@@ -33,6 +33,7 @@
 		let analyserNode = null;
 		let analyserData = null;
 		const audioSourceNodes = new WeakMap();
+		const audioGainNodes = new WeakMap();
 		let analyserAttachedAudio = null;
 		const fadeFrameIds = new WeakMap();
 		let fadeIndicatorCount = 0;
@@ -150,7 +151,7 @@
 			const safeDuration = Math.max(0, Number(durationSeconds || 0));
 
 			if (safeDuration <= 0.01) {
-				media.volume = clampedTarget;
+				setMediaVolume(media, clampedTarget);
 				if (typeof onComplete === 'function') {
 					onComplete();
 				}
@@ -159,14 +160,14 @@
 
 			beginFadeIndicator();
 
-			const startVolume = Number.isFinite(media.volume) ? media.volume : 1;
+			const startVolume = getMediaVolume(media);
 			const startTime = performance.now();
 			const durationMs = safeDuration * 1000;
 
 			const step = (now) => {
 				const elapsed = now - startTime;
 				const progress = Math.min(1, elapsed / durationMs);
-				media.volume = startVolume + ((clampedTarget - startVolume) * progress);
+				setMediaVolume(media, startVolume + ((clampedTarget - startVolume) * progress));
 
 				if (progress < 1) {
 					const nextFrameId = window.requestAnimationFrame(step);
@@ -184,7 +185,7 @@
 			fadeFrameIds.set(media, frameId);
 		}
 
-		function ensureAudioAnalyser() {
+		function ensureAudioContext() {
 			const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 			if (!AudioContextClass) {
 				return false;
@@ -192,11 +193,73 @@
 
 			try {
 				audioContext = audioContext || new AudioContextClass();
+				return true;
+			} catch (error) {
+				console.debug('Audio context init failed:', error);
+				return false;
+			}
+		}
+
+		// Construit source -> gain -> sortie pour un element audio ; le volume passe par le GainNode
+		// car un element route via Web Audio n'obeit plus a sa propriete .volume.
+		function ensureAudioNodes(media) {
+			if (!ensureAudioContext()) {
+				return null;
+			}
+
+			let source = audioSourceNodes.get(media);
+			if (!source) {
+				try {
+					source = audioContext.createMediaElementSource(media);
+				} catch (error) {
+					console.debug('Media source init failed:', error);
+					return null;
+				}
+
+				const gainNode = audioContext.createGain();
+				gainNode.gain.value = Number.isFinite(media.volume) ? media.volume : 1;
+				source.connect(gainNode);
+				gainNode.connect(audioContext.destination);
+				audioSourceNodes.set(media, source);
+				audioGainNodes.set(media, gainNode);
+			}
+
+			return source;
+		}
+
+		function setMediaVolume(media, value) {
+			const clamped = Math.min(1, Math.max(0, Number(value || 0)));
+			const gainNode = audioGainNodes.get(media);
+			if (gainNode) {
+				gainNode.gain.value = clamped;
+			} else {
+				media.volume = clamped;
+			}
+		}
+
+		function getMediaVolume(media) {
+			const gainNode = audioGainNodes.get(media);
+			if (gainNode) {
+				return gainNode.gain.value;
+			}
+			return Number.isFinite(media.volume) ? media.volume : 1;
+		}
+
+		function ensureAudioAnalyser() {
+			if (!ensureAudioContext()) {
+				return false;
+			}
+
+			try {
 				if (!analyserNode) {
 					analyserNode = audioContext.createAnalyser();
 					analyserNode.fftSize = 2048;
-					// L'analyseur est un simple point de mesure (non relie a la sortie) pour ne pas doubler le son.
+					// L'analyseur est un simple point de mesure (non relie a la sortie).
 					analyserData = new Uint8Array(analyserNode.fftSize);
+				}
+
+				if (!ensureAudioNodes(activeAudio)) {
+					return false;
 				}
 
 				if (analyserAttachedAudio !== activeAudio) {
@@ -207,15 +270,10 @@
 						}
 					}
 
-					let source = audioSourceNodes.get(activeAudio);
-					if (!source) {
-						source = audioContext.createMediaElementSource(activeAudio);
-						// Chaque source reste reliee a la sortie pour rester audible pendant le fondu croise.
-						source.connect(audioContext.destination);
-						audioSourceNodes.set(activeAudio, source);
+					const source = audioSourceNodes.get(activeAudio);
+					if (source) {
+						source.connect(analyserNode);
 					}
-
-					source.connect(analyserNode);
 					analyserAttachedAudio = activeAudio;
 				}
 
@@ -370,7 +428,7 @@
 		function cleanupOutgoingAudio(outgoingAudio) {
 			outgoingAudio.pause();
 			outgoingAudio.currentTime = 0;
-			outgoingAudio.volume = 1;
+			setMediaVolume(outgoingAudio, 1);
 			outgoingAudio.removeAttribute('src');
 			outgoingAudio.load();
 		}
@@ -413,8 +471,12 @@
 			}
 			incomingAudio.src = finalSrc;
 			incomingAudio.currentTime = 0;
-			incomingAudio.volume = canCrossfade ? 0 : 1;
 			incomingAudio.load();
+
+			// Prepare le graphe (source -> gain -> sortie) pour piloter le volume des deux pistes via GainNode.
+			ensureAudioNodes(outgoingAudio);
+			ensureAudioNodes(incomingAudio);
+			setMediaVolume(incomingAudio, canCrossfade ? 0 : 1);
 
 			activeAudio = incomingAudio;
 
@@ -429,7 +491,7 @@
 			if (canCrossfade) {
 				// Les deux musiques jouent en meme temps pendant toute la duree du fondu :
 				// la sortante part du maximum et descend vers 0, l'entrante part de 0 et monte vers le maximum.
-				outgoingAudio.volume = 1;
+				setMediaVolume(outgoingAudio, 1);
 				fadeAudioVolume(incomingAudio, 1, safeFadeInSeconds);
 				fadeAudioVolume(outgoingAudio, 0, safeFadeInSeconds, () => {
 					if (token !== crossfadeToken) {
@@ -468,7 +530,7 @@
 					emitPlaybackError('Lecture bloquee par le navigateur.');
 				});
 				const otherMedia = getInactiveAudio();
-				if (otherMedia.src && otherMedia.volume > 0.01 && otherMedia.paused) {
+				if (otherMedia.src && getMediaVolume(otherMedia) > 0.01 && otherMedia.paused) {
 					otherMedia.play().catch(() => {});
 				}
 				emitPlayState(true);
