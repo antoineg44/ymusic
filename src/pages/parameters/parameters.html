@@ -307,6 +307,22 @@
         }
       }
 
+      // Initialise l'UI depuis la table utilisateur (source de verite) et resynchronise localStorage.
+      async function initSettingsFromServer() {
+        try {
+          const payload = await sendMessageAndWait(window.parent, { action: 'getUserSettings' });
+          if (payload && payload.success !== false && payload.settings) {
+            writeTrimSetting(Boolean(payload.settings.trimQuietParts));
+            writeCrossfadeSeconds(normalizeCrossfadeSeconds(payload.settings.crossfadeSeconds));
+          }
+        } catch (error) {
+          console.debug('getUserSettings failed:', error);
+        }
+
+        trimQuietPartsToggle.checked = readTrimSetting();
+        crossfadeSecondsInput.value = String(readCrossfadeSeconds());
+      }
+
       async function refreshTempFilesCount() {
         if (!tempFilesCountIndicator) {
           return;
@@ -327,6 +343,7 @@
 
       trimQuietPartsToggle.checked = readTrimSetting();
       crossfadeSecondsInput.value = String(readCrossfadeSeconds());
+      void initSettingsFromServer();
 
       trimQuietPartsToggle.addEventListener('change', () => {
         writeTrimSetting(Boolean(trimQuietPartsToggle.checked));
