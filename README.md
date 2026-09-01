@@ -7,4 +7,5 @@ export CAPACITOR_ANDROID_STUDIO_PATH="/snap/android-studio/current/bin/studio.sh
 ## Ouvrir Android Studio
 npx cap open android
 ## Générer APK
-./android/gradlew assembleDebug
+cd android
+./gradlew assembleDebug
