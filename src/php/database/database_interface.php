@@ -667,6 +667,61 @@ function record_played_music(int $userId, string $musicId, ?PDO $pdo = null): ar
 	];
 }
 
+function ensure_user_settings_columns(PDO $pdo): void
+{
+	// Ajoute les colonnes de preferences de lecture a la table Utilisateurs si elles sont absentes.
+	$existing = $pdo->query('SHOW COLUMNS FROM Utilisateurs')->fetchAll(PDO::FETCH_COLUMN);
+	if (!in_array('TronquerSilences', $existing, true)) {
+		$pdo->exec('ALTER TABLE Utilisateurs ADD COLUMN TronquerSilences TINYINT(1) NOT NULL DEFAULT 0');
+	}
+	if (!in_array('SecondesFondu', $existing, true)) {
+		$pdo->exec('ALTER TABLE Utilisateurs ADD COLUMN SecondesFondu TINYINT UNSIGNED NOT NULL DEFAULT 0');
+	}
+}
+
+function get_user_settings(int $userId, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_user_settings_columns($db);
+
+	if ($userId <= 0) {
+		throw new InvalidArgumentException('Utilisateur requis');
+	}
+
+	$stmt = $db->prepare('SELECT TronquerSilences, SecondesFondu FROM Utilisateurs WHERE Id = :id LIMIT 1');
+	$stmt->execute([':id' => $userId]);
+	$row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+	return [
+		'trimQuietParts' => (bool) ((int) ($row['TronquerSilences'] ?? 0)),
+		'crossfadeSeconds' => max(0, min(12, (int) ($row['SecondesFondu'] ?? 0))),
+	];
+}
+
+function save_user_settings(int $userId, bool $trimQuietParts, int $crossfadeSeconds, ?PDO $pdo = null): array
+{
+	$db = $pdo ?? get_database_pdo();
+	ensure_user_settings_columns($db);
+
+	if ($userId <= 0) {
+		throw new InvalidArgumentException('Utilisateur requis');
+	}
+
+	$crossfadeSeconds = max(0, min(12, $crossfadeSeconds));
+
+	$stmt = $db->prepare('UPDATE Utilisateurs SET TronquerSilences = :trim, SecondesFondu = :fade WHERE Id = :id');
+	$stmt->execute([
+		':trim' => $trimQuietParts ? 1 : 0,
+		':fade' => $crossfadeSeconds,
+		':id' => $userId,
+	]);
+
+	return [
+		'trimQuietParts' => $trimQuietParts,
+		'crossfadeSeconds' => $crossfadeSeconds,
+	];
+}
+
 function get_played_history(int $userId, ?PDO $pdo = null): array
 {
 	// Retourne l'historique ordonne (plus recent d'abord) avec les details de chaque musique.

@@ -4,7 +4,7 @@ const CONNEXION_TYPE = Object.freeze({
 });
 
 // Version de l'application (doit rester alignee avec package.json).
-const APP_VERSION = "0.0.2";
+const APP_VERSION = "0.0.3";
 
 
 function GetConnexionType() {

@@ -292,6 +292,21 @@
         return normalizedValue;
       }
 
+      // Enregistre les preferences de lecture dans la table utilisateur (rechargees au demarrage).
+      async function saveSettingsToServer() {
+        try {
+          await sendMessageAndWait(window.parent, {
+            action: 'saveUserSettings',
+            body: {
+              trimQuietParts: readTrimSetting() ? '1' : '0',
+              crossfadeSeconds: String(readCrossfadeSeconds()),
+            },
+          });
+        } catch (error) {
+          console.debug('saveUserSettings failed:', error);
+        }
+      }
+
       async function refreshTempFilesCount() {
         if (!tempFilesCountIndicator) {
           return;
@@ -315,11 +330,13 @@
 
       trimQuietPartsToggle.addEventListener('change', () => {
         writeTrimSetting(Boolean(trimQuietPartsToggle.checked));
+        void saveSettingsToServer();
       });
 
       crossfadeSecondsInput.addEventListener('change', () => {
         const normalizedValue = writeCrossfadeSeconds(crossfadeSecondsInput.value);
         crossfadeSecondsInput.value = String(normalizedValue);
+        void saveSettingsToServer();
       });
 
       crossfadeSecondsInput.addEventListener('input', () => {

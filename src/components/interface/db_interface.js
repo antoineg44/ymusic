@@ -204,6 +204,9 @@ async function db_listener(event)
         case 'playedHistory':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?playedHistory=1");
             break;
+        case 'getUserSettings':
+            await sendResponse(event.source, data.messageId, "php/database/interface.php?getUserSettings=1");
+            break;
         case 'nextMusic':
             await sendResponse(event.source, data.messageId, "php/database/interface.php?next=" + encodeURIComponent(message.query));
             break;
@@ -238,6 +241,7 @@ async function db_listener(event)
         case 'addLikedPlaylist':
         case 'removeLikedPlaylist':
         case 'recordPlayedMusic':
+        case 'saveUserSettings':
         {
             const body = Object.assign({}, message.body || {});
             body[message.action] = '1';

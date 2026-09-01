@@ -50,7 +50,7 @@ function get_url_from_base() {
 
 // Base de donnees locale (IndexedDB) miroir des tables utilisateur pour un usage hors-ligne.
 const LOCAL_DB_NAME = 'ymusic_local';
-const LOCAL_DB_VERSION = 4;
+const LOCAL_DB_VERSION = 5;
 const LOCAL_DB_STORES = ['Utilisateurs', 'Musiques', 'MusiquesAimees', 'Playlist', 'MyPlaylistMusiques', 'PlaylistsAimees', 'DernieresMusiquesLues'];
 const LOCAL_AUDIO_STORE = 'AudioFiles';
 
@@ -725,6 +725,9 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
       case 'playedHistory':
           await sendResponse(source, data.messageId, "php/database/interface.php?playedHistory=1");
           break;
+      case 'getUserSettings':
+          await sendResponse(source, data.messageId, "php/database/interface.php?getUserSettings=1");
+          break;
       case 'nextMusic':
         await sendResponse(source, data.messageId, "php/database/interface.php?next=" + encodeURIComponent(message.query));
         break;
@@ -757,6 +760,7 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
       case 'savePlayedPlaylist':
       case 'addFavoriteMusic':
       case 'removeFavoriteMusic':
+      case 'saveUserSettings':
       {
         const body = { ...(message.body ?? {}) };
         body[message.action] = '1';

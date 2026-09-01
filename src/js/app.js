@@ -442,7 +442,25 @@ async function initializeApp() {
 
   // En ligne: verifier si une version plus recente est disponible dans src/release.
   if (!appIsOffline) {
+    await loadUserPlaybackSettings();
     void checkForNewVersion();
+  }
+}
+
+// Charge les preferences de lecture (troncature, fondu) depuis la table utilisateur vers localStorage.
+async function loadUserPlaybackSettings() {
+  try {
+    const payload = await sendMessageAndWait(window, { action: 'getUserSettings' });
+    if (!payload || payload.success === false || !payload.settings) {
+      return;
+    }
+
+    const settings = payload.settings;
+    const fadeSeconds = Math.max(0, Math.min(12, Number(settings.crossfadeSeconds) || 0));
+    window.localStorage.setItem('ymusic.trimLowIntroOutro', settings.trimQuietParts ? '1' : '0');
+    window.localStorage.setItem('ymusic.crossfadeSeconds', String(fadeSeconds));
+  } catch (error) {
+    console.debug('loadUserPlaybackSettings error:', error);
   }
 }
 

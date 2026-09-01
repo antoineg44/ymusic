@@ -1934,6 +1934,42 @@ if (!empty($_GET['deleteFile'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
 
+} elseif (!empty($_GET['getUserSettings'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $settings = get_user_settings($userId);
+
+        echo json_encode([
+            'success' => true,
+            'settings' => $settings,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} elseif (!empty($_POST['saveUserSettings'])) {
+
+    try {
+        $userId = resolve_current_user_id();
+        $trim = !empty($_POST['trimQuietParts']) && (string) $_POST['trimQuietParts'] !== '0';
+        $crossfade = (int) ($_POST['crossfadeSeconds'] ?? 0);
+        $settings = save_user_settings($userId, $trim, $crossfade);
+
+        echo json_encode([
+            'success' => true,
+            'settings' => $settings,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $exception) {
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
 } elseif (!empty($_GET['exportUserData'])) {
 
     try {
@@ -1941,8 +1977,9 @@ if (!empty($_GET['deleteFile'])) {
         $pdo = get_database_pdo();
 
         // Utilisateur courant (sans le hash du mot de passe).
+        ensure_user_settings_columns($pdo);
         $userStmt = $pdo->prepare(
-            'SELECT Id, NomUtilisateur, RoleUtilisateur, Actif, DateCreation, DateMiseAJour
+            'SELECT Id, NomUtilisateur, RoleUtilisateur, Actif, DateCreation, DateMiseAJour, TronquerSilences, SecondesFondu
              FROM Utilisateurs WHERE Id = :id LIMIT 1'
         );
         $userStmt->execute([':id' => $userId]);

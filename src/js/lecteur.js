@@ -818,6 +818,18 @@
       state.favorite = desiredFavorite;
       syncFavoriteState();
 
+      // Quand on met en favori une musique pas encore enregistree, on l'ajoute d'abord a la base
+      // (action 'play' cree la ligne Musiques) pour qu'elle apparaisse dans les favoris.
+      if (desiredFavorite && !state.likedSaved && typeof saveLikedMusic === 'function') {
+        state.likedSaved = true;
+        await saveLikedMusic(state.currentTrack);
+
+        // Ignore si la piste a change pendant l'enregistrement.
+        if (resolveCurrentMusicId() !== musicId) {
+          return;
+        }
+      }
+
       if (typeof setFavoriteMusic !== 'function') {
         return;
       }
