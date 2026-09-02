@@ -409,6 +409,68 @@ async function handleOfflineAction(source: EventSource, messageId: string | unde
         break;
       }
 
+      case 'nextMusic': {
+        // File de lecture aleatoire depuis la base locale, hors historique de lecture et sans doublon.
+        const isVideoId = (id: string) => /^[A-Za-z0-9_-]{11}$/.test(id);
+        const currentVideoId = String(message.query || '').trim();
+
+        const musiques = await readAllFromStore(db, 'Musiques');
+        const history = await readAllFromStore(db, 'DernieresMusiquesLues');
+
+        // Ids a exclure: ceux presents dans l'historique de lecture.
+        const excluded = new Set<string>();
+        for (const entry of history) {
+          const id = String(entry.IdMusique ?? entry.Id ?? '').trim();
+          if (id) {
+            excluded.add(id);
+          }
+        }
+
+        // Pool: musiques locales jouables hors ligne (videoId valide), hors historique, sans doublon.
+        const seen = new Set<string>();
+        const pool: any[] = [];
+        for (const music of musiques) {
+          const videoId = String(music.Id ?? '').trim();
+          if (!isVideoId(videoId) || videoId === currentVideoId || excluded.has(videoId) || seen.has(videoId)) {
+            continue;
+          }
+          seen.add(videoId);
+          pool.push(music);
+        }
+
+        // Melange aleatoire (Fisher-Yates).
+        for (let i = pool.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+
+        const toEntry = (music: any) => ({
+          videoId: String(music.Id ?? '').trim(),
+          title: String(music.Titre ?? '').trim(),
+          artists: music.Artiste ? [String(music.Artiste)] : [],
+          album: { id: '' },
+          views: Number(music.NombreVue ?? 0),
+          inDatabase: true,
+        });
+
+        // La musique courante est placee en tete pour que l'enchainement demarre a la suivante.
+        const playlist: any[] = [];
+        const current = musiques.find((music) => String(music.Id ?? '').trim() === currentVideoId);
+        if (current) {
+          playlist.push(toEntry(current));
+        } else if (isVideoId(currentVideoId)) {
+          playlist.push({ videoId: currentVideoId, title: '', artists: [], album: { id: '' }, views: 0, inDatabase: true });
+        }
+
+        const MAX_QUEUE = 50;
+        for (const music of pool.slice(0, MAX_QUEUE)) {
+          playlist.push(toEntry(music));
+        }
+
+        reply({ success: true, playlist });
+        break;
+      }
+
       default:
         reply({ success: false, error: 'Hors ligne: action indisponible (' + String(action) + ')' });
         break;

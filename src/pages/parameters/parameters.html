@@ -460,7 +460,9 @@
             const item = document.createElement('li');
 
             const link = document.createElement('a');
-            link.href = get_url_from_base() + path;
+            // En web get_url_from_base() est vide: on prefixe la racine de l'app pour ne pas resoudre sous pages/parameters/.
+            const releaseBase = get_url_from_base() || '../../';
+            link.href = releaseBase + path;
             link.textContent = name;
             link.setAttribute('download', name);
             link.setAttribute('target', '_blank');
