@@ -359,6 +359,27 @@ window.addEventListener('resize', () => {
     updateStatusOverflow(nextPlaying);
 });
 
+function restorePlaybackAfterVisibilityChange() {
+    if (!hasPlaybackController()) {
+        return;
+    }
+
+    const resumed = playController.resumePlayback();
+    if (resumed) {
+        postToParent('PLAYER_STATE', { isPlaying: true });
+    }
+}
+
+window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        restorePlaybackAfterVisibilityChange();
+    }
+});
+
+window.addEventListener('focus', () => {
+    restorePlaybackAfterVisibilityChange();
+});
+
 setFavoriteState(false);
 setStatusText(nowPlaying, 'Aucune lecture en cours');
 setStatusText(nowPlayingMeta, 'Selectionnez un titre dans la bibliotheque');

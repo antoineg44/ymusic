@@ -584,10 +584,14 @@
 			}
 		}
 
-		function togglePlayback() {
+		function resumePlayback() {
 			const media = activeAudio;
-			if (!media.src) {
-				return { missingSource: true };
+			if (!media || !media.src) {
+				return false;
+			}
+
+			if (audioContext && audioContext.state === 'suspended') {
+				void audioContext.resume().catch(() => {});
 			}
 
 			if (media.paused) {
@@ -599,6 +603,20 @@
 					otherMedia.play().catch(() => {});
 				}
 				emitPlayState(true);
+				return true;
+			}
+
+			return false;
+		}
+
+		function togglePlayback() {
+			const media = activeAudio;
+			if (!media.src) {
+				return { missingSource: true };
+			}
+
+			if (media.paused) {
+				resumePlayback();
 			} else {
 				media.pause();
 				const otherMedia = getInactiveAudio();
@@ -681,6 +699,7 @@
 		return {
 			refreshSettings,
 			togglePlayback,
+			resumePlayback,
 			seekToRatio,
 			loadTrack,
 			fadeOut,
