@@ -19,6 +19,9 @@
     let preparedForTrackKey = '';
     let nextTransitionInProgress = false;
     let pendingTempDeleteTimerId = null;
+    // Mémo: état de lecture connu côté iframe (player)
+    state.playerPlaying = false;
+    let playerWasPlayingBeforeHidden = false;
     const CROSSFADE_SECONDS_KEY = 'ymusic.crossfadeSeconds';
 
     function readCrossfadeSecondsSetting() {
@@ -34,6 +37,31 @@
         console.debug('Crossfade setting read failed:', error);
         return 0;
       }
+    }
+
+    // Gérer la visibilité de l'application: mémoriser si la lecture était active
+    // et tenter de la reprendre automatiquement au retour au premier plan.
+    try {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          playerWasPlayingBeforeHidden = Boolean(state.playerPlaying);
+        } else if (document.visibilityState === 'visible') {
+          // Quand on revient au premier plan, demander au player d'actualiser son
+          // état d'icône et tenter de reprendre si la lecture était active avant.
+          if (state.playerReady) {
+            // Mettre à jour l'icône/état externe côté iframe.
+            sendPlayerMessage('SET_PLAY_PAUSE_ICON', { isPlaying: Boolean(state.playerPlaying) });
+
+            // Si la lecture était en cours avant le masquage mais que l'iframe
+            // rapporte maintenant une lecture stoppée, tenter de relancer.
+            if (playerWasPlayingBeforeHidden && !state.playerPlaying) {
+              sendPlayerMessage('TOGGLE');
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.debug('visibilitychange listener failed:', err);
     }
 
     function getCurrentTrackPreparationKey() {
@@ -893,7 +921,9 @@
       }
 
       if (message.type === 'PLAYER_STATE') {
-        updateNativeMediaPlaybackState(Boolean(message.isPlaying), state.currentPlayedSeconds);
+        // Mémoriser l'état de lecture rapporté par l'iframe puis propager vers la notification native.
+        state.playerPlaying = Boolean(message.isPlaying);
+        updateNativeMediaPlaybackState(state.playerPlaying, state.currentPlayedSeconds);
         return true;
       }
 
