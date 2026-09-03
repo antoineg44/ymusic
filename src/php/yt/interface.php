@@ -33,6 +33,42 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Downloads a track and streams the raw audio bytes back (instead of a JSON path).
+// Used by consumers that cannot fetch the static /data/temp file directly.
+if (!empty($_GET['raw'])) {
+    try {
+        $musicId = trim((string) $_GET['raw']);
+        if ($musicId === '') {
+            throw new RuntimeException('musicId requis');
+        }
+
+        $yt = new YouTubeMusic();
+        $result = $yt->download($musicId);
+
+        $fileName = basename((string) ($result['file'] ?? ''));
+        $filePath = __DIR__ . '/../../data/temp/' . $fileName;
+
+        if ($fileName === '' || !is_file($filePath)) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Fichier audio introuvable'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        header('Content-Type: application/octet-stream');
+        header('X-File-Name: ' . rawurlencode($fileName));
+        header('Content-Length: ' . filesize($filePath));
+        readfile($filePath);
+        exit;
+    } catch (Throwable $exception) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => $exception->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
 if (!empty($_GET['suggestions'])) {
     try {
         $query = trim((string) $_GET['suggestions']);
