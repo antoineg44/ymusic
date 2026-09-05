@@ -37,7 +37,6 @@
 		const audioGainNodes = new WeakMap();
 		let analyserAttachedAudio = null;
 		const fadeFrameIds = new WeakMap();
-		const fadeTimers = new WeakMap();
 		let fadeIndicatorCount = 0;
 		let crossfadeToken = 0;
 		let pendingIncomingFade = null;
@@ -132,35 +131,10 @@
 
 		function cancelVolumeFade(targetAudio) {
 			const media = targetAudio || activeAudio;
-			let hadFade = false;
-
 			const frameId = fadeFrameIds.get(media);
 			if (frameId !== undefined && frameId !== null) {
 				window.cancelAnimationFrame(frameId);
 				fadeFrameIds.delete(media);
-				hadFade = true;
-			}
-
-			const timerId = fadeTimers.get(media);
-			if (timerId !== undefined && timerId !== null) {
-				window.clearTimeout(timerId);
-				fadeTimers.delete(media);
-				// Fige le gain a sa valeur courante pour stopper la rampe AudioParam en cours.
-				const gainNode = audioGainNodes.get(media);
-				if (gainNode && audioContext) {
-					try {
-						const now = audioContext.currentTime;
-						const currentValue = gainNode.gain.value;
-						gainNode.gain.cancelScheduledValues(now);
-						gainNode.gain.setValueAtTime(currentValue, now);
-					} catch (error) {
-						console.debug('Cancel gain ramp failed:', error);
-					}
-				}
-				hadFade = true;
-			}
-
-			if (hadFade) {
 				endFadeIndicator();
 			}
 		}
@@ -187,38 +161,6 @@
 				return;
 			}
 
-			const gainNode = audioGainNodes.get(media);
-			if (gainNode && audioContext) {
-				// Fondu via AudioParam: la rampe s'execute sur le thread audio et continue meme ecran
-				// eteint (requestAnimationFrame est suspendu en arriere-plan, ce qui coupait le son).
-				beginFadeIndicator();
-				try {
-					const now = audioContext.currentTime;
-					gainNode.gain.cancelScheduledValues(now);
-					gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-					gainNode.gain.linearRampToValueAtTime(clampedTarget, now + safeDuration);
-				} catch (error) {
-					console.debug('Gain ramp failed:', error);
-					setMediaVolume(media, clampedTarget);
-				}
-
-				const timerId = window.setTimeout(() => {
-					fadeTimers.delete(media);
-					try {
-						gainNode.gain.setValueAtTime(clampedTarget, audioContext.currentTime);
-					} catch (error) {
-						console.debug('Gain settle failed:', error);
-					}
-					endFadeIndicator();
-					if (typeof onComplete === 'function') {
-						onComplete();
-					}
-				}, Math.ceil(safeDuration * 1000) + 30);
-				fadeTimers.set(media, timerId);
-				return;
-			}
-
-			// Repli sans Web Audio: animation via requestAnimationFrame.
 			beginFadeIndicator();
 
 			const startVolume = getMediaVolume(media);
