@@ -628,10 +628,6 @@
       sendPlayerMessage('SHOW_LOADING', {});
 
       try {
-        if (!skipQueueLoad) {
-          await loadPlaylistQueue(videoId);
-        }
-
         const payload = await sendMessageAndWait(window, {
           action: 'musicId',
           query: String(videoId || ''),
@@ -713,6 +709,11 @@
           fadeInSeconds,
         });
         setStatus(`Lecture de “${title}” depuis le téléchargement.`);
+
+        // Charge la file YouTube (musiques suivantes) APRES le lancement, sans bloquer la lecture.
+        if (!skipQueueLoad) {
+          void loadPlaylistQueue(videoId);
+        }
       } catch (error) {
         console.error(error);
         setStatus('Le téléchargement et la lecture ont échoué.');
