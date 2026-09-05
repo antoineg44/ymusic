@@ -530,6 +530,14 @@
 				return;
 			}
 
+			if (document.hidden) {
+				// Arriere-plan: bascule instantanee pour garantir un volume audible sans fondu progressif.
+				setMediaVolume(pending.outgoing, 0);
+				setMediaVolume(pending.incoming, 1);
+				cleanupOutgoingAudio(pending.outgoing);
+				return;
+			}
+
 			setMediaVolume(pending.outgoing, 1);
 			fadeAudioVolume(pending.incoming, 1, pending.fadeSeconds);
 			fadeAudioVolume(pending.outgoing, 0, pending.fadeSeconds, () => {
@@ -538,6 +546,28 @@
 				}
 				cleanupOutgoingAudio(pending.outgoing);
 			});
+		}
+
+		function isCrossfadeInProgress() {
+			const inactive = getInactiveAudio();
+			return Boolean(pendingIncomingFade) || fadeTimers.has(inactive) || fadeFrameIds.has(inactive);
+		}
+
+		// Termine instantanement un fondu croise en cours (appele quand l'ecran s'eteint) :
+		// les fondus progressifs ne s'executent pas de maniere fiable en arriere-plan.
+		function finishCrossfadeImmediately() {
+			if (!isCrossfadeInProgress()) {
+				return;
+			}
+
+			const outgoing = getInactiveAudio();
+			cancelAllVolumeFades();
+			clearPendingIncomingFade();
+			setMediaVolume(activeAudio, 1);
+			if (outgoing.src) {
+				setMediaVolume(outgoing, 0);
+				cleanupOutgoingAudio(outgoing);
+			}
 		}
 
 		function normalizeTrackSrc(src) {
@@ -581,9 +611,13 @@
 			incomingAudio.currentTime = 0;
 			incomingAudio.load();
 
-			// Prepare le graphe (source -> gain -> sortie) pour piloter le volume des deux pistes via GainNode.
-			ensureAudioNodes(outgoingAudio);
-			ensureAudioNodes(incomingAudio);
+			// Le routage Web Audio (source -> gain -> sortie) sert uniquement a la troncature (analyseur).
+			// Sans troncature on garde la sortie native des <audio>: indispensable pour la lecture en
+			// arriere-plan (l'AudioContext peut etre suspendu ecran eteint, coupant tout le son du graphe).
+			if (trimQuietPartsEnabled) {
+				ensureAudioNodes(outgoingAudio);
+				ensureAudioNodes(incomingAudio);
+			}
 			setMediaVolume(incomingAudio, canCrossfade ? 0 : 1);
 
 			activeAudio = incomingAudio;
@@ -596,7 +630,14 @@
 				emitPlaybackError('Lecture bloquee par le navigateur.');
 			});
 
-			if (canCrossfade && trimQuietPartsEnabled) {
+			if (canCrossfade && document.hidden) {
+				// Arriere-plan (ecran eteint): les fondus progressifs ne progressent pas de maniere fiable
+				// (requestAnimationFrame suspendu, horloge audio potentiellement gelee). On bascule
+				// instantanement au volume max pour que la nouvelle musique soit tout de suite audible.
+				setMediaVolume(outgoingAudio, 0);
+				setMediaVolume(incomingAudio, 1);
+				cleanupOutgoingAudio(outgoingAudio);
+			} else if (canCrossfade && trimQuietPartsEnabled) {
 				// Anticipation du debut : on garde l'entrante a 0 et la sortante a fond, puis on declenche
 				// le fondu des que la vraie musique de l'entrante commence (apres le silence d'intro).
 				// Repli : si aucun son n'est detecte a temps, on lance quand meme le fondu.
@@ -626,7 +667,7 @@
 				cleanupOutgoingAudio(outgoingAudio);
 			}
 
-			if (ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
+			if (trimQuietPartsEnabled && ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
 				void audioContext.resume();
 			}
 
@@ -735,7 +776,7 @@
 					return;
 				}
 				emitPlayState(true);
-				if (ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
+				if (trimQuietPartsEnabled && ensureAudioAnalyser() && audioContext && audioContext.state === 'suspended') {
 					void audioContext.resume();
 				}
 				void requestWakeLock();
@@ -753,6 +794,16 @@
 		attachAudioEvents(primaryAudio);
 		attachAudioEvents(secondaryAudio);
 		refreshSettings();
+
+		// Ecran eteint / app en arriere-plan: on termine tout fondu en cours et on reprend le
+		// contexte audio au retour, car les fondus progressifs ne tournent pas en arriere-plan.
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) {
+				finishCrossfadeImmediately();
+			} else if (audioContext && audioContext.state === 'suspended') {
+				void audioContext.resume();
+			}
+		});
 
 		return {
 			refreshSettings,
