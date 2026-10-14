@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { IonHeader, IonToolbar, IonTitle, IonContent } from '@ionic/angular/standalone';
 import { AfterViewInit } from '@angular/core';
+import { App } from '@capacitor/app';
 import { DataService } from './data.service';
 interface AppMessage {
   type: string;
@@ -512,11 +513,6 @@ async function syncUserDataToLocalDb(): Promise<void> {
   }
 }
 
-// Determine si une reponse d'authentification correspond a un utilisateur connecte.
-function isAuthenticatedResponse(payload: any): boolean {
-  return Boolean(payload && payload.success === true);
-}
-
 // Fonction pour faire une requête GET
 async function sendResponse(source: EventSource, messageId: string | undefined, url: string): Promise<void> {
   const fullUrl = get_url_from_base() + url;
@@ -541,55 +537,115 @@ async function sendResponse(source: EventSource, messageId: string | undefined, 
   replyToSource(source, messageId, dataText);
 }
 
-// Fonction pour faire une requête GET
-async function checkLogin(source: EventSource, messageId: string | undefined, url: string, dataService: DataService): Promise<void> {
+// Evite d'ouvrir plusieurs fois le navigateur SSO quand plusieurs couches signalent l'absence de session.
+let ssoLaunchInProgress = false;
+
+// Ouvre le SSO central dans le navigateur systeme (le retour se fait par deep link ymusic://sso).
+function launchMobileSso(): void {
+  if (ssoLaunchInProgress) {
+    return;
+  }
+  ssoLaunchInProgress = true;
+  setTimeout(() => { ssoLaunchInProgress = false; }, 5000);
+
+  const url = get_url_from_base() + 'php/sso/login.php?client=mobile';
+  try {
+    window.open(url, '_system');
+  } catch (error) {
+    console.error('launchMobileSso error:', error);
+  }
+}
+
+// Tente une reconnexion silencieuse via le jeton de persistance rotatif. Retourne la reponse ou null.
+async function tryRememberLogin(dataService: DataService): Promise<any | null> {
+  const token = dataService.getRememberToken();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(get_url_from_base() + 'php/auth.php?action=remember_login', {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'include',
+      body: new URLSearchParams({ token }),
+    });
+    const dataText = await response.json();
+
+    if (dataText && dataText.success) {
+      if (dataText.rememberToken) {
+        dataService.setRememberToken(dataText.rememberToken);
+      }
+      void syncUserDataToLocalDb();
+      return dataText;
+    }
+
+    dataService.clearRememberToken();
+    return null;
+  } catch (error) {
+    console.error('remember_login error:', error);
+    return null;
+  }
+}
+
+// Echange le jeton recu par deep link contre une session authentifiee cote serveur.
+async function completeMobileLogin(token: string, dataService: DataService): Promise<void> {
+  if (!token) {
+    return;
+  }
+
+  try {
+    const response = await fetch(get_url_from_base() + 'php/auth.php?action=mobile_login', {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'include',
+      body: new URLSearchParams({ token }),
+    });
+    const dataText = await response.json();
+    if (dataText && dataText.success) {
+      if (dataText.rememberToken) {
+        dataService.setRememberToken(dataText.rememberToken);
+      }
+      window.postMessage({ type: 'USER_LOGGED_IN' }, '*');
+      void syncUserDataToLocalDb();
+    } else {
+      console.error('mobile_login refuse:', dataText);
+    }
+  } catch (error) {
+    console.error('completeMobileLogin error:', error);
+  }
+}
+
+// Verifie la session; en cas d'absence, tente le jeton de persistance puis relance le SSO si besoin.
+async function checkSession(source: EventSource, messageId: string | undefined, url: string, dataService: DataService): Promise<void> {
   const fullUrl = get_url_from_base() + url;
   const response = await fetch(fullUrl, {
     cache: 'no-store',
     credentials: 'include',
   });
 
-  if (response.status === 401) {
-    window.postMessage({ type: 'USER_LOGGED_OUT' }, '*');
-    replyToSource(source, messageId, {
-      success: false,
-      error: 'Authentification requise',
-    });
+  let dataText: any = null;
+  if (response.status !== 401) {
+    dataText = await response.json();
+  }
+
+  const authenticated = Boolean(response.ok && dataText && dataText.success === true);
+
+  if (authenticated) {
+    replyToSource(source, messageId, dataText);
+    void syncUserDataToLocalDb();
     return;
   }
 
-  const dataText = await response.json();
-  if (!response.ok) {
-    throw new Error(dataText.error || 'Error message');
+  // Pas de session serveur: on tente une reconnexion silencieuse par jeton de persistance.
+  const remembered = await tryRememberLogin(dataService);
+  if (remembered) {
+    replyToSource(source, messageId, remembered);
+    return;
   }
 
-  if(dataText.success == false) {
-    const loginData = dataService.getData();
-    if(loginData.username && loginData.password) {
-      const paramurl = {
-        username: loginData.username,
-        password: loginData.password
-      };
-      const loginResponse = await fetch(
-        get_url_from_base() + `php/auth.php?action=login`,
-        {
-          method: "POST",
-          body: new URLSearchParams(paramurl),
-          credentials: 'include',
-        }
-      );
-      const loginDataText = await loginResponse.json();
-      replyToSource(source, messageId, loginDataText);
-      if (isAuthenticatedResponse(loginDataText)) {
-        void syncUserDataToLocalDb();
-      }
-      return;
-    }
-  }
-  replyToSource(source, messageId, dataText);
-  if (isAuthenticatedResponse(dataText)) {
-    void syncUserDataToLocalDb();
-  }
+  // Sinon, on laisse l'application afficher la modale de connexion (bouton -> SSO).
+  replyToSource(source, messageId, dataText ?? { success: false, error: 'Authentification requise' });
 }
 
 // Fonction pour faire une requête POST
@@ -695,42 +751,26 @@ async function db_listener(event: MessageEvent<AppMessage>, dataService: DataSer
     }
 
     switch (message.action) {
-      // Cas pour la partie login
+      // Cas pour la partie login (session SSO centrale)
       case 'check':
-        await checkLogin(source, data.messageId, "php/auth.php?action=" + message.action, dataService);
+        await checkSession(source, data.messageId, "php/auth.php?action=" + message.action, dataService);
         break;
-
-      case 'login':
-      case 'register': {
-        const dataToSave = { username: message.body.username, password: message.body.password };
-        dataService.setData(dataToSave);
-        const response = await fetch(
-          get_url_from_base() + `php/auth.php?action=` + message.action,
-          {
-            method: "POST",
-            body: new URLSearchParams(message.body),
-            credentials: 'include',
-          }
-        );
-        const dataText = await response.json();
-        source.postMessage({ response: dataText, replyTo: data.messageId }, '*');
-        if (isAuthenticatedResponse(dataText)) {
-          void syncUserDataToLocalDb();
-        }
-        break;
-      }
 
       case 'logout': {
+        const rememberToken = dataService.getRememberToken();
         const response = await fetch(
           get_url_from_base() + `php/auth.php?action=` + message.action,
           {
             method: "POST",
             credentials: 'include',
+            body: new URLSearchParams(rememberToken ? { rememberToken } : {}),
           }
         );
         const dataText = await response.json();
+        dataService.clearRememberToken();
         source.postMessage({ response: dataText, replyTo: data.messageId }, '*');
         localSyncCompleted = false;
+        launchMobileSso();
         break;
       }
 
@@ -894,14 +934,49 @@ export class HomePage implements AfterViewInit {
 
   constructor(private dataService: DataService) {
     window.addEventListener("message", this.onMessage);
+
+    // Retour du SSO mobile: le deep link ymusic://sso?token=... fournit le jeton a echanger.
+    void App.addListener('appUrlOpen', (event: { url: string }) => {
+      try {
+        const url = new URL(event.url);
+        const token = url.searchParams.get('token') ?? '';
+        if (token) {
+          void completeMobileLogin(token, this.dataService);
+        }
+      } catch (error) {
+        console.error('appUrlOpen parse error:', error);
+      }
+    });
   }
 
   // Pour les message :
   private onMessage = (event: MessageEvent<AppMessage>): void => {
-    if(event.data.type === 'db') {
+    const type = event.data?.type;
+
+    if (type === 'db') {
       db_listener(event, this.dataService);
+      return;
+    }
+
+    // Clic sur "Se connecter" dans la modale: ouvrir le SSO dans le navigateur systeme.
+    if (type === 'SSO_LOGIN_REQUEST') {
+      launchMobileSso();
+      return;
+    }
+
+    // Perte de session: tenter le jeton de persistance; sinon la modale de connexion s'affiche.
+    if (type === 'USER_LOGGED_OUT') {
+      void this.reauthenticate();
     }
   };
+
+  // Reconnexion silencieuse par jeton; a defaut, la modale de connexion reste affichee.
+  private async reauthenticate(): Promise<void> {
+    const remembered = await tryRememberLogin(this.dataService);
+    if (remembered) {
+      window.postMessage({ type: 'USER_LOGGED_IN' }, '*');
+    }
+  }
 
   ngOnDestroy(): void {
     window.removeEventListener("message", this.onMessage);

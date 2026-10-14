@@ -37,7 +37,6 @@ let myPlaylistsFrame;
 let communityPlaylistsFrame;
 let queueFrame;
 let settingsFrame;
-let manageUsersLink;
 let statusBox;
 let heroSection;
 let menuFrame;
@@ -47,10 +46,6 @@ let descriptionModal;
 let descriptionBackdrop;
 let descriptionFrame;
 let descriptionCloseButton;
-let usersModal;
-let usersBackdrop;
-let usersFrame;
-let usersCloseButton;
 let loginModal;
 let loginFrame;
 let loginModalBackdrop;
@@ -89,7 +84,6 @@ function initializeDOMElements() {
   communityPlaylistsFrame = document.getElementById('communityPlaylistsFrame');
   queueFrame = document.getElementById('queueFrame');
   settingsFrame = document.getElementById('settingsFrame');
-  manageUsersLink = document.getElementById('manageUsersLink');
   statusBox = document.getElementById('status');
   heroSection = document.querySelector('.hero');
   menuFrame = document.getElementById('menuFrame');
@@ -99,10 +93,6 @@ function initializeDOMElements() {
   descriptionBackdrop = document.getElementById('descriptionModalBackdrop');
   descriptionFrame = document.getElementById('descriptionFrame');
   descriptionCloseButton = document.getElementById('descriptionCloseButton');
-  usersModal = document.getElementById('usersModal');
-  usersBackdrop = document.getElementById('usersModalBackdrop');
-  usersFrame = document.getElementById('usersFrame');
-  usersCloseButton = document.getElementById('usersCloseButton');
   loginModal = document.getElementById('loginModal');
   loginFrame = document.getElementById('loginFrame');
   loginModalBackdrop = document.getElementById('loginModalBackdrop');
@@ -154,7 +144,6 @@ function initializeControllers() {
 
   authController = window.createAuthController({
     state,
-    manageUsersLink,
     logoutButton,
   });
 }
@@ -166,10 +155,6 @@ function attachModalEventListeners() {
 
   if (playlistMenuCloseButton) {
     playlistMenuCloseButton.addEventListener('click', closePlaylistMenuPopup);
-  }
-
-  if (usersCloseButton) {
-    usersCloseButton.addEventListener('click', closeUsersPopup);
   }
 
   if (musicIntegrityCloseButton) {
@@ -186,10 +171,6 @@ function attachModalEventListeners() {
 
   if (playlistMenuBackdrop) {
     playlistMenuBackdrop.addEventListener('click', closePlaylistMenuPopup);
-  }
-
-  if (usersBackdrop) {
-    usersBackdrop.addEventListener('click', closeUsersPopup);
   }
 
   if (musicIntegrityBackdrop) {
@@ -345,9 +326,7 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.source === 'parameters') {
-    if (message.type === 'OPEN_USERS_MODAL') {
-      openUsersPopup();
-    } else if (message.type === 'OPEN_MUSIC_INTEGRITY_MODAL') {
+    if (message.type === 'OPEN_MUSIC_INTEGRITY_MODAL') {
       openMusicIntegrityPopup();
     }
     return;
@@ -425,7 +404,6 @@ async function initializeApp() {
   if (logoutButton && authController) {
     logoutButton.addEventListener('click', () => {
       void authController.logout();
-      openLoginModal();
     });
   }
   
@@ -980,6 +958,10 @@ function openLoginModal() {
     return;
   }
 
+  if (loginFrame.src === 'about:blank' || !loginFrame.src) {
+    loginFrame.src = 'popup/login/login.html';
+  }
+
   loginModal.classList.remove('is-hidden');
   loginModal.setAttribute('aria-hidden', 'false');
 }
@@ -1303,26 +1285,6 @@ function closePlaylistMenuPopup() {
   playlistMenuModal.classList.add('is-hidden');
   playlistMenuModal.setAttribute('aria-hidden', 'true');
   playlistMenuFrame.src = 'about:blank';
-}
-
-function openUsersPopup() {
-  if (!usersModal || !usersFrame) {
-    return;
-  }
-
-  usersFrame.src = 'popup/users/users.html';
-  usersModal.classList.remove('is-hidden');
-  usersModal.setAttribute('aria-hidden', 'false');
-}
-
-function closeUsersPopup() {
-  if (!usersModal || !usersFrame) {
-    return;
-  }
-
-  usersModal.classList.add('is-hidden');
-  usersModal.setAttribute('aria-hidden', 'true');
-  usersFrame.src = 'about:blank';
 }
 
 function openMusicIntegrityPopup() {

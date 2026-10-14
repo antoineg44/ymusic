@@ -48,6 +48,21 @@ function get_url_from_base() {
     return "https://musiques.partitions.ovh/";
 }
 
+// URL de lancement du SSO central (compte.partitions.ovh) pour (re)connecter l'utilisateur.
+function get_sso_login_url(mobile) {
+    return get_url_from_base() + "php/sso/login.php" + (mobile ? "?client=mobile" : "");
+}
+
+// Redirige vers le SSO. En mode mobile, l'app Angular (home.page.ts) ouvre le navigateur systeme.
+function redirectToLogin() {
+    if (connexionType === CONNEXION_TYPE.MOBILE) {
+        window.postMessage({ type: 'SSO_LOGIN_REQUEST' }, '*');
+        return;
+    }
+
+    window.location.href = get_sso_login_url(false);
+}
+
 function toCloneablePayload(value) {
   if (value instanceof URLSearchParams) {
     return Object.fromEntries(value.entries());

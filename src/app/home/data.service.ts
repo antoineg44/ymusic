@@ -1,42 +1,24 @@
 import { Injectable } from '@angular/core';
 
-interface LoginData {
-  username: string;
-  password: string;
-}
-
 @Injectable({
   providedIn: 'root'
 })
 export class DataService {
 
-  private readonly STORAGE_KEY = 'loginData';
+  // Jeton de persistance SSO (remember-me) stocke sur l'appareil, rotatif et revocable.
+  private readonly REMEMBER_KEY = 'ssoRememberToken';
 
-  setData(data: LoginData): void {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
-  }
-
-  getData(): LoginData {
-    const data = localStorage.getItem(this.STORAGE_KEY);
-
-    if (!data) {
-      return {
-        username: '',
-        password: ''
-      };
-    }
-
-    try {
-      return JSON.parse(data);
-    } catch {
-      return {
-        username: '',
-        password: ''
-      };
+  setRememberToken(token: string): void {
+    if (token) {
+      localStorage.setItem(this.REMEMBER_KEY, token);
     }
   }
 
-  clearData(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
+  getRememberToken(): string {
+    return localStorage.getItem(this.REMEMBER_KEY) || '';
+  }
+
+  clearRememberToken(): void {
+    localStorage.removeItem(this.REMEMBER_KEY);
   }
 }

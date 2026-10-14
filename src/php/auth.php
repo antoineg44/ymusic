@@ -10,7 +10,7 @@ function is_allowed_origin(string $origin): bool
         return true;
     }
 
-    if (preg_match('#^https?://(music\.partitions\.ovh|www\.music\.partitions\.ovh|localhost|127\.0\.0\.1|192\.168\.1\.10)(:\d+)?$#', $origin) === 1) {
+    if (preg_match('#^https?://(musiques\.partitions\.ovh|www\.musiques\.partitions\.ovh|music\.partitions\.ovh|www\.music\.partitions\.ovh|localhost|127\.0\.0\.1|192\.168\.1\.10)(:\d+)?$#', $origin) === 1) {
         return true;
     }
 
@@ -40,49 +40,16 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
 
 apply_cors_headers($requestOrigin);
 
-// Endpoint d'authentification: login, logout, check session et gestion des utilisateurs admin.
+// Authentification deleguee au SSO central (compte.partitions.ovh). Ce fichier expose
+// uniquement les actions JSON consommees par l'application: etat de session et deconnexion.
+require_once __DIR__ . '/sso/config.php';
 
-require_once __DIR__ . '/connexion.php';
-
-const AUTH_SESSION_LIFETIME = 2592000; // 30 jours
-
-if (session_status() === PHP_SESSION_NONE) {
-    $requestScheme = strtolower((string) ($_SERVER['REQUEST_SCHEME'] ?? ''));
-    $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
-    $cfVisitor = strtolower((string) ($_SERVER['HTTP_CF_VISITOR'] ?? ''));
-    $originIsHttps = str_starts_with(strtolower($requestOrigin), 'https://');
-    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443
-        || $forwardedProto === 'https'
-        || $requestScheme === 'https'
-        || str_contains($cfVisitor, '"scheme":"https"')
-        || $originIsHttps;
-
-    // SameSite=None is required for cross-site/webview auth flows; keep Lax fallback on plain HTTP.
-    $cookieSameSite = $isHttps ? 'None' : 'Lax';
-
-    session_set_cookie_params([
-        'lifetime' => AUTH_SESSION_LIFETIME,
-        'path' => '/',
-        'secure' => $isHttps,
-        'httponly' => true,
-        'samesite' => $cookieSameSite,
-    ]);
-    session_start();
-}
-
-if (isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
-    unset($_SESSION['session']);
-}
+sso_start_session();
 
 $action = (string) ($_REQUEST['action'] ?? '');
 
 try {
     switch ($action) {
-        case 'login':
-            handle_login();
-            break;
-
         case 'logout':
             handle_logout();
             break;
@@ -91,28 +58,12 @@ try {
             handle_check();
             break;
 
-        case 'register':
-            handle_register();
+        case 'mobile_login':
+            handle_mobile_login();
             break;
 
-        case 'list_users':
-            require_admin();
-            handle_list_users();
-            break;
-
-        case 'create_user':
-            require_admin();
-            handle_create_user();
-            break;
-
-        case 'update_user':
-            require_admin();
-            handle_update_user();
-            break;
-
-        case 'delete_user':
-            require_admin();
-            handle_delete_user();
+        case 'remember_login':
+            handle_remember_login();
             break;
 
         default:
@@ -134,217 +85,55 @@ function respond_json(int $status, array $payload): void
     exit;
 }
 
-function resolve_auth_pdo(): PDO
+function sso_login_url(): string
 {
-    // Recupere une connexion PDO via le connecteur principal, avec fallback legacy session.
-    $pdo = null;
-
-    if (function_exists('connexion')) {
-        $candidate = connexion();
-        if ($candidate instanceof PDO) {
-            $pdo = $candidate;
-        }
-    }
-
-    // Compatibility path for legacy connectors that only set $_SESSION['session'].
-    if (!($pdo instanceof PDO) && isset($_SESSION['session']) && $_SESSION['session'] instanceof PDO) {
-        $pdo = $_SESSION['session'];
-        unset($_SESSION['session']);
-    }
-
-    if (!($pdo instanceof PDO)) {
-        throw new RuntimeException(
-            'Connexion base de donnees indisponible. Verifiez web/php/connexion.php et les variables YMUSIC_DB_*.'
-        );
-    }
-
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-    return $pdo;
+    // URL de redirection a suivre pour (re)lancer l'authentification SSO.
+    return '/php/sso/login.php';
 }
 
-function ensure_users_table(PDO $pdo): void
+// Verifie que l'utilisateur en session dispose toujours du droit d'acces au service musique.
+function sso_session_user_with_access(PDO $pdo): ?array
 {
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS Utilisateurs (
-            Id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            NomUtilisateur VARCHAR(100) NOT NULL,
-            MotDePasseHash VARCHAR(255) NOT NULL,
-            RoleUtilisateur VARCHAR(30) NOT NULL DEFAULT 'user',
-            Actif TINYINT(1) NOT NULL DEFAULT 1,
-            DateCreation DATETIME NOT NULL,
-            DateMiseAJour DATETIME NOT NULL,
-            PRIMARY KEY (Id),
-            UNIQUE KEY uniq_nom_utilisateur (NomUtilisateur)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-    );
-}
-
-function normalize_username(string $value): string
-{
-    return trim(strtolower($value));
-}
-
-function require_admin(): void
-{
-    if (empty($_SESSION['user']) || (string) ($_SESSION['user']['role'] ?? '') !== 'admin') {
-        respond_json(403, ['success' => false, 'message' => 'Acces refuse']);
+    $id = (int) ($_SESSION['utilisateur_id'] ?? 0);
+    if ($id <= 0) {
+        return null;
     }
-}
 
-function sanitize_user(array $row): array
-{
+    if (!utilisateurAAccesService($pdo, $id, SSO_SERVICE)) {
+        return null;
+    }
+
     return [
-        'id' => (int) $row['Id'],
-        'username' => (string) $row['NomUtilisateur'],
-        'role' => (string) $row['RoleUtilisateur'],
-    ];
-}
-
-function refresh_session_cookie(): void
-{
-    if (session_status() !== PHP_SESSION_ACTIVE || session_id() === '') {
-        return;
-    }
-
-    $params = session_get_cookie_params();
-    $expiry = time() + AUTH_SESSION_LIFETIME;
-
-    setcookie(session_name(), session_id(), [
-        'expires' => $expiry,
-        'path' => (string) ($params['path'] ?? '/'),
-        'domain' => (string) ($params['domain'] ?? ''),
-        'secure' => (bool) ($params['secure'] ?? false),
-        'httponly' => (bool) ($params['httponly'] ?? true),
-        'samesite' => (string) ($params['samesite'] ?? 'Lax'),
-    ]);
-}
-
-function find_user_by_username(PDO $pdo, string $username): ?array
-{
-    $stmt = $pdo->prepare(
-        'SELECT Id, NomUtilisateur, MotDePasseHash, RoleUtilisateur, Actif
-         FROM Utilisateurs
-         WHERE NomUtilisateur = :username
-         LIMIT 1'
-    );
-    $stmt->execute([':username' => $username]);
-
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $user ?: null;
-}
-
-function count_users(PDO $pdo): int
-{
-    $stmt = $pdo->query('SELECT COUNT(*) AS total FROM Utilisateurs');
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return (int) ($row['total'] ?? 0);
-}
-
-function count_admin_users(PDO $pdo): int
-{
-    $stmt = $pdo->query("SELECT COUNT(*) AS total FROM Utilisateurs WHERE RoleUtilisateur = 'admin'");
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return (int) ($row['total'] ?? 0);
-}
-
-function handle_register(): void
-{
-    $pdo = resolve_auth_pdo();
-    ensure_users_table($pdo);
-
-    $usernameInput = (string) ($_POST['username'] ?? '');
-    $password = (string) ($_POST['password'] ?? '');
-    $username = normalize_username($usernameInput);
-
-    if ($username === '' || $password === '') {
-        respond_json(400, ['success' => false, 'message' => 'Identifiant et mot de passe requis']);
-    }
-
-    if (strlen($username) < 3 || strlen($username) > 100) {
-        respond_json(400, ['success' => false, 'message' => 'Identifiant invalide (3 a 100 caracteres)']);
-    }
-
-    if (strlen($password) < 6) {
-        respond_json(400, ['success' => false, 'message' => 'Mot de passe trop court (6 caracteres minimum)']);
-    }
-
-    if (find_user_by_username($pdo, $username) !== null) {
-        respond_json(409, ['success' => false, 'message' => 'Cet identifiant existe deja']);
-    }
-
-    $role = count_users($pdo) === 0 ? 'admin' : 'user';
-    $now = date('Y-m-d H:i:s');
-
-    $stmt = $pdo->prepare(
-        'INSERT INTO Utilisateurs (NomUtilisateur, MotDePasseHash, RoleUtilisateur, Actif, DateCreation, DateMiseAJour)
-         VALUES (:username, :hash, :role, 1, :dateCreation, :dateMiseAJour)'
-    );
-
-    $stmt->execute([
-        ':username' => $username,
-        ':hash' => password_hash($password, PASSWORD_BCRYPT),
-        ':role' => $role,
-        ':dateCreation' => $now,
-        ':dateMiseAJour' => $now,
-    ]);
-
-    $id = (int) $pdo->lastInsertId();
-
-    $_SESSION['user'] = [
         'id' => $id,
-        'username' => $username,
-        'role' => $role,
+        'username' => (string) ($_SESSION['utilisateur_identifiant'] ?? ''),
+        'role' => (string) ($_SESSION['utilisateur_role'] ?? 'user'),
     ];
-    unset($_SESSION['session']);
-    refresh_session_cookie();
-    session_write_close();
-
-    respond_json(201, [
-        'success' => true,
-        'message' => 'Compte cree avec succes',
-        'user' => $_SESSION['user'],
-    ]);
 }
 
-function handle_login(): void
+function handle_check(): void
 {
-    $pdo = resolve_auth_pdo();
-    ensure_users_table($pdo);
+    $user = sso_session_user_with_access($GLOBALS['pdo']);
 
-    $username = normalize_username((string) ($_POST['username'] ?? ''));
-    $password = (string) ($_POST['password'] ?? '');
-
-    if ($username === '' || $password === '') {
-        respond_json(400, ['success' => false, 'message' => 'Identifiant et mot de passe requis']);
+    if ($user !== null) {
+        respond_json(200, ['success' => true, 'user' => $user, 'loginUrl' => sso_login_url()]);
     }
 
-    $user = find_user_by_username($pdo, $username);
-
-    if ($user === null || (int) $user['Actif'] !== 1 || !password_verify($password, (string) $user['MotDePasseHash'])) {
-        respond_json(401, ['success' => false, 'message' => 'Identifiant ou mot de passe incorrect']);
-    }
-
-    $updateStmt = $pdo->prepare(
-        'UPDATE Utilisateurs
-         SET DateMiseAJour = NOW()
-         WHERE Id = :id'
-    );
-    $updateStmt->execute([
-        ':id' => (int) $user['Id'],
-    ]);
-
-    session_regenerate_id(true);
-    $_SESSION['user'] = sanitize_user($user);
-    unset($_SESSION['session']);
-    refresh_session_cookie();
-    session_write_close();
-
-    respond_json(200, ['success' => true, 'user' => $_SESSION['user']]);
+    respond_json(200, ['success' => false, 'loginUrl' => sso_login_url()]);
 }
 
 function handle_logout(): void
 {
+    // Revoque le jeton de persistance fourni par l'app pour empecher toute reconnexion silencieuse.
+    $rememberToken = (string) ($_POST['rememberToken'] ?? '');
+    if ($rememberToken !== '') {
+        try {
+            sso_revoke_remember_token($GLOBALS['pdo'], $rememberToken);
+        } catch (Throwable $error) {
+            // La deconnexion locale ne doit pas echouer si la revocation serveur echoue.
+            error_log('Revocation remember-token echouee: ' . $error->getMessage());
+        }
+    }
+
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
@@ -353,192 +142,132 @@ function handle_logout(): void
     }
 
     session_destroy();
-    respond_json(200, ['success' => true]);
+    respond_json(200, ['success' => true, 'loginUrl' => sso_login_url()]);
 }
 
-function handle_check(): void
+// Echange un jeton a usage unique (issu du deep link mobile) contre une session authentifiee.
+function handle_mobile_login(): void
 {
-    if (!empty($_SESSION['user'])) {
-        refresh_session_cookie();
-        respond_json(200, ['success' => true, 'user' => $_SESSION['user']]);
+    $token = (string) ($_POST['token'] ?? $_GET['token'] ?? '');
+    if (!preg_match('/\A[A-Za-z0-9_-]{43}\z/', $token)) {
+        respond_json(400, ['success' => false, 'message' => 'Jeton invalide']);
     }
 
-    respond_json(200, ['success' => false]);
-}
+    $pdo = $GLOBALS['pdo'];
+    sso_ensure_mobile_tokens_table($pdo);
 
-function handle_list_users(): void
-{
-    $pdo = resolve_auth_pdo();
-    ensure_users_table($pdo);
+    try {
+        $pdo->beginTransaction();
 
-    $stmt = $pdo->query(
-        'SELECT
-            Id,
-            NomUtilisateur,
-            RoleUtilisateur,
-            Actif,
-            DateCreation,
-            DateMiseAJour
-         FROM Utilisateurs
-         ORDER BY Id ASC'
-    );
+        $stmt = $pdo->prepare(
+            'SELECT utilisateur_id
+             FROM music_jetons_mobiles
+             WHERE jeton_hash = :hash
+               AND date_expiration > NOW()
+               AND date_utilisation IS NULL
+             LIMIT 1
+             FOR UPDATE'
+        );
+        $stmt->execute(['hash' => hash('sha256', $token)]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $users = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $users[] = [
-            'id' => (int) $row['Id'],
-            'username' => (string) $row['NomUtilisateur'],
-            'role' => (string) $row['RoleUtilisateur'],
-            'active' => (int) $row['Actif'] === 1,
-            'createdAt' => (string) $row['DateCreation'],
-            'updatedAt' => (string) $row['DateMiseAJour'],
-        ];
-    }
-
-    respond_json(200, ['success' => true, 'users' => $users]);
-}
-
-function handle_create_user(): void
-{
-    $pdo = resolve_auth_pdo();
-    ensure_users_table($pdo);
-
-    $username = normalize_username((string) ($_POST['username'] ?? ''));
-    $password = (string) ($_POST['password'] ?? '');
-    $role = (string) ($_POST['role'] ?? 'user');
-    $active = filter_var($_POST['active'] ?? '1', FILTER_VALIDATE_BOOLEAN);
-
-    if ($username === '' || strlen($username) < 3 || strlen($username) > 100) {
-        respond_json(400, ['success' => false, 'message' => 'Identifiant invalide (3 a 100 caracteres)']);
-    }
-
-    if (strlen($password) < 6) {
-        respond_json(400, ['success' => false, 'message' => 'Mot de passe trop court (6 caracteres minimum)']);
-    }
-
-    if (!in_array($role, ['admin', 'user'], true)) {
-        respond_json(400, ['success' => false, 'message' => 'Role invalide']);
-    }
-
-    if (find_user_by_username($pdo, $username) !== null) {
-        respond_json(409, ['success' => false, 'message' => 'Cet identifiant existe deja']);
-    }
-
-    $now = date('Y-m-d H:i:s');
-    $stmt = $pdo->prepare(
-        'INSERT INTO Utilisateurs (NomUtilisateur, MotDePasseHash, RoleUtilisateur, Actif, DateCreation, DateMiseAJour)
-         VALUES (:username, :hash, :role, :active, :dateCreation, :dateMiseAJour)'
-    );
-    $stmt->execute([
-        ':username' => $username,
-        ':hash' => password_hash($password, PASSWORD_BCRYPT),
-        ':role' => $role,
-        ':active' => $active ? 1 : 0,
-        ':dateCreation' => $now,
-        ':dateMiseAJour' => $now,
-    ]);
-
-    respond_json(200, ['success' => true]);
-}
-
-function handle_update_user(): void
-{
-    $pdo = resolve_auth_pdo();
-    ensure_users_table($pdo);
-
-    $id = (int) ($_POST['id'] ?? 0);
-    $password = (string) ($_POST['password'] ?? '');
-    $role = (string) ($_POST['role'] ?? '');
-    $activeValue = $_POST['active'] ?? null;
-    $active = $activeValue === null
-        ? null
-        : filter_var($activeValue, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-
-    if ($id <= 0) {
-        respond_json(400, ['success' => false, 'message' => 'ID utilisateur invalide']);
-    }
-
-    $stmt = $pdo->prepare('SELECT Id, RoleUtilisateur FROM Utilisateurs WHERE Id = :id LIMIT 1');
-    $stmt->execute([':id' => $id]);
-    $current = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$current) {
-        respond_json(404, ['success' => false, 'message' => 'Utilisateur introuvable']);
-    }
-
-    if ($role !== '' && !in_array($role, ['admin', 'user'], true)) {
-        respond_json(400, ['success' => false, 'message' => 'Role invalide']);
-    }
-
-    if ((string) $current['RoleUtilisateur'] === 'admin' && $role === 'user' && count_admin_users($pdo) <= 1) {
-        respond_json(400, ['success' => false, 'message' => 'Impossible de retrograder le dernier administrateur']);
-    }
-
-    if ((string) $current['RoleUtilisateur'] === 'admin' && $active === false && count_admin_users($pdo) <= 1) {
-        respond_json(400, ['success' => false, 'message' => 'Impossible de desactiver le dernier administrateur']);
-    }
-
-    $fields = [];
-    $params = [':id' => $id, ':dateMiseAJour' => date('Y-m-d H:i:s')];
-
-    if ($password !== '') {
-        if (strlen($password) < 6) {
-            respond_json(400, ['success' => false, 'message' => 'Mot de passe trop court (6 caracteres minimum)']);
+        if (!$row) {
+            $pdo->rollBack();
+            respond_json(401, ['success' => false, 'message' => 'Jeton expire ou deja utilise']);
         }
-        $fields[] = 'MotDePasseHash = :passwordHash';
-        $params[':passwordHash'] = password_hash($password, PASSWORD_BCRYPT);
+
+        $utilisateurId = (int) $row['utilisateur_id'];
+
+        $used = $pdo->prepare(
+            'UPDATE music_jetons_mobiles
+             SET date_utilisation = NOW()
+             WHERE jeton_hash = :hash
+               AND date_utilisation IS NULL'
+        );
+        $used->execute(['hash' => hash('sha256', $token)]);
+
+        if ($used->rowCount() !== 1) {
+            $pdo->rollBack();
+            respond_json(401, ['success' => false, 'message' => 'Jeton deja utilise']);
+        }
+
+        if (!utilisateurAAccesService($pdo, $utilisateurId, SSO_SERVICE)) {
+            $pdo->rollBack();
+            respond_json(403, ['success' => false, 'message' => 'Acces refuse au service musique']);
+        }
+
+        $userStmt = $pdo->prepare(
+            'SELECT id, identifiant, email, role FROM utilisateurs WHERE id = :id LIMIT 1'
+        );
+        $userStmt->execute(['id' => $utilisateurId]);
+        $utilisateur = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$utilisateur) {
+            $pdo->rollBack();
+            respond_json(403, ['success' => false, 'message' => 'Compte introuvable']);
+        }
+
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        respond_json(500, ['success' => false, 'message' => $error->getMessage()]);
     }
 
-    if ($role !== '') {
-        $fields[] = 'RoleUtilisateur = :role';
-        $params[':role'] = $role;
-    }
+    session_regenerate_id(true);
+    sso_apply_user_session($utilisateur);
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    session_write_close();
 
-    if ($active !== null) {
-        $fields[] = 'Actif = :active';
-        $params[':active'] = $active ? 1 : 0;
-    }
+    // Jeton de persistance (remember-me) pour rester connecte entre les lancements de l'app.
+    $rememberToken = sso_issue_remember_token($GLOBALS['pdo'], (int) $utilisateur['id']);
 
-    if (empty($fields)) {
-        respond_json(200, ['success' => true, 'message' => 'Aucune modification']);
-    }
-
-    $fields[] = 'DateMiseAJour = :dateMiseAJour';
-    $query = 'UPDATE Utilisateurs SET ' . implode(', ', $fields) . ' WHERE Id = :id';
-    $update = $pdo->prepare($query);
-    $update->execute($params);
-
-    respond_json(200, ['success' => true]);
+    respond_json(200, ['success' => true, 'user' => $_SESSION['user'], 'rememberToken' => $rememberToken]);
 }
 
-function handle_delete_user(): void
+// Reconnexion silencieuse via un jeton de persistance rotatif (sans mot de passe, revocable).
+function handle_remember_login(): void
 {
-    $pdo = resolve_auth_pdo();
-    ensure_users_table($pdo);
-
-    $id = (int) ($_POST['id'] ?? 0);
-    if ($id <= 0) {
-        respond_json(400, ['success' => false, 'message' => 'ID utilisateur invalide']);
+    $token = (string) ($_POST['token'] ?? $_GET['token'] ?? '');
+    if ($token === '') {
+        respond_json(400, ['success' => false, 'message' => 'Jeton requis']);
     }
 
-    if (!empty($_SESSION['user']) && (int) ($_SESSION['user']['id'] ?? 0) === $id) {
-        respond_json(400, ['success' => false, 'message' => 'Impossible de supprimer votre compte connecte']);
+    $pdo = $GLOBALS['pdo'];
+
+    try {
+        $result = sso_rotate_remember_token($pdo, $token);
+    } catch (Throwable $error) {
+        respond_json(500, ['success' => false, 'message' => $error->getMessage()]);
     }
 
-    $stmt = $pdo->prepare('SELECT Id, RoleUtilisateur FROM Utilisateurs WHERE Id = :id LIMIT 1');
-    $stmt->execute([':id' => $id]);
-    $target = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$target) {
-        respond_json(404, ['success' => false, 'message' => 'Utilisateur introuvable']);
+    if ($result === null) {
+        respond_json(401, ['success' => false, 'message' => 'Jeton invalide ou expire']);
     }
 
-    if ((string) $target['RoleUtilisateur'] === 'admin' && count_admin_users($pdo) <= 1) {
-        respond_json(400, ['success' => false, 'message' => 'Impossible de supprimer le dernier administrateur']);
+    $utilisateurId = (int) $result['utilisateur_id'];
+
+    if (!utilisateurAAccesService($pdo, $utilisateurId, SSO_SERVICE)) {
+        sso_revoke_remember_token($pdo, $result['token']);
+        respond_json(403, ['success' => false, 'message' => 'Acces refuse au service musique']);
     }
 
-    $delete = $pdo->prepare('DELETE FROM Utilisateurs WHERE Id = :id');
-    $delete->execute([':id' => $id]);
+    $stmt = $pdo->prepare('SELECT id, identifiant, email, role FROM utilisateurs WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $utilisateurId]);
+    $utilisateur = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    respond_json(200, ['success' => true]);
+    if (!$utilisateur) {
+        sso_revoke_remember_token($pdo, $result['token']);
+        respond_json(403, ['success' => false, 'message' => 'Compte introuvable']);
+    }
+
+    session_regenerate_id(true);
+    sso_apply_user_session($utilisateur);
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    session_write_close();
+
+    respond_json(200, ['success' => true, 'user' => $_SESSION['user'], 'rememberToken' => $result['token']]);
 }
+
+

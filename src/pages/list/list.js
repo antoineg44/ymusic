@@ -34,10 +34,9 @@ function renderUtilisateurCell(row) {
         return escapeHtml(userName);
     }
 
-    const href = `./../popup/users/users.html#user-${encodeURIComponent(userId)}`;
     const label = escapeHtml(userId);
     const title = userName ? ` title="${escapeHtml(userName)}"` : '';
-    return `<a href="${href}"${title}>${label}</a>`;
+    return `<span${title}>${label}</span>`;
 }
 
 function setStatus(message, isError = false) {

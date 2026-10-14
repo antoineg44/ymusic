@@ -115,25 +115,6 @@ async function db_listener(event)
             await sendResponse(event.source, data.messageId, "php/auth.php?action=" + message.action);
             break;
 
-        case 'login':
-        case 'register':
-        {
-            const response = await fetch(
-            get_url_from_base() + `php/auth.php?action=` + message.action,
-            {
-                method: "POST",
-                body: new URLSearchParams(message.body),
-                credentials: 'include',
-            },
-            );
-            const dataText = await response.json();
-            event.source.postMessage({
-                response: dataText,
-                replyTo: data.messageId
-            }, '*');
-            break;
-        }
-
         case 'logout':
         {
             const response = await fetch(

@@ -3,7 +3,6 @@
   function createAuthController(deps) {
     const {
       state,
-      manageUsersLink,
       logoutButton,
     } = deps;
 
@@ -20,11 +19,9 @@
         if (!payload.success) {
           window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
           openLoginModal();
+          return;
         }
         state.currentUser = payload.user || null;
-        if (manageUsersLink && state.currentUser && state.currentUser.role !== 'admin') {
-          manageUsersLink.style.display = 'none';
-        }
       }).catch(error => {
           console.error(error);
           openLoginModal();
@@ -32,9 +29,10 @@
     }
 
     async function logout() {
-      // Termine la session serveur puis redirige vers la page de connexion.
+      // Termine la session serveur puis reaffiche la modale de connexion.
       sendMessageAndWait(window.parent, {action: "logout"}).then(response => {
         window.postMessage({type: 'USER_LOGGED_OUT' }, '*');
+        openLoginModal();
       }).catch(error => {
           console.error(error);
       });

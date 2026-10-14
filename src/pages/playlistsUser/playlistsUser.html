@@ -414,7 +414,7 @@
 				}
 
 				const label = userName ? `${escapeHtml(userName)} (${userId})` : String(userId);
-				return `<a class="playlist-user-link" href="./../popup/users/users.html#user-${userId}">${label}</a>`;
+				return `<span class="playlist-user-link">${label}</span>`;
 			}
 
 			function renderPlaylists(playlists) {

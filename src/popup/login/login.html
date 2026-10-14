@@ -3,36 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Connexion YMusic</title>
+    <title>Connexion</title>
     <link rel="stylesheet" href="login.css" />
     <script src="../../js/config.js"></script>
-    <style>
-      
-    </style>
   </head>
   <body>
-    <div class="app login-layout">
-      <section class="login-card" aria-labelledby="loginTitle">
-        <h1 id="loginTitle">Connexion</h1>
-        <p class="login-subtitle">Connectez-vous pour acceder a votre lecteur.</p>
-
-        <form id="authForm" novalidate>
-          <label class="login-label" for="username">Identifiant</label>
-          <input class="login-input" id="username" name="username" type="text" autocomplete="username" required />
-
-          <label class="login-label" for="password">Mot de passe</label>
-          <input class="login-input" id="password" name="password" type="password" autocomplete="current-password" required />
-
-          <div class="login-actions">
-            <button id="loginButton" type="submit">Se connecter<span id="loginSpinner" class="button-spinner is-hidden" aria-hidden="true"></span></button>
-            <button id="registerButton" type="button" class="secondary">Creer un compte</button>
-          </div>
-
-          <p id="authMessage" class="auth-message" role="alert"></p>
-        </form>
-      </section>
-    </div>
-
+    <main class="login-card">
+      <h1>Connexion</h1>
+      <p class="login-desc">
+        Connectez-vous avec votre compte Partitions pour acceder a votre musique.
+      </p>
+      <button id="ssoLoginButton" type="button" class="login-btn">
+        <span id="ssoSpinner" class="login-spinner is-hidden" aria-hidden="true"></span>
+        Se connecter
+      </button>
+      <p id="loginMessage" class="login-message" aria-live="polite"></p>
+    </main>
     <script src="login.js"></script>
   </body>
 </html>
