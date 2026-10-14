@@ -959,7 +959,9 @@ function openLoginModal() {
   }
 
   if (loginFrame.src === 'about:blank' || !loginFrame.src) {
-    loginFrame.src = 'popup/login/login.html';
+    // Cache-busting: force le chargement de la version courante (contourne le cache CDN/navigateur).
+    const version = typeof APP_VERSION !== 'undefined' ? APP_VERSION : Date.now();
+    loginFrame.src = 'popup/login/login.html?v=' + encodeURIComponent(version);
   }
 
   loginModal.classList.remove('is-hidden');
