@@ -59,20 +59,20 @@
     function start() {
 
       // Vérifie si le fichier a déjà été chargé
-      if (window.consoleCharge) {
-        window.demarrerConsole();
+      if (window.app.consoleCharge) {
+        window.app.Console = new Console();
         return;
       }
 
       // Création dynamique du script
       const script = document.createElement("script");
 
-      script.src = "./noyau/console.js";
+      script.src = "./console.js";
 
       // Une fois le fichier chargé
       script.onload = () => {
-        window.consoleCharge = true;
-        window.demarrerConsole();
+        window.app.consoleCharge = true;
+        window.app.Console = new Console();
       };
 
       // Gestion des erreurs
