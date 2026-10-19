@@ -1748,6 +1748,8 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Id requis');
         }
 
+        $pdo = get_database_pdo();
+
         $existsPayload = dMusique_get([
             'select' => ['Id'],
             'equals' => ['Id' => $id],
@@ -1763,7 +1765,6 @@ if (!empty($_GET['deleteFile'])) {
             throw new RuntimeException('Suppression impossible: retirez d\'abord la musique de toutes les playlists');
         }
 
-        $pdo = get_database_pdo();
         ensure_music_table($pdo);
 
         $pdo->beginTransaction();
