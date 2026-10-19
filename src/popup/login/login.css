@@ -92,3 +92,9 @@ body {
 .login-message.is-error {
   color: #fca5a5;
 }
+
+a {
+    color: #315bea;
+    font-weight: 600;
+    text-decoration: none;
+}
