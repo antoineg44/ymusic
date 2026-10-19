@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ma page</title>
+</head>
+
+<body>
+
+  <h1>Ma page</h1>
+  <p>Le terminal n'est pas chargé automatiquement.</p>
+
+  <script>
+    window.app = window.app || {};
+  </script>
+
+  <script src="terminal.js"></script>
+  <script src="terminalManager.js"></script>
+  <script src="network.js"></script>
+  <script>
+    function lancerConsole() {
+
+      // Vérifie si le fichier a déjà été chargé
+      if (window.app.consoleCharge) {
+        window.app.Console = new Console();
+        return;
+      }
+
+      // Création dynamique du script
+      const script = document.createElement("script");
+
+      script.src = "./console.js";
+
+      // Une fois le fichier chargé
+      script.onload = () => {
+        window.app.consoleCharge = true;
+        window.app.Console = new Console();
+      };
+
+      // Gestion des erreurs
+      script.onerror = () => {
+        console.error("Impossible de charger console.js");
+      };
+
+      // Ajoute le script à la page
+      document.body.appendChild(script);
+    }
+
+    lancerConsole();
+  </script>
+
+</body>
+</html>

@@ -55,6 +55,34 @@
         // Application smartphone
         console.log("Domaine non autorisé");
       }
+
+    function start() {
+
+      // Vérifie si le fichier a déjà été chargé
+      if (window.consoleCharge) {
+        window.demarrerConsole();
+        return;
+      }
+
+      // Création dynamique du script
+      const script = document.createElement("script");
+
+      script.src = "./noyau/console.js";
+
+      // Une fois le fichier chargé
+      script.onload = () => {
+        window.consoleCharge = true;
+        window.demarrerConsole();
+      };
+
+      // Gestion des erreurs
+      script.onerror = () => {
+        console.error("Impossible de charger console.js");
+      };
+
+      // Ajoute le script à la page
+      document.body.appendChild(script);
+    }
     </script>
   </body>
 </html>
