@@ -34,7 +34,8 @@ function GetConnexionType() {
 
 function get_url() {
     if (connexionType === CONNEXION_TYPE.SERVER) {
-        return "";
+        const origin = window.location && window.location.origin ? window.location.origin : 'https://musiques.partitions.ovh';
+        return origin.endsWith('/') ? origin : origin + '/';
     }
 
     return "https://musiques.partitions.ovh/php/tools/";
@@ -42,7 +43,8 @@ function get_url() {
 
 function get_url_from_base() {
     if (connexionType === CONNEXION_TYPE.SERVER) {
-        return "";
+        const origin = window.location && window.location.origin ? window.location.origin : 'https://musiques.partitions.ovh';
+        return origin.endsWith('/') ? origin : origin + '/';
     }
 
     return "https://musiques.partitions.ovh/";
