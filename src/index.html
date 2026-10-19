@@ -56,6 +56,8 @@
         console.log("Domaine non autorisé");
       }
 
+    window.app = window.app || {};
+    
     function start() {
 
       // Vérifie si le fichier a déjà été chargé
@@ -67,7 +69,7 @@
       // Création dynamique du script
       const script = document.createElement("script");
 
-      script.src = "./console.js";
+      script.src = "./noyau/console.js";
 
       // Une fois le fichier chargé
       script.onload = () => {
